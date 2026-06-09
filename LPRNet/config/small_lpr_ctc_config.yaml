@@ -1,0 +1,48 @@
+# ============================================================
+# SmallLPR-CTC Config
+# Khác với small_lpr_config.yaml:
+#   - Bỏ <SOS>, <EOS> khỏi chars
+#   - Index 0 = <blank> (bắt buộc với CTCLoss)
+#   - Các ký tự thật bắt đầu từ index 1
+# ============================================================
+
+train_dir: "data/datasets/ocr/train"
+valid_dir: "data/datasets/ocr/valid"
+test_dir:  "data/datasets/ocr/valid"
+saving_ckpt: "weights/ocr/small_lpr_ctc"
+
+# Kích thước ảnh đầu vào (W × H) — giữ nguyên với bản AR
+img_size: !!python/tuple [96, 48]
+min_img_width: 20
+min_img_height: 8
+
+# Model hyperparams
+d_model: 256              # nhỏ hơn bản AR (384) để nhanh hơn
+backbone_ch: 256
+
+# Training hyperparams
+lr: 0.001                 # cao hơn bản AR — không có pretrained decoder
+weight_decay: 0.0001
+batch_size: 64           # tăng được vì không có decoder nặng
+max_epochs: 200
+gradient_clip_val: 1.0
+num_workers: 4
+scheduler: "cosine"       # không warm-restart để tránh LR nhảy lại sau khi đã hội tụ
+min_lr: 0.000001
+
+# Charset CTC: index 0 = blank, index 1..N = ký tự thật
+# KHÔNG có <SOS>, <EOS>, <PAD>
+chars: [
+    "<blank>",
+    # NUMBERS
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    # UPPERCASE ALPHABETS (loại I, O để tránh nhầm lẫn)
+    "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    "M", "N", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z",
+    "Đ",
+    # SEPARATORS
+    "-",
+    ".",
+    "[SEP]",
+    "_",
+]

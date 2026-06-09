@@ -1,0 +1,54 @@
+# ============================================================
+# SmallLPR-NAR Config (Non-Autoregressive)
+# Điểm khác với CTC:
+#   - index 0 = <pad>  (dùng làm ignore_index cho CrossEntropy)
+#   - Không có <blank>, <SOS>, <EOS>
+#   - Label được pad cố định đến max_len (vị trí tường minh)
+#   - Loss: CrossEntropy(ignore_index=0)
+# ============================================================
+
+train_dir: "data/datasets/ocr/train"
+valid_dir: "data/datasets/ocr/valid"
+test_dir:  "data/datasets/ocr/valid"
+saving_ckpt: "weights/ocr/small_lpr_nar"
+
+# Kích thước ảnh đầu vào (W × H) — giữ nguyên với bản AR và CTC
+img_size: !!python/tuple [96, 48]
+min_img_width: 20
+min_img_height: 8
+
+# Model hyperparams
+d_model: 256
+backbone_ch: 256
+max_len: 14
+nhead: 4
+num_layers: 4        # tăng từ 2 lên 4: queries cần đủ depth để học position→char mapping
+dropout: 0.1
+
+# Training hyperparams
+lr: 0.0003            # Giảm từ 0.001 tránh sụp đổ / nổ gradient khi warmup đạt đỉnh
+weight_decay: 0.0001
+batch_size: 16
+accumulate_grad_batches: 2  # Tích luỹ 2 batch → effective batch_size = 32 nhưng giảm tải VRAM
+max_epochs: 200
+warmup_epochs: 5
+gradient_clip_val: 1.0
+num_workers: 4
+label_smoothing: 0.05
+
+# Charset NAR: index 0 = <pad>, index 1..N = ký tự thật
+# KHÔNG có <blank>, <SOS>, <EOS>
+chars: [
+    "<pad>",
+    # NUMBERS
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    # UPPERCASE ALPHABETS (loại I, O để tránh nhầm lẫn)
+    "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    "M", "N", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z",
+    "Đ",
+    # SEPARATORS
+    "-",
+    ".",
+    "[SEP]",
+    "_",
+]
