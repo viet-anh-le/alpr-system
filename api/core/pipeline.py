@@ -1,0 +1,266 @@
+"""
+core/pipeline.py — Video processing job (runs in thread-pool).
+
+SSE event types emitted:
+  "progress"  — frame index / total / pct
+  "frame"     — JSON bounding boxes for canvas overlay (frame_idx, fps, orig_w, orig_h, boxes)
+  "vehicle"   — per-vehicle OCR update (plate_b64 + vehicle_b64)
+                Emitted AFTER track loss (not per-frame) in the new flow.
+  "complete"  — final summary
+  "error"     — exception info
+
+OCR flow change (motion-based ALPR):
+  Old: detect plate → OCR every stride → Levenshtein fuse
+  New: detect plate → quality_score → buffer crop
+       OCR each crop with the single-frame model
+       on track loss (LOST_THRESHOLD strides absent) → segment/probability vote
+       at video end → finalise remaining buffered tracks
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+
+import cv2
+
+from .database import upload_image as _storage_upload
+from .models import ModelBundle
+from .plate_format import chars_to_display_text
+from .tracker import WebTrackletManager
+from .config import (
+    ALPR_DEBUG_TIMINGS,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ── MongoDB helpers (called from thread-pool via run_coroutine_threadsafe) ────
+
+
+def _session_create(session_id: str, filename: str, loop: asyncio.AbstractEventLoop) -> None:
+    """Create (or reset) the MongoDB session document for this job."""
+    try:
+        from api.database.mongodb import is_db_configured, upsert_session
+        from api.database.models import RecognitionSession
+
+        if not is_db_configured():
+            return
+        session = RecognitionSession(
+            session_id=session_id,
+            source_filename=filename,
+            status="processing",
+        )
+        asyncio.run_coroutine_threadsafe(upsert_session(session), loop).result(timeout=5)
+    except Exception:
+        logger.exception("MongoDB: failed to create session %s", session_id)
+
+
+def _session_update(session_id: str, patch: dict, loop: asyncio.AbstractEventLoop) -> None:
+    """Partially update the session document (status, counters, etc.)."""
+    try:
+        from api.database.mongodb import is_db_configured, update_session
+
+        if not is_db_configured():
+            return
+        asyncio.run_coroutine_threadsafe(update_session(session_id, patch), loop).result(timeout=5)
+    except Exception:
+        logger.exception("MongoDB: failed to update session %s", session_id)
+
+
+def _record_save(
+    session_id: str,
+    tid: int,
+    tracker: WebTrackletManager,
+    char_probs: list[tuple[str, float]],
+    ocr_method: str,
+    vote_summary: dict[str, int],
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    """
+    Build a RecognitionRecord from finalized tracker state and fire-and-forget
+    save it to MongoDB.  Never raises — all errors are logged.
+
+    All images are uploaded to Supabase Storage; only public URLs are stored
+    in MongoDB (no base64 blobs).
+    """
+    try:
+        from api.database.mongodb import is_db_configured, upsert_record
+        from api.database.models import PlateFrame as DBFrame, RecognitionRecord as DBRecord
+
+        if not is_db_configured():
+            return
+
+        buf = tracker._buffers.get(tid)
+        if not buf or not buf.crops:
+            return
+
+        # Upload every buffered crop and build track_buffer
+        track_frames: list[DBFrame] = []
+        for i, (crop, q_score, f_idx) in enumerate(
+            zip(buf.crops, buf.quality_scores, buf.frame_indices)
+        ):
+            _, jpg = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            url = _storage_upload(
+                "evidence", f"{session_id}/track_{tid}_frame_{i}.jpg", bytes(jpg)
+            )
+            track_frames.append(DBFrame(
+                frame_index=int(f_idx),
+                quality_score=round(float(q_score), 4),
+                image_url=url,
+            ))
+
+        if not track_frames:
+            return
+
+        # Best-plate frame: use the crop stored by update_plate_img (highest conf)
+        best_img = tracker._plate_img.get(tid)
+        best_q = tracker._plate_img_conf.get(tid, 0.0)
+        best_f_idx = max(track_frames, key=lambda f: f.quality_score).frame_index
+
+        best_url: str | None = None
+        if best_img is not None:
+            _, jpg = cv2.imencode(".jpg", best_img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+            best_url = _storage_upload("evidence", f"{session_id}/plate_{tid}.jpg", bytes(jpg))
+
+        best_plate_frame = DBFrame(
+            frame_index=best_f_idx,
+            quality_score=round(float(best_q), 4),
+            image_url=best_url,
+        )
+
+        # Vehicle thumbnail
+        vehicle_url: str | None = None
+        vehicle_img = tracker._vehicle_img.get(tid)
+        if vehicle_img is not None:
+            _, jpg = cv2.imencode(".jpg", vehicle_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            vehicle_url = _storage_upload("evidence", f"{session_id}/vehicle_{tid}.jpg", bytes(jpg))
+
+        plate_text = chars_to_display_text(char_probs)
+        plate_conf = sum(p for _, p in char_probs) / len(char_probs) if char_probs else 0.0
+
+        record = DBRecord(
+            session_id=session_id,
+            track_id=int(tid),
+            vehicle_class=tracker._cls.get(tid, "vehicle"),
+            best_plate_frame=best_plate_frame,
+            track_buffer=track_frames,
+            vehicle_thumbnail_url=vehicle_url,
+            plate_text=plate_text,
+            plate_text_confidence=round(plate_conf, 4),
+            ocr_vote_summary=vote_summary,
+            ocr_method=ocr_method,
+            first_seen_frame=min(f.frame_index for f in track_frames),
+            last_seen_frame=max(f.frame_index for f in track_frames),
+        )
+
+        asyncio.run_coroutine_threadsafe(upsert_record(record), loop)
+        logger.debug("MongoDB: queued save for track %d (plate=%s)", tid, plate_text)
+
+    except Exception:
+        logger.exception("MongoDB: failed to save track %d", tid)
+
+
+def _record_save_later(
+    session_id: str,
+    tid: int,
+    tracker: WebTrackletManager,
+    char_probs: list[tuple[str, float]],
+    ocr_method: str,
+    vote_summary: dict[str, int],
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    """Schedule evidence persistence without blocking the inference worker."""
+    try:
+        loop.run_in_executor(
+            None,
+            _record_save,
+            session_id,
+            tid,
+            tracker,
+            char_probs,
+            ocr_method,
+            vote_summary,
+            loop,
+        )
+    except RuntimeError:
+        logger.exception("MongoDB: failed to schedule save for track %d", tid)
+
+
+# ── Main job ──────────────────────────────────────────────────────────────────
+
+
+def run_job(
+    video_path: str,
+    job_id: str,
+    queue: asyncio.Queue,
+    loop: asyncio.AbstractEventLoop,
+    models: ModelBundle,
+    jobs: dict,
+    filename: str = "video.mp4",
+    mjpeg_queue: asyncio.Queue | None = None,
+    preprocess_mode: str = "none",
+    ocr_backend: str = "default",
+) -> None:
+    """Legacy upload-and-process-whole-video entry point. Thin wrapper around
+    pipeline_core.process_frames; owns video file lifecycle + session row."""
+    from .frame_source import FileFrameSource
+    from .preprocessing import PreprocessedFrameSource, normalize_preprocess_mode
+    # from .pipeline_core import _safe_put, process_frames
+    from .pipeline_async import process_frames_async as process_frames
+    from .pipeline_core import _safe_put
+
+    def emit(event: dict) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+
+    _session_create(job_id, filename, loop)
+
+    try:
+        normalized_mode = normalize_preprocess_mode(preprocess_mode)
+        raw_source = FileFrameSource(video_path)
+        source = (
+            raw_source
+            if normalized_mode == "none"
+            else PreprocessedFrameSource(raw_source, normalized_mode)
+        )
+        timings: dict[str, float] | None = {} if ALPR_DEBUG_TIMINGS else None
+        summary = process_frames(
+            source,
+            emit=emit,
+            models=models,
+            session_id=job_id,
+            loop=loop,
+            mjpeg_queue=mjpeg_queue,
+            record_save=_record_save_later,
+            timings=timings,
+            ocr_backend=ocr_backend,
+        )
+        if timings is not None:
+            logger.info(
+                "ALPR timings job=%s %s",
+                job_id,
+                {key: round(value, 4) for key, value in sorted(timings.items())},
+            )
+        emit({"type": "complete", "total_vehicles": summary["total_vehicles"]})
+        _session_update(job_id, {
+            "status": "completed",
+            "total_records": summary["total_vehicles"],
+            "processed_frames": summary.get("processed_frames", source.total_frames or 0),
+            "preprocess_mode": normalized_mode,
+        }, loop)
+
+    except Exception as exc:
+        import traceback
+
+        emit({"type": "error", "message": str(exc), "detail": traceback.format_exc()})
+        _session_update(job_id, {"status": "failed", "error_message": str(exc)}, loop)
+
+    finally:
+        try:
+            os.unlink(video_path)
+        except OSError:
+            pass
+        jobs.pop(job_id, None)
+        if mjpeg_queue is not None:
+            loop.call_soon_threadsafe(_safe_put, mjpeg_queue, None)  # sentinel

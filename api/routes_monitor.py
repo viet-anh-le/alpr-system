@@ -1,0 +1,552 @@
+"""HTTP routes for the Incident Monitor feature.
+
+Mounted under /monitor and /incidents by api/main.py.
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import os
+import tempfile
+import threading
+import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Literal
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
+
+from api.core.live_session import LiveSession
+from api.core.preprocessing import PreprocessedFrameSource, normalize_preprocess_mode
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+# Module-level registries; main.py initialises them.
+monitor_sessions: dict[str, dict] = {}   # session_id → {"kind", "path"|"live_session", ...}
+incident_queues: dict[str, asyncio.Queue] = {}   # session_id → SSE queue
+_sessions_lock = threading.Lock()
+
+_WEBRTC_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_WEBRTC_BASE", "http://localhost:8889")
+_MJPEG_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_MJPEG_BASE", "")  # relative if blank
+
+# Single-worker pool — only one mark analyzes at a time to avoid GPU contention.
+_incident_executor = ThreadPoolExecutor(max_workers=1)
+_cleanup_task: asyncio.Task | None = None
+
+MAX_INTERVAL_SEC = 30.0
+MONITOR_UPLOAD_TTL_SEC = float(os.environ.get("MONITOR_UPLOAD_TTL_SEC", "3600"))
+MONITOR_CLEANUP_INTERVAL_SEC = float(os.environ.get("MONITOR_CLEANUP_INTERVAL_SEC", "300"))
+MONITOR_UPLOAD_DIR = Path(
+    os.environ.get(
+        "MONITOR_UPLOAD_DIR",
+        str(Path(tempfile.gettempdir()) / "alpr_monitor_uploads"),
+    )
+)
+MONITOR_UPLOAD_PREFIX = "monitor_upload_"
+
+
+def _new_session_id() -> str:
+    return f"mon_{uuid.uuid4().hex[:10]}"
+
+
+def _new_incident_id() -> str:
+    return f"inc_{uuid.uuid4().hex[:10]}"
+
+
+def _now() -> float:
+    return time.time()
+
+
+def _touch_session(sess: dict) -> None:
+    sess["last_access_at"] = _now()
+
+
+def _delete_file(path: str | os.PathLike[str] | None) -> None:
+    if not path:
+        return
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        logger.warning("Could not remove temp file %s", path)
+
+
+def cleanup_upload_session(session_id: str, *, force: bool = False) -> dict:
+    """Delete an upload session, deferring if an incident still needs the file."""
+    path: str | None = None
+    with _sessions_lock:
+        sess = monitor_sessions.get(session_id)
+        if sess is None:
+            return {"ok": True, "cleanup": "missing"}
+        if sess.get("kind") != "upload":
+            raise ValueError("Not an upload session")
+        if int(sess.get("active_incidents", 0)) > 0 and not force:
+            sess["cleanup_requested"] = True
+            _touch_session(sess)
+            return {"ok": True, "cleanup": "deferred"}
+
+        path = sess.get("path")
+        monitor_sessions.pop(session_id, None)
+        incident_queues.pop(session_id, None)
+
+    _delete_file(path)
+    return {"ok": True, "cleanup": "deleted"}
+
+
+def _retain_upload_incident(session_id: str) -> None:
+    with _sessions_lock:
+        sess = monitor_sessions.get(session_id)
+        if sess is None or sess.get("kind") != "upload":
+            raise RuntimeError("Upload session no longer exists")
+        sess["active_incidents"] = int(sess.get("active_incidents", 0)) + 1
+        _touch_session(sess)
+
+
+def _release_upload_incident(session_id: str) -> None:
+    should_cleanup = False
+    with _sessions_lock:
+        sess = monitor_sessions.get(session_id)
+        if sess is None or sess.get("kind") != "upload":
+            return
+        sess["active_incidents"] = max(0, int(sess.get("active_incidents", 0)) - 1)
+        _touch_session(sess)
+        should_cleanup = sess["active_incidents"] == 0 and bool(sess.get("cleanup_requested"))
+
+    if should_cleanup:
+        cleanup_upload_session(session_id)
+
+
+def _run_incident_with_upload_lifecycle(
+    *,
+    upload_session_id: str,
+    run_incident_fn,
+    **kwargs,
+) -> None:
+    try:
+        run_incident_fn(**kwargs)
+    except Exception as exc:
+        logger.exception("Incident %s failed before analyzer could emit an error", kwargs.get("incident_id"))
+        loop = kwargs.get("loop")
+        queue = kwargs.get("queue")
+        if loop is not None and queue is not None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {
+                    "type": "incident_error",
+                    "incident_id": kwargs.get("incident_id"),
+                    "message": str(exc),
+                },
+            )
+    finally:
+        _release_upload_incident(upload_session_id)
+
+
+def cleanup_expired_upload_sessions(*, now: float | None = None) -> list[str]:
+    current = _now() if now is None else now
+    expired: list[str] = []
+    with _sessions_lock:
+        for session_id, sess in list(monitor_sessions.items()):
+            if sess.get("kind") != "upload":
+                continue
+            if int(sess.get("active_incidents", 0)) > 0:
+                continue
+            last_access = float(sess.get("last_access_at", sess.get("created_at", current)))
+            if current - last_access >= MONITOR_UPLOAD_TTL_SEC:
+                expired.append(session_id)
+
+    removed: list[str] = []
+    for session_id in expired:
+        result = cleanup_upload_session(session_id)
+        if result.get("cleanup") == "deleted":
+            removed.append(session_id)
+    return removed
+
+
+def cleanup_stale_upload_files(*, now: float | None = None) -> list[Path]:
+    current = _now() if now is None else now
+    if not MONITOR_UPLOAD_DIR.exists():
+        return []
+
+    with _sessions_lock:
+        tracked_paths = {
+            Path(sess["path"]).resolve()
+            for sess in monitor_sessions.values()
+            if sess.get("kind") == "upload" and sess.get("path")
+        }
+
+    removed: list[Path] = []
+    for path in sorted(MONITOR_UPLOAD_DIR.glob(f"{MONITOR_UPLOAD_PREFIX}*")):
+        try:
+            if path.resolve() in tracked_paths:
+                continue
+            if current - path.stat().st_mtime < MONITOR_UPLOAD_TTL_SEC:
+                continue
+            path.unlink(missing_ok=True)
+            removed.append(path)
+        except OSError:
+            logger.warning("Could not remove stale monitor upload %s", path)
+    return removed
+
+
+async def _monitor_upload_cleanup_loop() -> None:
+    while True:
+        cleanup_expired_upload_sessions()
+        cleanup_stale_upload_files()
+        await asyncio.sleep(MONITOR_CLEANUP_INTERVAL_SEC)
+
+
+def start_monitor_cleanup_task() -> asyncio.Task | None:
+    global _cleanup_task
+    if MONITOR_CLEANUP_INTERVAL_SEC <= 0:
+        return None
+    if _cleanup_task is None or _cleanup_task.done():
+        _cleanup_task = asyncio.create_task(_monitor_upload_cleanup_loop())
+    return _cleanup_task
+
+
+async def stop_monitor_cleanup_task() -> None:
+    global _cleanup_task
+    task = _cleanup_task
+    _cleanup_task = None
+    if task is None:
+        return
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
+def cleanup_all_upload_sessions() -> None:
+    with _sessions_lock:
+        upload_session_ids = [
+            session_id
+            for session_id, sess in monitor_sessions.items()
+            if sess.get("kind") == "upload"
+        ]
+    for session_id in upload_session_ids:
+        cleanup_upload_session(session_id, force=True)
+
+
+# ── Upload mode ───────────────────────────────────────────────────────────────
+
+
+@router.post("/monitor/upload")
+async def monitor_upload(
+    file: UploadFile = File(...),
+    preprocess_mode: str = Form("none"),
+    ocr_backend: str = Form("default"),
+) -> dict:
+    """Accept a video file for monitor-mode playback + mark-driven analysis."""
+    try:
+        normalized_mode = normalize_preprocess_mode(preprocess_mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    session_id = _new_session_id()
+    _ALLOWED_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
+    raw_suffix = Path(file.filename or "").suffix.lower()
+    suffix = raw_suffix if raw_suffix in _ALLOWED_SUFFIXES else ".mp4"
+    MONITOR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=suffix,
+        prefix=MONITOR_UPLOAD_PREFIX,
+        dir=MONITOR_UPLOAD_DIR,
+    ) as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+        tmp_path = f.name
+
+    now = _now()
+    monitor_sessions[session_id] = {
+        "kind": "upload",
+        "path": tmp_path,
+        "filename": file.filename or "video.mp4",
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": ocr_backend,
+        "created_at": now,
+        "last_access_at": now,
+        "active_incidents": 0,
+        "cleanup_requested": False,
+    }
+    incident_queues[session_id] = asyncio.Queue()
+    return {
+        "session_id": session_id,
+        "video_url": f"/monitor/upload/{session_id}/video",
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": ocr_backend,
+    }
+
+
+@router.delete("/monitor/upload/{session_id}")
+async def monitor_upload_disconnect(session_id: str) -> dict:
+    """Delete an upload session and remove its temp file."""
+    sess = monitor_sessions.get(session_id)
+    if sess is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if sess["kind"] != "upload":
+        raise HTTPException(status_code=400, detail="Not an upload session")
+    return cleanup_upload_session(session_id)
+
+
+@router.get("/monitor/upload/{session_id}/video")
+async def monitor_upload_video(session_id: str) -> FileResponse:
+    sess = monitor_sessions.get(session_id)
+    if sess is None or sess["kind"] != "upload":
+        raise HTTPException(status_code=404, detail="Session not found")
+    _touch_session(sess)
+    return FileResponse(sess["path"], media_type="video/mp4")
+
+
+# ── Live mode ─────────────────────────────────────────────────────────────────
+
+
+class ConnectBody(BaseModel):
+    rtsp_url: str
+    ocr_backend: str = "default"
+
+
+@router.post("/monitor/live/connect")
+async def monitor_live_connect(body: ConnectBody) -> dict:
+    parsed = urlparse(body.rtsp_url)
+    if parsed.scheme not in ("rtsp", "rtsps"):
+        raise HTTPException(status_code=400, detail="URL must be rtsp:// or rtsps://")
+
+    session_id = _new_session_id()
+    path = f"live_{session_id[4:]}"  # MediaMTX path name
+    mjpeg_q: asyncio.Queue = asyncio.Queue(maxsize=60)
+
+    sess = LiveSession(session_id=session_id, mediamtx_path=path)
+    try:
+        sess.start(body.rtsp_url, mjpeg_queue=mjpeg_q)
+    except Exception as exc:
+        logger.exception("Live connect failed")
+        raise HTTPException(status_code=502, detail=f"Could not connect: {exc}")
+
+    monitor_sessions[session_id] = {
+        "kind": "live",
+        "live_session": sess,
+        "mediamtx_path": path,
+        "mjpeg_queue": mjpeg_q,
+        "rtsp_url": body.rtsp_url,
+        "ocr_backend": body.ocr_backend,
+    }
+    incident_queues[session_id] = asyncio.Queue()
+
+    whep_url = f"{_WEBRTC_PUBLIC_BASE}/{path}/whep"
+    mjpeg_url = f"{_MJPEG_PUBLIC_BASE}/monitor/live/{session_id}/mjpeg"
+    return {"session_id": session_id, "whep_url": whep_url, "mjpeg_url": mjpeg_url}
+
+
+@router.delete("/monitor/live/{session_id}")
+async def monitor_live_disconnect(session_id: str) -> dict:
+    sess = monitor_sessions.get(session_id)
+    if sess is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if sess["kind"] != "live":
+        raise HTTPException(status_code=400, detail="Not a live session")
+    monitor_sessions.pop(session_id, None)
+    incident_queues.pop(session_id, None)
+    sess["live_session"].stop()
+    return {"ok": True}
+
+
+@router.get("/monitor/live/{session_id}/mjpeg")
+async def monitor_live_mjpeg(session_id: str) -> StreamingResponse:
+    sess = monitor_sessions.get(session_id)
+    if sess is None or sess["kind"] != "live":
+        raise HTTPException(status_code=404, detail="Session not found")
+    mjpeg_q: asyncio.Queue = sess["mjpeg_queue"]
+
+    async def gen():
+        while True:
+            try:
+                frame = await asyncio.wait_for(mjpeg_q.get(), timeout=30.0)
+            except asyncio.TimeoutError:
+                break
+            if frame is None:
+                break
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + frame
+                + b"\r\n"
+            )
+
+    return StreamingResponse(
+        gen(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── Mark route ────────────────────────────────────────────────────────────────
+
+
+class MarkBody(BaseModel):
+    mode: Literal["live", "upload"]
+    t_start: float | None = None
+    t_end: float | None = None
+
+
+def _dispatch_incident(
+    *,
+    incident_id: str,
+    session_id: str,
+    sess: dict,
+    body: MarkBody,
+    queue: asyncio.Queue,
+    request: Request,
+) -> None:
+    """Build a FrameSource and submit run_incident to the worker pool."""
+    from api.core.frame_source import FileFrameSource, LiveBufferFrameSource
+    from api.core.incident_analyzer import run_incident
+
+    models = request.app.state.models if hasattr(request.app.state, "models") else None
+
+    loop = asyncio.get_running_loop()
+    retained_upload = False
+
+    if body.mode == "upload":
+        _retain_upload_incident(session_id)
+        retained_upload = True
+        try:
+            source = FileFrameSource(sess["path"], t_start=body.t_start, t_end=body.t_end)
+            preprocess_mode = normalize_preprocess_mode(sess.get("preprocess_mode"))
+            if preprocess_mode != "none":
+                source = PreprocessedFrameSource(source, preprocess_mode)
+            source_ref = sess["filename"]
+            ws, we = body.t_start, body.t_end
+        except Exception:
+            _release_upload_incident(session_id)
+            raise
+    else:
+        live_sess = sess["live_session"]
+        snap = live_sess.snapshot_window(seconds=10.0)
+        if len(snap) < int(live_sess.fps * 1.0):
+            raise HTTPException(status_code=409, detail="Buffer still warming up — wait 1–2s")
+        source = LiveBufferFrameSource(snap, fps=live_sess.fps, frame_size=live_sess.frame_size)
+        source_ref = sess["rtsp_url"]
+        ws = snap[0][2]
+        we = snap[-1][2]
+
+    kwargs = {
+        "incident_id": incident_id,
+        "session_id": session_id,
+        "source": source,
+        "source_type": body.mode,
+        "source_ref": source_ref,
+        "window_start_sec": ws,
+        "window_end_sec": we,
+        "queue": queue,
+        "loop": loop,
+        "models": models,
+        "ocr_backend": sess.get("ocr_backend", "default"),
+    }
+
+    if body.mode == "upload":
+        try:
+            _incident_executor.submit(
+                _run_incident_with_upload_lifecycle,
+                upload_session_id=session_id,
+                run_incident_fn=run_incident,
+                **kwargs,
+            )
+        except Exception:
+            if retained_upload:
+                _release_upload_incident(session_id)
+            raise
+    else:
+        _incident_executor.submit(run_incident, **kwargs)
+
+
+@router.post("/monitor/{session_id}/mark")
+async def monitor_mark(session_id: str, body: MarkBody, request: Request) -> dict:
+    sess = monitor_sessions.get(session_id)
+    if sess is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    _touch_session(sess)
+
+    if body.mode == "upload":
+        if sess["kind"] != "upload":
+            raise HTTPException(status_code=400, detail="Session is live; expected upload mark")
+        if body.t_start is None or body.t_end is None:
+            raise HTTPException(status_code=400, detail="t_start and t_end required for upload mark")
+        if not (0.0 <= body.t_start < body.t_end):
+            raise HTTPException(status_code=400, detail="Invalid interval")
+        if body.t_end - body.t_start > MAX_INTERVAL_SEC:
+            raise HTTPException(status_code=400, detail=f"Interval exceeds {MAX_INTERVAL_SEC}s max")
+    else:
+        if sess["kind"] != "live":
+            raise HTTPException(status_code=400, detail="Session is upload; expected live mark")
+
+    incident_id = _new_incident_id()
+    queue = incident_queues[session_id]
+    _dispatch_incident(
+        incident_id=incident_id,
+        session_id=session_id,
+        sess=sess,
+        body=body,
+        queue=queue,
+        request=request,
+    )
+    return {"incident_id": incident_id}
+
+
+# ── Incident SSE + GET endpoints ──────────────────────────────────────────────
+
+
+@router.get("/monitor/{session_id}/incidents/stream")
+async def monitor_incidents_stream(session_id: str) -> StreamingResponse:
+    queue = incident_queues.get(session_id)
+    if queue is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    async def gen():
+        yield ": keep-alive\n\n"   # SSE comment — establishes stream immediately
+        while True:
+            try:
+                ev = await asyncio.wait_for(queue.get(), timeout=60.0)
+                if ev is None:     # sentinel — closes the stream gracefully
+                    break
+                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+            except asyncio.TimeoutError:
+                yield 'data: {"type":"ping"}\n\n'
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/incidents/{incident_id}")
+async def get_incident_route(incident_id: str) -> dict:
+    from api.database.mongodb import get_incident, is_db_configured
+
+    if not is_db_configured():
+        raise HTTPException(status_code=503, detail="Database not configured")
+    inc = await get_incident(incident_id)
+    if inc is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return inc.model_dump(mode="json")
+
+
+@router.get("/incidents")
+async def list_incidents_route(
+    source: str | None = None,
+    session_id: str | None = None,
+    limit: int = Query(default=50, ge=1, le=500),
+) -> dict:
+    from api.database.mongodb import list_incidents, is_db_configured
+
+    if not is_db_configured():
+        return {"items": []}
+    items = await list_incidents(session_id=session_id, source_type=source, limit=limit)
+    return {"items": [i.model_dump(mode="json") for i in items]}
