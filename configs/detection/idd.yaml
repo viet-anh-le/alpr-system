@@ -1,0 +1,25 @@
+path: /kaggle/working/idd_processed
+
+train: images/train
+val: images/val
+
+# Số lượng class tăng lên 16 (từ 0 đến 15)
+nc: 16
+
+names:
+    0: car
+    1: bus
+    2: autorickshaw
+    3: vehicle fallback
+    4: truck
+    5: motorcycle # Vẫn giữ để nhận diện xe đỗ không người
+    6: rider
+    7: person
+    8: bicycle
+    9: animal
+    10: traffic sign
+    11: train
+    12: trailer
+    13: traffic light
+    14: caravan
+    15: motorbike_rider # CLASS MỚI: Đã gộp cả người và xe máy

@@ -1,0 +1,32 @@
+# Reid training hyperparameters
+# Usage: python -m tracking.train.train_reid --data data/datasets/tracking --output weights/tracking
+
+data: data/datasets/tracking
+output: weights/tracking
+
+# Model
+embedding_dim: 128
+
+# Training schedule
+epochs: 60
+warmup_epochs: 10          # Linear LR warmup, then cosine decay
+
+# PKSampler — batch = P * K = 64
+P: 16                       # Identities per batch
+K: 4                        # Images per identity per batch
+
+# Optimiser
+lr: 3.0e-4
+weight_decay: 1.0e-4
+
+# Loss
+margin: 0.3                 # Triplet loss margin
+ce_weight: 0.5              # Weight for classification CE term
+label_smoothing: 0.1        # CE label smoothing factor
+
+# System
+workers: 4
+device: cuda
+
+# Evaluation
+topk: 10                    # CMC ranks to log (rank-1, 5, 10)

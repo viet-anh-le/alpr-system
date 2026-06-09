@@ -1,0 +1,30 @@
+train_dir: "./datas/train/"
+valid_dir: "./datas/valid/"
+test_dir: "./datas/valid/"
+saving_ckpt: "saving_ckpt-smalllpr"
+img_size: !!python/tuple [96, 48]   # W × H — target cho smart_resize
+min_img_width: 20                    # không filter nặng: SmallLPR xử lý được ảnh nhỏ
+min_img_height: 8
+dropout_rate: 0.1
+weight_decay: 0.0001
+lr: 0.0005                           # cao hơn TransLPRNet vì không có backbone pretrained
+batch_size: 64                       # input nhỏ → batch lớn được
+max_epochs: 200
+max_seq_len: 16
+gradient_clip_val: 1.0
+chars: [
+    "<PAD>",
+    "<SOS>",
+    "<EOS>",
+    # NUMBERS
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    # ALPHABETS
+    "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    "M", "N", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z",
+    "Đ",
+    # SEPARATOR
+    "-",
+    ".",
+    "[SEP]",
+    "_",
+  ]

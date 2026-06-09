@@ -1,0 +1,71 @@
+train_dir: "data/datasets/ocr/train"
+valid_dir: "data/datasets/ocr/valid"
+test_dir: "data/datasets/ocr/valid"
+saving_ckpt: "weights/ocr/slot_lpr"
+
+img_size: !!python/tuple [96, 48]
+min_img_width: 1
+min_img_height: 1
+
+max_slots: 14
+d_model: 256
+decoder_layers: 2
+nhead: 4
+dropout_rate: 0.1
+use_stn: true
+
+lr: 0.0007
+weight_decay: 0.0001
+label_smoothing: 0.05
+layout_loss_weight: 0.2
+scheduler_t0: 20
+eta_min: 0.000001
+
+batch_size: 96
+num_workers: 4
+max_epochs: 180
+gradient_clip_val: 1.0
+precision: "16-mixed"
+seed: 42
+subset_size:
+
+chars:
+    [
+        "<PAD>",
+        "<SOS>",
+        "<EOS>",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "K",
+        "L",
+        "M",
+        "N",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "X",
+        "Y",
+        "Z",
+        "Đ",
+        "-",
+    ]

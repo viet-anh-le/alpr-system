@@ -1,0 +1,18 @@
+# ByteTrack tracker config for License Plates
+# Pass to model.track(tracker="configs/tracking/bytetrack_plate.yaml")
+tracker_type: bytetrack
+
+# Detection thresholds
+track_high_thresh: 0.5    # high-confidence detections for plates
+track_low_thresh: 0.1     # low-confidence detections
+new_track_thresh: 0.6     # min score to init a new track
+track_buffer: 30          # frames to keep a lost track alive
+match_thresh: 0.8         # IoU threshold for final matching
+
+fuse_score: true          # fuse detection confidence into IoU cost
+
+# Global Motion Compensation
+gmc_method: sparseOptFlow
+
+# No ReID for plates
+with_reid: false

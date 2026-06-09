@@ -1,0 +1,25 @@
+# BoT-SORT tracker config — consumed by Ultralytics via boxmot
+# Pass to model.track(tracker="configs/tracking/botsort.yaml")
+tracker_type: botsort
+
+# Detection thresholds
+track_high_thresh: 0.6    # high-confidence detections (first association)
+track_low_thresh: 0.1     # low-confidence detections (second association)
+new_track_thresh: 0.7     # min score to init a new track
+track_buffer: 30          # frames to keep a lost track alive
+match_thresh: 0.8         # IoU threshold for final matching
+
+fuse_score: true          # fuse detection confidence into IoU cost
+
+# Global Motion Compensation — required by newer Ultralytics versions
+# Options: sparseOptFlow | orb | ecc | sof | none
+gmc_method: sparseOptFlow
+
+# ReID appearance model
+# Ultralytics 8.4.x ReID class loads models via YOLO(), which is incompatible
+# with our custom MobileNetV3-Small ONNX. Disabled for safe IoU-only tracking.
+# Re-enable once a boxmot-compatible ReID pipeline is in place.
+with_reid: false
+proximity_thresh: 0.5     # IoU gate before computing appearance cost
+appearance_thresh: 0.25   # cosine distance threshold for appearance matching
+model: /home/vietanh/Documents/DATN/ALPR_Vietnamese/weights/tracking/vehicle_reid.onnx

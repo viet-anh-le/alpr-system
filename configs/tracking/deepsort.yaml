@@ -1,0 +1,6 @@
+# DeepSORT tracking config
+max_age: 30
+min_hits: 3
+iou_threshold: 0.3
+reid_weights: weights/tracking/reid_net.pt
+max_cosine_distance: 0.4

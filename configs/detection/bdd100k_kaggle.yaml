@@ -1,0 +1,18 @@
+# BDD100K vehicle detection — YOLO dataset config
+#
+# Run the converter first:
+#   python -m data.scripts.bdd100k_to_yolo
+#
+# Class IDs here must match VEHICLE_CLASSES in api/core/config.py
+# (update config.py to [0, 1, 2, 3] after finetuning on this dataset)
+
+path: /kaggle/input/datasets/altper/bdd100k/bdd100k # relative to project root
+train: images/train
+val: images/val
+
+nc: 4
+names:
+    0: car
+    1: truck
+    2: bus
+    3: motorcycle

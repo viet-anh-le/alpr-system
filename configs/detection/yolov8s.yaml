@@ -1,0 +1,9 @@
+# YOLOv8s config for Vietnamese license plate detection
+model: yolov8s.yaml
+data: data/datasets/detection/detection.yaml
+epochs: 100
+imgsz: 640
+batch: 8
+device: 0
+project: experiments/detection
+name: yolov8s

@@ -1,0 +1,23 @@
+# LEGACY — Ultralytics-format BoT-SORT config.
+# As of 2026-05-19, vehicle tracking moved to BoxMOT (api/core/tracker_adapter.py).
+# The hyperparameters below are hard-coded as class constants in VehicleTracker.
+# This file is kept as a human-readable reference only.
+tracker_type: botsort
+
+# Detection thresholds — tuned for Vietnamese ALPR (high-confidence vehicles only)
+track_high_thresh: 0.6 # first-stage match threshold
+track_low_thresh: 0.1 # second-stage threshold for low-score matches
+new_track_thresh: 0.7 # min score to initialise a new track
+track_buffer: 30 # frames to keep a lost track alive
+match_thresh: 0.8 # association similarity threshold
+
+fuse_score: true # fuse detection confidence into IoU cost
+
+# Global Motion Compensation
+gmc_method: sparseOptFlow
+
+# ReID — uses detector backbone features (no external model file)
+with_reid: true
+proximity_thresh: 0.5 # min IoU before appearance cost is computed
+appearance_thresh: 0.8 # min cosine similarity to accept a re-match (Ultralytics default)
+# model: auto  # original; changed to boxmot with custom ONNX via VehicleTracker

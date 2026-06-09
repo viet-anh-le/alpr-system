@@ -1,0 +1,58 @@
+train_dir: "./datas/train/"
+valid_dir: "./datas/valid/"
+test_dir: "./datas/valid/"
+saving_ckpt: "saving_ckpt-vietnam"
+img_size: !!python/tuple [224, 224]
+dropout_rate: 0.5
+weight_decay: 0.0001
+lr: 0.0001
+batch_size: 16
+max_epochs: 200
+t_length: 19
+max_seq_len: 14
+gradient_clip_val: 1.0
+warmup_epochs: 10
+chars: [
+    # SPECIAL TOKENS
+    "<PAD>",
+    "<SOS>",
+    "<EOS>",
+    # NUMBERS
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    # ALPHABETS
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "K",
+    "L",
+    "M",
+    "N",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "X",
+    "Y",
+    "Z",
+    "Đ",
+    # Middle
+    "-",
+    "_", # Original CTC Blank Token
+  ]
