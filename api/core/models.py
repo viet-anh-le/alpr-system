@@ -41,6 +41,7 @@ from .config import (
     SOS_IDX,
     VEHICLE_MODEL_PATH,
     YOLOV5_CHAR_CKPT_PATH,
+    YOLOV5_OBJECT_CKPT_PATH,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,7 @@ class ModelBundle:
     quality_router: PlateQualityRouter | None = None
     ocr_backend: str = OCR_BACKEND
     ocr_yolov5: object | None = None  # YOLOv5CharOcrModel
+    yolov5_object: object | None = None  # YOLOv5 object model
 
 
 
@@ -136,10 +138,16 @@ def load_models() -> ModelBundle:
     logger.info("All models ready.")
     
     ocr_yolov5 = None
+    yolov5_object = None
     if YOLOV5_CHAR_CKPT_PATH.exists():
         from api.core.ocr_yolov5 import load_yolov5_char_model
         ocr_yolov5 = load_yolov5_char_model(YOLOV5_CHAR_CKPT_PATH, device=device)
         logger.info("YOLOv5 Character Detection model ready.")
+        
+    if YOLOV5_OBJECT_CKPT_PATH.exists():
+        from api.core.ocr_yolov5 import load_yolov5_object_model
+        yolov5_object = load_yolov5_object_model(YOLOV5_OBJECT_CKPT_PATH, device=device)
+        logger.info("YOLOv5 Object Detection model ready.")
 
     return ModelBundle(
         device=device,
@@ -150,6 +158,7 @@ def load_models() -> ModelBundle:
         quality_router=quality_router,
         ocr_backend=ocr_backend,
         ocr_yolov5=ocr_yolov5,
+        yolov5_object=yolov5_object,
     )
 
 
@@ -161,9 +170,9 @@ def normalize_ocr_backend(value: str) -> str:
         return "smalllpr_ctc"
     if backend in {"small_lpr_nar", "nar"}:
         return "smalllpr_nar"
-    if backend in {"parseq", "smalllpr", "smalllpr_ctc", "smalllpr_nar", "yolov5_char"}:
+    if backend in {"parseq", "smalllpr", "smalllpr_ctc", "smalllpr_nar", "yolov5_char", "vietnamese_yolov5"}:
         return backend
-    raise ValueError("OCR_BACKEND must be one of: parseq, smalllpr, smalllpr_ctc, smalllpr_nar, yolov5_char")
+    raise ValueError("OCR_BACKEND must be one of: parseq, smalllpr, smalllpr_ctc, smalllpr_nar, yolov5_char, vietnamese_yolov5")
 
 
 def load_small_lpr_model(checkpoint_path: str | Path, *, device: torch.device) -> SmallLPR:

@@ -86,7 +86,9 @@ def _finalise_track_ocr(
     record_save: Callable | None,
     ocr_backend: str,
 ) -> None:
-    _finalise_track_ocr_impl(tid, tracker, models, emit, session_id, loop, record_save, ocr_backend=ocr_backend)
+    _finalise_track_ocr_impl(
+        tid, tracker, models, emit, session_id, loop, record_save, ocr_backend=ocr_backend
+    )
 
 
 # ── Stage 1: Reader ────────────────────────────────────────────────────────────
@@ -199,11 +201,13 @@ def _vehicle_worker(
             processed_count += 1
 
             if processed_count % 10 == 0 or (total_frames and processed_count >= total_frames):
-                emit(make_progress_event(
-                    processed_frames=processed_count,
-                    total_frames=total_frames,
-                    source_frame=frame_idx,
-                ))
+                emit(
+                    make_progress_event(
+                        processed_frames=processed_count,
+                        total_frames=total_frames,
+                        source_frame=frame_idx,
+                    )
+                )
 
             # Forward to Stage 3 — measure stall if crop_q is full (Stage 3 slow)
             _put_t = time.perf_counter()
@@ -254,7 +258,9 @@ def _plate_ocr_worker(
 
     previously_tracked: set[int] = set()
     model_router = getattr(models, "quality_router", None)
-    quality_router = model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
+    quality_router = (
+        model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
+    )
     preview_seen = 0
 
     try:
@@ -309,19 +315,31 @@ def _plate_ocr_worker(
                     matched.append((v_tid, p["crop"], vehicle_crop))
 
             # ── Batch OCR ─────────────────────────────────────────────────────
+            stage_start = time.perf_counter()
             ocr_jobs, active_tids = prepare_route_ocr_jobs(
                 matched,
                 tracker,
                 quality_router,
                 frame_idx,
             )
+            _add_timing("classify", stage_start)
             if ocr_jobs:
                 from .models import normalize_ocr_backend
-                resolved_backend = normalize_ocr_backend(ocr_backend if ocr_backend != "default" else models.ocr_backend)
-                target_ocr_model = models.ocr_yolov5 if resolved_backend == "yolov5_char" and models.ocr_yolov5 else models.ocr
-                
+
+                resolved_backend = normalize_ocr_backend(
+                    ocr_backend if ocr_backend != "default" else models.ocr_backend
+                )
+                target_ocr_model = (
+                    models.ocr_yolov5
+                    if resolved_backend == "yolov5_char" and models.ocr_yolov5
+                    else models.ocr
+                )
+
                 _tensors = torch.stack(
-                    [preprocess_plate_for_model(target_ocr_model, job.candidate_crop) for job in ocr_jobs]
+                    [
+                        preprocess_plate_for_model(target_ocr_model, job.candidate_crop)
+                        for job in ocr_jobs
+                    ]
                 ).to(models.device)
                 stage_start = time.perf_counter()
                 _ocr_results = ocr_batch(target_ocr_model, _tensors, models.device)
@@ -339,7 +357,11 @@ def _plate_ocr_worker(
             # ── MJPEG annotation ──────────────────────────────────────────────
             if mjpeg_queue is not None and preview_stride > 0:
                 preview_seen += 1
-            if mjpeg_queue is not None and preview_stride > 0 and preview_seen % preview_stride == 0:
+            if (
+                mjpeg_queue is not None
+                and preview_stride > 0
+                and preview_seen % preview_stride == 0
+            ):
                 box_dicts = [
                     {
                         "id": v["id"],
@@ -391,7 +413,7 @@ def process_frames_async(
 
     # Shared state
     tracker = WebTrackletManager()
-    associator = TrajectoryAssociator(match_frames=1, agreement_ratio=0.0)
+    associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
     plate_tracker = PlateTrackManager()
     models.vehicle_tracker.reset()
 
@@ -459,15 +481,19 @@ def process_frames_async(
 
     # ── Finalise any remaining buffered tracks ────────────────────────────────
     if frame_count_out[0]:
-        emit(make_progress_event(
-            processed_frames=frame_count_out[0],
-            total_frames=total_frames,
-            complete=True,
-        ))
+        emit(
+            make_progress_event(
+                processed_frames=frame_count_out[0],
+                total_frames=total_frames,
+                complete=True,
+            )
+        )
 
     for tid in list(tracker._buffers):
         if tracker.should_ocr(tid) and tracker.ready_for_track_ocr(tid):
-            _finalise_track_ocr(tid, tracker, models, emit, session_id, loop, record_save, ocr_backend)
+            _finalise_track_ocr(
+                tid, tracker, models, emit, session_id, loop, record_save, ocr_backend
+            )
 
     # ── Final snapshot ────────────────────────────────────────────────────────
     for tid in sorted(tracker._best):
@@ -481,6 +507,7 @@ def process_frames_async(
                 "done": tracker._done.get(tid, False),
                 "plate_b64": tracker.plate_b64(tid),
                 "vehicle_b64": tracker.vehicle_b64(tid),
+                "track_buffer": tracker.track_buffer_json(tid),
                 "ocr_frames": tracker.ocr_frames(tid),
                 "confidence": float(tracker._plate_img_conf.get(tid, 0)),
                 "final": True,

@@ -225,17 +225,32 @@ def run_job(
             else PreprocessedFrameSource(raw_source, normalized_mode)
         )
         timings: dict[str, float] | None = {} if ALPR_DEBUG_TIMINGS else None
-        summary = process_frames(
-            source,
-            emit=emit,
-            models=models,
-            session_id=job_id,
-            loop=loop,
-            mjpeg_queue=mjpeg_queue,
-            record_save=_record_save_later,
-            timings=timings,
-            ocr_backend=ocr_backend,
-        )
+        
+        if ocr_backend == "vietnamese_yolov5":
+            from .pipeline_yolov5_vietnamese import process_frames_yolov5_vietnamese
+            summary = process_frames_yolov5_vietnamese(
+                source,
+                emit=emit,
+                models=models,
+                session_id=job_id,
+                loop=loop,
+                mjpeg_queue=mjpeg_queue,
+                record_save=_record_save_later,
+                timings=timings,
+            )
+        else:
+            summary = process_frames(
+                source,
+                emit=emit,
+                models=models,
+                session_id=job_id,
+                loop=loop,
+                mjpeg_queue=mjpeg_queue,
+                record_save=_record_save_later,
+                timings=timings,
+                ocr_backend=ocr_backend,
+            )
+            
         if timings is not None:
             logger.info(
                 "ALPR timings job=%s %s",

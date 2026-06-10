@@ -99,10 +99,12 @@ def process_frames(
             loop.call_soon_threadsafe(_safe_put, mjpeg_queue, jpg)
 
     tracker = WebTrackletManager()
-    associator = TrajectoryAssociator(match_frames=1, agreement_ratio=0.0)
+    associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
     plate_tracker = PlateTrackManager()
     model_router = getattr(models, "quality_router", None)
-    quality_router = model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
+    quality_router = (
+        model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
+    )
     models.vehicle_tracker.reset()
 
     total = source.total_frames or 0
@@ -142,11 +144,13 @@ def process_frames(
                 tracker.reset_lost(tid)
 
         if processed_seen % 10 == 0 or (total and processed_seen >= total):
-            emit(make_progress_event(
-                processed_frames=processed_seen,
-                total_frames=total,
-                source_frame=frame_idx,
-            ))
+            emit(
+                make_progress_event(
+                    processed_frames=processed_seen,
+                    total_frames=total,
+                    source_frame=frame_idx,
+                )
+            )
 
         if frame_idx % FRAME_STRIDE != 0:
             previously_tracked = currently_tracked
@@ -198,7 +202,9 @@ def process_frames(
 
         if ocr_jobs:
             resolved_backend = normalize_ocr_backend(
-                ocr_backend if ocr_backend != "default" else getattr(models, "ocr_backend", "smalllpr_ctc")
+                ocr_backend
+                if ocr_backend != "default"
+                else getattr(models, "ocr_backend", "smalllpr_ctc")
             )
             target_ocr_model = (
                 models.ocr_yolov5
@@ -206,7 +212,10 @@ def process_frames(
                 else models.ocr
             )
             _tensors = torch.stack(
-                [preprocess_plate_for_model(target_ocr_model, job.candidate_crop) for job in ocr_jobs]
+                [
+                    preprocess_plate_for_model(target_ocr_model, job.candidate_crop)
+                    for job in ocr_jobs
+                ]
             ).to(models.device)
             stage_start = time.perf_counter()
             _ocr_results = ocr_batch(target_ocr_model, _tensors, models.device)
@@ -247,12 +256,14 @@ def process_frames(
 
     # ── Finalise remaining buffered tracks ────────────────────────────────────
     if processed_seen:
-        emit(make_progress_event(
-            processed_frames=processed_seen,
-            total_frames=total,
-            source_frame=frame_idx,
-            complete=True,
-        ))
+        emit(
+            make_progress_event(
+                processed_frames=processed_seen,
+                total_frames=total,
+                source_frame=frame_idx,
+                complete=True,
+            )
+        )
 
     for tid in list(tracker._buffers):
         if tracker.should_ocr(tid) and tracker.ready_for_track_ocr(tid):

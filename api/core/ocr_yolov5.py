@@ -50,6 +50,9 @@ def load_yolov5_char_model(checkpoint_path: str | Path, *, device: torch.device)
     names = model.module.names if hasattr(model, 'module') else model.names
     return YOLOv5CharOcrModel(model=model, names=names)
 
+def load_yolov5_object_model(checkpoint_path: str | Path, *, device: torch.device) -> YOLOv5CharOcrModel:
+    return load_yolov5_char_model(checkpoint_path, device=device)
+
 
 def preprocess_plate_yolov5(bgr: np.ndarray, size: tuple[int, int] = (128, 128)) -> torch.Tensor:
     h1, w1, _ = bgr.shape

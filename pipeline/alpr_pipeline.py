@@ -8,6 +8,7 @@ SSE event types emitted:
   "complete"  — final summary
   "error"     — exception info
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +22,8 @@ import numpy as np
 import torch
 
 from .config import (
-    FRAME_STRIDE, VEHICLE_CLASSES,
+    FRAME_STRIDE,
+    VEHICLE_CLASSES,
 )
 from .models import ModelBundle, ocr_batch, preprocess_plate
 from .tracker import WebTrackletManager
@@ -29,17 +31,18 @@ from api.core.association import TrajectoryAssociator
 from api.core.cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
 
 # Max width for streamed annotated frames (keeps SSE payload small)
-_STREAM_W    = 960
+_STREAM_W = 960
 _STREAM_QUAL = 75
-_VEHICLE_PAD = 16   # padding around vehicle bbox when capturing vehicle crop
+_VEHICLE_PAD = 16  # padding around vehicle bbox when capturing vehicle crop
 
 
 # ── Frame annotation ──────────────────────────────────────────────────────────
 
+
 def _draw_boxes(
-    frame:       np.ndarray,
-    tracked:     list[dict],
-    tracker:     WebTrackletManager,
+    frame: np.ndarray,
+    tracked: list[dict],
+    tracker: WebTrackletManager,
     active_tids: set[int],
 ) -> np.ndarray:
     """
@@ -57,17 +60,17 @@ def _draw_boxes(
         x1, y1, x2, y2 = (int(c) for c in v["box"])
 
         is_active = tid in active_tids
-        is_done   = tracker._done.get(tid, False)
+        is_done = tracker._done.get(tid, False)
 
-        color     = (0, 210, 255) if is_active else (0, 220, 60) if is_done else (180, 180, 180)
+        color = (0, 210, 255) if is_active else (0, 220, 60) if is_done else (180, 180, 180)
         thickness = 3 if is_active else 2
 
         cv2.rectangle(vis, (x1, y1), (x2, y2), color, thickness)
 
         # Label: class + id + current plate text
         plate_text = tracker.display_text(tid)
-        cls_name   = tracker._cls.get(tid, "vehicle")
-        label      = f"{cls_name} #{tid}"
+        cls_name = tracker._cls.get(tid, "vehicle")
+        label = f"{cls_name} #{tid}"
         if plate_text:
             label += f"  {plate_text}"
 
@@ -94,6 +97,7 @@ def _encode_frame(frame: np.ndarray) -> str:
 
 # ── Vehicle crop helper ───────────────────────────────────────────────────────
 
+
 def _crop_vehicle(frame: np.ndarray, box: np.ndarray) -> np.ndarray:
     H, W = frame.shape[:2]
     x1, y1, x2, y2 = (int(c) for c in box)
@@ -106,30 +110,29 @@ def _crop_vehicle(frame: np.ndarray, box: np.ndarray) -> np.ndarray:
 
 # ── Main job ──────────────────────────────────────────────────────────────────
 
+
 def run_job(
     video_path: str,
-    job_id:     str,
-    queue:      asyncio.Queue,
-    loop:       asyncio.AbstractEventLoop,
-    models:     ModelBundle,
-    jobs:       dict,
-    filename:   str = "video.mp4"
+    job_id: str,
+    queue: asyncio.Queue,
+    loop: asyncio.AbstractEventLoop,
+    models: ModelBundle,
+    jobs: dict,
+    filename: str = "video.mp4",
 ) -> None:
     def emit(event: dict) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
-        cap   = cv2.VideoCapture(video_path)
+        cap = cv2.VideoCapture(video_path)
         total = max(int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), 1)
 
-        tracker   = WebTrackletManager()
-        associator = TrajectoryAssociator(match_frames=1, agreement_ratio=0.0)
+        tracker = WebTrackletManager()
+        associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
         plate_tracker = PlateTrackManager()
         frame_idx = 0
         # Resolved once — absolute path avoids CWD sensitivity in thread pool
-        tracker_cfg = str(
-            Path(__file__).resolve().parents[1] / "configs/tracking/botsort.yaml"
-        )
+        tracker_cfg = str(Path(__file__).resolve().parents[1] / "configs/tracking/botsort.yaml")
 
         while True:
             ret, frame = cap.read()
@@ -149,8 +152,8 @@ def run_job(
             tracked: list[dict] = []
             if v_res.boxes.id is not None:
                 boxes = v_res.boxes.xyxy.cpu().numpy().astype(int)
-                ids   = v_res.boxes.id.cpu().numpy().astype(int)
-                clss  = v_res.boxes.cls.cpu().numpy().astype(int)
+                ids = v_res.boxes.id.cpu().numpy().astype(int)
+                clss = v_res.boxes.cls.cpu().numpy().astype(int)
                 for box, tid, cid in zip(boxes, ids, clss):
                     tid = int(tid)
                     tracker._cls[tid] = models.vehicle.names[int(cid)]
@@ -158,12 +161,14 @@ def run_job(
 
             # ── Progress event ────────────────────────────────────────────────
             if frame_idx % 10 == 0 or frame_idx == total:
-                emit({
-                    "type":  "progress",
-                    "frame": frame_idx,
-                    "total": total,
-                    "pct":   round(frame_idx / total * 100, 1),
-                })
+                emit(
+                    {
+                        "type": "progress",
+                        "frame": frame_idx,
+                        "total": total,
+                        "pct": round(frame_idx / total * 100, 1),
+                    }
+                )
 
             # ── Skip plate detection on non-stride frames ─────────────────────
             if frame_idx % FRAME_STRIDE != 0:
@@ -172,10 +177,12 @@ def run_job(
             # ── Skip when every visible vehicle is already done ───────────────
             if tracked and not any(tracker.should_ocr(v["id"]) for v in tracked):
                 # Still emit an annotated frame so the display updates
-                emit({
-                    "type": "frame",
-                    "b64":  _encode_frame(_draw_boxes(frame, tracked, tracker, set())),
-                })
+                emit(
+                    {
+                        "type": "frame",
+                        "b64": _encode_frame(_draw_boxes(frame, tracked, tracker, set())),
+                    }
+                )
                 continue
 
             # matched: (vehicle_tid, plate_crop, vehicle_crop)
@@ -195,47 +202,46 @@ def run_job(
 
             # ── Batch OCR ─────────────────────────────────────────────────────
             active_tids: set[int] = set()
-            to_ocr = [
-                (tid, pc, vc)
-                for tid, pc, vc in matched
-                if tracker.should_ocr(tid)
-            ]
+            to_ocr = [(tid, pc, vc) for tid, pc, vc in matched if tracker.should_ocr(tid)]
 
             if to_ocr:
                 active_tids = {tid for tid, _, _ in to_ocr}
-                tensors = torch.stack(
-                    [preprocess_plate(pc) for _, pc, _ in to_ocr]
-                ).to(models.device)
+                tensors = torch.stack([preprocess_plate(pc) for _, pc, _ in to_ocr]).to(
+                    models.device
+                )
 
                 for (tid, plate_crop, vehicle_crop), (char_probs, all_conf) in zip(
                     to_ocr, ocr_batch(models.ocr, tensors, models.device)
                 ):
                     avg_conf = (
-                        sum(p for _, p in char_probs) / len(char_probs)
-                        if char_probs else 0.0
+                        sum(p for _, p in char_probs) / len(char_probs) if char_probs else 0.0
                     )
                     tracker.update(tid, char_probs, all_conf)
                     tracker.update_plate_img(tid, plate_crop, char_probs)
                     tracker.update_vehicle_img(tid, vehicle_crop, avg_conf)
 
                     if tracker.plate_changed(tid):
-                        emit({
-                            "type":        "vehicle",
-                            "id":          tid,
-                            "cls":         tracker._cls.get(tid, ""),
-                            "plate":       tracker.display_text(tid),
-                            "chars":       tracker.chars_json(tid),
-                            "done":        tracker._done.get(tid, False),
-                            "plate_b64":   tracker.plate_b64(tid),
-                            "vehicle_b64": tracker.vehicle_b64(tid),
-                            "ocr_frames":  tracker.ocr_frames(tid),
-                        })
+                        emit(
+                            {
+                                "type": "vehicle",
+                                "id": tid,
+                                "cls": tracker._cls.get(tid, ""),
+                                "plate": tracker.display_text(tid),
+                                "chars": tracker.chars_json(tid),
+                                "done": tracker._done.get(tid, False),
+                                "plate_b64": tracker.plate_b64(tid),
+                                "vehicle_b64": tracker.vehicle_b64(tid),
+                                "ocr_frames": tracker.ocr_frames(tid),
+                            }
+                        )
 
             # ── Annotated frame for live display ──────────────────────────────
-            emit({
-                "type": "frame",
-                "b64":  _encode_frame(_draw_boxes(frame, tracked, tracker, active_tids)),
-            })
+            emit(
+                {
+                    "type": "frame",
+                    "b64": _encode_frame(_draw_boxes(frame, tracked, tracker, active_tids)),
+                }
+            )
 
             if frame_idx % 90 == 0:
                 gc.collect()
@@ -245,27 +251,29 @@ def run_job(
         # ── Final snapshot ────────────────────────────────────────────────────
         vehicles_for_db = []
         for tid in sorted(tracker._best):
-            emit({
-                "type":        "vehicle",
-                "id":          tid,
-                "cls":         tracker._cls.get(tid, ""),
-                "plate":       tracker.display_text(tid),
-                "chars":       tracker.chars_json(tid),
-                "done":        tracker._done.get(tid, False),
-                "plate_b64":   tracker.plate_b64(tid),
-                "vehicle_b64": tracker.vehicle_b64(tid),
-                "ocr_frames":  tracker.ocr_frames(tid),
-                "confidence":  float(tracker._vehicle_img_conf.get(tid, 0)),
-                "final":       True,
-            })
-            
+            emit(
+                {
+                    "type": "vehicle",
+                    "id": tid,
+                    "cls": tracker._cls.get(tid, ""),
+                    "plate": tracker.display_text(tid),
+                    "chars": tracker.chars_json(tid),
+                    "done": tracker._done.get(tid, False),
+                    "plate_b64": tracker.plate_b64(tid),
+                    "vehicle_b64": tracker.vehicle_b64(tid),
+                    "ocr_frames": tracker.ocr_frames(tid),
+                    "confidence": float(tracker._vehicle_img_conf.get(tid, 0)),
+                    "final": True,
+                }
+            )
+
             # # Prepare bytes for DB storage
             # p_img = tracker._plate_img.get(tid)
             # v_img = tracker._vehicle_img.get(tid)
-            
+
             # p_bytes = cv2.imencode(".jpg", p_img, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes() if p_img is not None else None
             # v_bytes = cv2.imencode(".jpg", v_img, [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes() if v_img is not None else None
-            
+
             # vehicles_for_db.append({
             #     "tid": tid,
             #     "cls": tracker._cls.get(tid, ""),
@@ -287,6 +295,7 @@ def run_job(
 
     except Exception as exc:
         import traceback
+
         emit({"type": "error", "message": str(exc), "detail": traceback.format_exc()})
 
     finally:

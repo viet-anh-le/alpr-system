@@ -57,7 +57,7 @@ SMALL_LPR_CKPT_PATH = ROOT / os.environ.get(
 )
 SMALL_LPR_CTC_CKPT_PATH = ROOT / os.environ.get(
     "SMALL_LPR_CTC_CKPT_PATH",
-    "weights/ocr/small_lpr_ctc/ctc_20260608_201842/small_lpr_ctc-epoch=050-val_acc=0.9279.ckpt",
+    "weights/ocr/small_lpr_ctc/ctc_20260609_155238/small_lpr_ctc-epoch=055-val_acc=0.9358.ckpt",
 )
 SMALL_LPR_NAR_CKPT_PATH = ROOT / os.environ.get(
     "SMALL_LPR_NAR_CKPT_PATH",
@@ -70,6 +70,10 @@ PARSEQ_OCR_CKPT_PATH = ROOT / os.environ.get(
 YOLOV5_CHAR_CKPT_PATH = ROOT / os.environ.get(
     "YOLOV5_CHAR_CKPT_PATH",
     "references/Character-Time-series-Matching/Vietnamese/char.pt",
+)
+YOLOV5_OBJECT_CKPT_PATH = ROOT / os.environ.get(
+    "YOLOV5_OBJECT_CKPT_PATH",
+    "references/Character-Time-series-Matching/Vietnamese/object.pt",
 )
 PARSEQ_IMAGE_W = int(os.environ.get("PARSEQ_IMAGE_W", "128"))
 PARSEQ_IMAGE_H = int(os.environ.get("PARSEQ_IMAGE_H", "32"))

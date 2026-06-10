@@ -1,6 +1,6 @@
 """incident_analyzer — orchestrates a single mark→analysis job.
 
-Wraps pipeline_core.process_frames, translates its event types into
+Wraps the async ALPR pipeline, translates its event types into
 incident_* events so the SSE consumer can route them to the right card,
 and persists the result to the `incidents` MongoDB collection.
 """
@@ -15,9 +15,10 @@ from typing import Literal
 
 import cv2
 
+from .config import ALPR_DEBUG_TIMINGS
 from .frame_source import FrameSource
 from .models import ModelBundle
-from .pipeline_core import process_frames
+from .pipeline_async import process_frames_async as process_frames
 
 logger = logging.getLogger(__name__)
 
@@ -162,15 +163,35 @@ def run_incident(
         emit_raw(out)
 
     try:
-        summary = process_frames(
-            source,
-            emit=emit_translated,
-            models=models,
-            session_id="",   # we persist via _persist_incident, not _record_save
-            loop=None,
-            ocr_backend=ocr_backend,
-        )
+        timings: dict[str, float] | None = {} if ALPR_DEBUG_TIMINGS else None
+        if ocr_backend == "vietnamese_yolov5":
+            from .pipeline_yolov5_vietnamese import process_frames_yolov5_vietnamese
+            summary = process_frames_yolov5_vietnamese(
+                source,
+                emit=emit_translated,
+                models=models,
+                session_id="",
+                loop=None,
+                timings=timings,
+            )
+        else:
+            summary = process_frames(
+                source,
+                emit=emit_translated,
+                models=models,
+                session_id="",   # we persist via _persist_incident, not _record_save
+                loop=None,
+                timings=timings,
+                ocr_backend=ocr_backend,
+            )
         dur_ms = int((time.monotonic() - started) * 1000)
+        if timings is not None:
+            logger.info(
+                "Incident timings incident=%s source=%s %s",
+                incident_id,
+                source_type,
+                {key: round(value, 4) for key, value in sorted(timings.items())},
+            )
         _persist_incident(
             incident_id=incident_id,
             session_id=session_id,
