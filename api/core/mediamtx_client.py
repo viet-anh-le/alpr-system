@@ -12,7 +12,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_API_URL = "http://mediamtx:9997"
+_DEFAULT_API_URL = "http://localhost:9997"
 _API_URL = os.environ.get("MEDIAMTX_API_URL", _DEFAULT_API_URL)
 _TIMEOUT = httpx.Timeout(5.0)
 

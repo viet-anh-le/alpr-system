@@ -51,7 +51,7 @@ _TOKEN_REGEX = {
 
 
 def _template_to_normalized_regex(pattern: str) -> str:
-    normalized_pattern = pattern.replace("[SEP]", "-").replace(".", "")
+    normalized_pattern = pattern.replace("[SEP]", " ").replace(".", "")
     return "".join(_TOKEN_REGEX.get(token, re.escape(token)) for token in normalized_pattern)
 
 
@@ -86,8 +86,9 @@ def mean_confidence(char_probs: list[tuple[str, float]]) -> float:
 
 
 def normalize_plate_text(text: str) -> str:
-    compact = "".join(text.strip().upper().split())
-    return compact.replace("[SEP]", "-").replace(".", "")
+    compact = " ".join(text.strip().upper().split())
+    with_sep = compact.replace("[SEP]", " ").replace(".", "")
+    return " ".join(with_sep.split())
 
 
 def is_vn_plate_text(text: str) -> bool:

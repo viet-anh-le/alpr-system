@@ -1,0 +1,24 @@
+[
+  {
+    "type": "progress",
+    "frame": 10,
+    "total": 30,
+    "pct": 33.3
+  },
+  {
+    "type": "progress",
+    "frame": 20,
+    "total": 30,
+    "pct": 66.7
+  },
+  {
+    "type": "progress",
+    "frame": 30,
+    "total": 30,
+    "pct": 100.0
+  },
+  {
+    "type": "complete",
+    "total_vehicles": 0
+  }
+]

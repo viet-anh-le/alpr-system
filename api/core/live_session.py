@@ -20,7 +20,7 @@ from . import mediamtx_client
 
 logger = logging.getLogger(__name__)
 
-_INTERNAL_RTSP_BASE = os.environ.get("MEDIAMTX_INTERNAL_RTSP_BASE", "rtsp://mediamtx:8554")
+_INTERNAL_RTSP_BASE = os.environ.get("MEDIAMTX_INTERNAL_RTSP_BASE", "rtsp://localhost:8554")
 _BUFFER_SECONDS = 10.0
 _RECONNECT_RETRIES = 3
 _RECONNECT_BACKOFF_SEC = 1.0

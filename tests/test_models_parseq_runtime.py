@@ -1,0 +1,259 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+import torch
+
+
+@pytest.mark.unit
+def test_preprocess_plate_parseq_backend_uses_parseq_image_contract() -> None:
+    from api.core.models import preprocess_plate
+
+    crop = np.full((24, 96, 3), 127, dtype=np.uint8)
+    tensor = preprocess_plate(crop, backend="parseq", image_width=128, image_height=32)
+
+    assert tuple(tensor.shape) == (3, 32, 128)
+    assert tensor.dtype == torch.float32
+
+
+@pytest.mark.unit
+def test_preprocess_plate_for_model_uses_parseq_checkpoint_dimensions() -> None:
+    from api.core.models import ParseqOcrModel, preprocess_plate_for_model
+
+    crop = np.full((24, 96, 3), 127, dtype=np.uint8)
+    wrapper = ParseqOcrModel(model=torch.nn.Identity(), image_width=160, image_height=40)
+    tensor = preprocess_plate_for_model(wrapper, crop)
+
+    assert tuple(tensor.shape) == (3, 40, 160)
+
+
+@pytest.mark.unit
+def test_parseq_label_probs_collapse_sep_to_single_ocr_token() -> None:
+    from api.core.models import parseq_label_to_char_probs
+
+    chars = parseq_label_to_char_probs(
+        "59-U1[SEP]027.95",
+        torch.full((len("59-U1[SEP]027.95"),), 0.81),
+    )
+
+    assert [char for char, _ in chars] == [
+        "5",
+        "9",
+        "-",
+        "U",
+        "1",
+        "[SEP]",
+        "0",
+        "2",
+        "7",
+        ".",
+        "9",
+        "5",
+    ]
+    assert chars[5] == ("[SEP]", pytest.approx(0.81))
+
+
+@pytest.mark.unit
+def test_ocr_batch_dispatches_parseq_wrapper_and_returns_pipeline_contract() -> None:
+    from api.core.models import ParseqOcrModel, ocr_batch
+
+    class FakeTokenizer:
+        def decode(self, _probs):
+            labels = ["59-U1[SEP]027.95", "30G-51827"]
+            batch_probs = [
+                torch.full((len(labels[0]),), 0.88),
+                torch.full((len(labels[1]),), 0.94),
+            ]
+            return labels, batch_probs
+
+    class FakeParseq(torch.nn.Module):
+        tokenizer = FakeTokenizer()
+
+        def forward(self, images):
+            return torch.zeros((images.shape[0], 25, 40), dtype=torch.float32)
+
+    wrapper = ParseqOcrModel(model=FakeParseq(), image_width=128, image_height=32)
+    results = ocr_batch(wrapper, torch.zeros((2, 3, 32, 128)), torch.device("cpu"))
+
+    assert [[char for char, _ in chars] for chars, _ in results] == [
+        ["5", "9", "-", "U", "1", "[SEP]", "0", "2", "7", ".", "9", "5"],
+        list("30G-51827"),
+    ]
+    assert [all_confident for _, all_confident in results] == [False, True]
+
+
+@pytest.mark.unit
+def test_normalize_ocr_backend_accepts_small_lpr_nar_aliases() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    assert normalize_ocr_backend("small_lpr_nar") == "smalllpr_nar"
+    assert normalize_ocr_backend("smalllpr_nar") == "smalllpr_nar"
+    assert normalize_ocr_backend("nar") == "smalllpr_nar"
+
+
+@pytest.mark.unit
+def test_normalize_ocr_backend_accepts_small_lpr_ctc_aliases() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    assert normalize_ocr_backend("small_lpr_ctc") == "smalllpr_ctc"
+    assert normalize_ocr_backend("smalllpr_ctc") == "smalllpr_ctc"
+    assert normalize_ocr_backend("ctc") == "smalllpr_ctc"
+
+
+@pytest.mark.unit
+def test_ocr_batch_dispatches_small_lpr_nar_wrapper_and_skips_pad_tokens() -> None:
+    from api.core.models import SmallLprNarOcrModel, ocr_batch
+
+    chars = ["<pad>", "3", "0", "G", "-", "5", "1", "8", "2", "7", "[SEP]"]
+
+    class FakeNar(torch.nn.Module):
+        def forward(self, images):
+            logits = torch.full((images.shape[0], 12, len(chars)), -10.0)
+            sequences = [
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0],
+                [1, 2, 3, 10, 5, 6, 7, 8, 9, 0, 0, 0],
+            ]
+            for batch_idx, sequence in enumerate(sequences):
+                for pos, token_id in enumerate(sequence):
+                    logits[batch_idx, pos, token_id] = 10.0
+            return logits
+
+    wrapper = SmallLprNarOcrModel(model=FakeNar(), chars=chars, max_len=12)
+    results = ocr_batch(wrapper, torch.zeros((2, 3, 48, 96)), torch.device("cpu"))
+
+    assert [[char for char, _ in char_probs] for char_probs, _ in results] == [
+        list("30G-51827"),
+        ["3", "0", "G", "[SEP]", "5", "1", "8", "2", "7"],
+    ]
+    assert [all_confident for _, all_confident in results] == [True, True]
+
+
+@pytest.mark.unit
+def test_ocr_batch_dispatches_small_lpr_ctc_wrapper_and_collapses_repeats() -> None:
+    from api.core.models import SmallLprCtcOcrModel, ocr_batch
+
+    chars = ["<blank>", "3", "0", "G", "-", "5", "1", "8", "2", "7", "[SEP]"]
+
+    class FakeCtc(torch.nn.Module):
+        def forward(self, images):
+            logits = torch.full((images.shape[0], 14, len(chars)), -10.0)
+            sequences = [
+                [0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0],
+                [1, 2, 0, 3, 10, 10, 0, 5, 6, 7, 8, 9, 0, 0],
+            ]
+            for batch_idx, sequence in enumerate(sequences):
+                for pos, token_id in enumerate(sequence):
+                    logits[batch_idx, pos, token_id] = 10.0
+            return logits
+
+    wrapper = SmallLprCtcOcrModel(model=FakeCtc(), chars=chars)
+    results = ocr_batch(wrapper, torch.zeros((2, 3, 48, 96)), torch.device("cpu"))
+
+    assert [[char for char, _ in char_probs] for char_probs, _ in results] == [
+        list("30G-51827"),
+        ["3", "0", "G", "[SEP]", "5", "1", "8", "2", "7"],
+    ]
+    assert [all_confident for _, all_confident in results] == [True, True]
+
+
+@pytest.mark.unit
+def test_ocr_batch_handles_ctc_wrapper_loaded_from_core_namespace(monkeypatch) -> None:
+    """Monitor incidents must not fall back to autoregressive SmallLPR OCR.
+
+    The FastAPI entrypoint used to load models through ``core.models`` while
+    incident analysis imported OCR helpers through ``api.core.models``. That
+    made the CTC wrapper fail the ``isinstance`` dispatch and call ``.encode``.
+    """
+    import importlib
+
+    import api.core.models as api_models
+
+    api_dir = str(api_models.ROOT / "api")
+    monkeypatch.syspath_prepend(api_dir)
+    core_models = importlib.import_module("core.models")
+
+    chars = ["<blank>", "3", "0"]
+
+    class FakeCtc(torch.nn.Module):
+        def forward(self, images):
+            logits = torch.full((images.shape[0], 4, len(chars)), -10.0)
+            for pos, token_id in enumerate([1, 1, 0, 2]):
+                logits[:, pos, token_id] = 10.0
+            return logits
+
+    wrapper = core_models.SmallLprCtcOcrModel(model=FakeCtc(), chars=chars)
+
+    results = api_models.ocr_batch(wrapper, torch.zeros((1, 3, 48, 96)), torch.device("cpu"))
+
+    assert [[char for char, _ in char_probs] for char_probs, _ in results] == [["3", "0"]]
+
+
+@pytest.mark.unit
+def test_load_models_uses_small_lpr_ctc_backend_by_default(monkeypatch) -> None:
+    import api.core.models as models
+
+    monkeypatch.setattr(models.torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(models, "YOLO", lambda path: SimpleNamespace(path=str(path)))
+    monkeypatch.setattr(
+        models,
+        "VehicleTracker",
+        lambda **kwargs: SimpleNamespace(kind="tracker", kwargs=kwargs),
+    )
+    monkeypatch.setattr(
+        models.PlateQualityRouter,
+        "from_env",
+        classmethod(lambda cls, device=None: SimpleNamespace(kind="router", device=device)),
+    )
+
+    loaded: dict[str, object] = {}
+
+    def fake_load_ctc(path, *, device):
+        loaded["path"] = path
+        loaded["device"] = device
+        return models.SmallLprCtcOcrModel(model=torch.nn.Identity(), chars=["<blank>", "A"])
+
+    monkeypatch.setattr(models, "load_small_lpr_ctc_model", fake_load_ctc)
+
+    bundle = models.load_models()
+
+    assert isinstance(bundle.ocr, models.SmallLprCtcOcrModel)
+    assert bundle.ocr_backend == "smalllpr_ctc"
+    assert str(loaded["path"]).endswith(
+        "weights/ocr/small_lpr_ctc/ctc_20260608_201842/small_lpr_ctc-epoch=050-val_acc=0.9279.ckpt"
+    )
+
+
+@pytest.mark.unit
+def test_load_models_uses_parseq_backend_when_configured(monkeypatch) -> None:
+    import api.core.models as models
+
+    monkeypatch.setattr(models, "OCR_BACKEND", "parseq")
+    monkeypatch.setattr(models.torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(models, "YOLO", lambda path: SimpleNamespace(path=str(path)))
+    monkeypatch.setattr(
+        models,
+        "VehicleTracker",
+        lambda **kwargs: SimpleNamespace(kind="tracker", kwargs=kwargs),
+    )
+    monkeypatch.setattr(
+        models.PlateQualityRouter,
+        "from_env",
+        classmethod(lambda cls, device=None: SimpleNamespace(kind="router", device=device)),
+    )
+
+    loaded: dict[str, object] = {}
+
+    def fake_load_parseq(path, *, device):
+        loaded["path"] = path
+        loaded["device"] = device
+        return models.ParseqOcrModel(model=torch.nn.Identity(), image_width=128, image_height=32)
+
+    monkeypatch.setattr(models, "load_parseq_ocr_model", fake_load_parseq)
+
+    bundle = models.load_models()
+
+    assert isinstance(bundle.ocr, models.ParseqOcrModel)
+    assert bundle.ocr_backend == "parseq"
+    assert str(loaded["path"]).endswith("weights/ocr/parseq/parseq_vn_plate_best.pt")
