@@ -17,8 +17,19 @@ from .tracker import WebTrackletManager
 
 
 @dataclass(frozen=True)
+class PlateMatch:
+    recognition_id: int
+    vehicle_track_id: int
+    plate_track_id: int | None
+    plate_crop: np.ndarray
+    vehicle_crop: np.ndarray
+
+
+@dataclass(frozen=True)
 class RouteOcrJob:
-    tid: int
+    recognition_id: int
+    vehicle_track_id: int
+    plate_track_id: int | None
     plate_crop: np.ndarray
     vehicle_crop: np.ndarray
     candidate_crop: np.ndarray
@@ -26,9 +37,27 @@ class RouteOcrJob:
     frame_idx: int
     quality: PlateQualityResult
 
+    @property
+    def tid(self) -> int:
+        return self.recognition_id
+
+
+def _coerce_match(match: PlateMatch | tuple[int, np.ndarray, np.ndarray]) -> PlateMatch:
+    if isinstance(match, PlateMatch):
+        return match
+
+    tid, plate_crop, vehicle_crop = match
+    return PlateMatch(
+        recognition_id=int(tid),
+        vehicle_track_id=int(tid),
+        plate_track_id=None,
+        plate_crop=plate_crop,
+        vehicle_crop=vehicle_crop,
+    )
+
 
 def prepare_route_ocr_jobs(
-    matched: list[tuple[int, np.ndarray, np.ndarray]],
+    matched: list[PlateMatch | tuple[int, np.ndarray, np.ndarray]],
     tracker: WebTrackletManager,
     router: PlateQualityRouter,
     frame_idx: int,
@@ -36,19 +65,22 @@ def prepare_route_ocr_jobs(
     jobs: list[RouteOcrJob] = []
     active_tids: set[int] = set()
 
-    for tid, plate_crop, vehicle_crop in matched:
+    for raw_match in matched:
+        match = _coerce_match(raw_match)
+        tid = match.recognition_id
         if not tracker.should_ocr(tid):
             continue
 
-        quality = router.route(plate_crop)
-        tracker.update_vehicle_img(tid, vehicle_crop, quality.quality_numeric)
+        tracker.register_recognition(tid, match.vehicle_track_id, match.plate_track_id)
+        quality = router.route(match.plate_crop)
+        tracker.update_vehicle_img(tid, match.vehicle_crop, quality.quality_numeric)
         active_tids.add(tid)
 
         if quality.route != "direct":
             candidate_method = "unreadable" if quality.route == "unreadable_wait" else "tracklet_fusion"
             tracker.buffer_crop(
                 tid,
-                plate_crop,
+                match.plate_crop,
                 quality.quality_numeric,
                 0.10,
                 [],
@@ -60,10 +92,12 @@ def prepare_route_ocr_jobs(
             continue
 
         jobs.append(RouteOcrJob(
-            tid=tid,
-            plate_crop=plate_crop,
-            vehicle_crop=vehicle_crop,
-            candidate_crop=plate_crop,
+            recognition_id=tid,
+            vehicle_track_id=match.vehicle_track_id,
+            plate_track_id=match.plate_track_id,
+            plate_crop=match.plate_crop,
+            vehicle_crop=match.vehicle_crop,
+            candidate_crop=match.plate_crop,
             candidate_method="original",
             frame_idx=frame_idx,
             quality=quality,
@@ -81,6 +115,7 @@ def consume_route_ocr_results(
     session_id: str = "",
     loop: asyncio.AbstractEventLoop | None = None,
     record_save: Callable | None = None,
+    user_id: str | None = None,
 ) -> None:
     grouped: dict[tuple[int, int], list[tuple[RouteOcrJob, OcrCandidateResult]]] = defaultdict(list)
     for job, (char_probs, _) in zip(jobs, ocr_results):
@@ -99,8 +134,8 @@ def consume_route_ocr_results(
         best = rerank_ocr_candidates(candidates)
         if best is None:
             continue
-        first_job = items[0][0]
-        quality = first_job.quality
+        best_job = next(job for job, candidate in items if candidate is best)
+        quality = best_job.quality
 
         if (
             quality.route == "direct"
@@ -110,11 +145,11 @@ def consume_route_ocr_results(
         ):
             tracker.buffer_crop(
                 tid,
-                first_job.plate_crop,
+                best_job.plate_crop,
                 quality.quality_numeric,
                 best.confidence,
                 best.char_probs,
-                first_job.frame_idx,
+                best_job.frame_idx,
                 candidate_method=best.method,
                 route=quality.route,
                 router_result=quality.as_event_fields(),
@@ -122,13 +157,14 @@ def consume_route_ocr_results(
             _accept_single_frame(
                 tid,
                 tracker,
-                first_job.plate_crop,
+                best_job,
                 best,
                 quality,
                 emit,
                 session_id=session_id,
                 loop=loop,
                 record_save=record_save,
+                user_id=user_id,
             )
             continue
 
@@ -151,7 +187,7 @@ def consume_route_ocr_results(
 def _accept_single_frame(
     tid: int,
     tracker: WebTrackletManager,
-    plate_crop: np.ndarray,
+    job: RouteOcrJob,
     best: OcrCandidateResult,
     quality: PlateQualityResult,
     emit: Callable[[dict], None],
@@ -159,18 +195,19 @@ def _accept_single_frame(
     session_id: str,
     loop: asyncio.AbstractEventLoop | None,
     record_save: Callable | None,
+    user_id: str | None,
 ) -> None:
     tracker._best[tid] = best.char_probs
     tracker._ocr_count[tid] = max(tracker._ocr_count.get(tid, 0), 1)
     tracker._done[tid] = True
-    tracker.update_plate_img(tid, plate_crop, best.char_probs)
+    tracker.update_plate_img(tid, job.plate_crop, best.char_probs)
 
     vote_summary = {best.text: 1} if best.text else {}
     if tracker.plate_changed(tid):
         emit(
             {
                 "type": "vehicle",
-                "id": tid,
+                **tracker.identity_fields(tid),
                 "cls": tracker._cls.get(tid, ""),
                 "plate": tracker.display_text(tid),
                 "chars": tracker.chars_json(tid),
@@ -188,4 +225,13 @@ def _accept_single_frame(
         )
 
     if session_id and loop is not None and record_save is not None:
-        record_save(session_id, tid, tracker, best.char_probs, "single_frame_direct", vote_summary, loop)
+        record_save(
+            session_id,
+            tid,
+            tracker,
+            best.char_probs,
+            "single_frame_direct",
+            vote_summary,
+            loop,
+            user_id,
+        )

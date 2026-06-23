@@ -79,6 +79,8 @@ def _persist_incident(
             )
             vehicle_docs.append(IncidentVehicle(
                 track_id=int(v["id"]),
+                vehicle_track_id=v.get("vehicle_track_id"),
+                plate_track_id=v.get("plate_track_id"),
                 plate_text=v["plate"],
                 plate_text_confidence=round(conf, 4),
                 chars=[(c, float(p)) for c, p in v.get("chars", [])],

@@ -18,15 +18,17 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.core.config import ALPR_PREVIEW_FPS, MONGODB_DB_NAME, MONGODB_URI
+from api.auth import get_current_user, get_current_user_with_csrf, router as auth_router
+from api.core.config import ALPR_PREVIEW_FPS, MAX_UPLOAD_MB, MONGODB_DB_NAME, MONGODB_URI, WEB_ORIGIN
 from api.core.models import ModelBundle, load_models
 from api.core.pipeline import run_job
 from api.core.preprocessing import normalize_preprocess_mode
+from api.database.models import User
 from api.database.mongodb import close_db, init_db
 import api.routes_monitor as routes_monitor
 
@@ -34,8 +36,10 @@ logger = logging.getLogger(__name__)
 
 _jobs:         dict[str, asyncio.Queue] = {}   # SSE event queues
 _mjpeg_queues: dict[str, asyncio.Queue] = {}   # MJPEG frame queues
+_job_owners:   dict[str, str] = {}              # job_id → user_id
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".webm", ".mov", ".mkv"}
 
 
 @asynccontextmanager
@@ -57,9 +61,11 @@ async def lifespan(app: FastAPI):
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = FastAPI(title="ALPR Web", lifespan=lifespan)
+_cors_origins = [origin.strip() for origin in WEB_ORIGIN.split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -67,12 +73,43 @@ app.add_middleware(
 
 # ── API routes ────────────────────────────────────────────────────────────────
 
+def _serialize_model(model) -> dict:
+    return model.model_dump(mode="json", by_alias=True)
+
+
+def _user_id(user: User) -> str:
+    if user.id is None:
+        raise HTTPException(status_code=401, detail="Invalid user")
+    return str(user.id)
+
+
+def _validate_video_file(file: UploadFile, data: bytes) -> str:
+    suffix = Path(file.filename or "video.mp4").suffix.lower() or ".mp4"
+    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Định dạng video không được hỗ trợ")
+
+    content_type = (file.content_type or "").lower()
+    if content_type and not (
+        content_type.startswith("video/")
+        or content_type in {"application/octet-stream", "application/x-matroska"}
+    ):
+        raise HTTPException(status_code=400, detail="File upload phải là video")
+
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    if len(data) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB")
+    if not data:
+        raise HTTPException(status_code=400, detail="Video rỗng")
+    return suffix
+
+
 @app.post("/upload")
 async def upload(
     request: Request,
     file: UploadFile = File(...),
     preprocess_mode: str = Form("none"),
     ocr_backend: str = Form("default"),
+    current_user: User = Depends(get_current_user_with_csrf),
 ) -> dict:
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
@@ -83,30 +120,37 @@ async def upload(
     queue       = asyncio.Queue()
     mjpeg_queue = asyncio.Queue(maxsize=60) if ALPR_PREVIEW_FPS > 0 else None
     _jobs[job_id]         = queue
+    _job_owners[job_id]   = _user_id(current_user)
     if mjpeg_queue is not None:
         _mjpeg_queues[job_id] = mjpeg_queue
 
-    suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
+    file_bytes = await file.read()
+    suffix = _validate_video_file(file, file_bytes)
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-        f.write(await file.read())
+        f.write(file_bytes)
         tmp = f.name
 
     loop = asyncio.get_event_loop()
     loop.run_in_executor(
         None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
-        file.filename or "video.mp4", mjpeg_queue, normalized_mode, ocr_backend
+        file.filename or "video.mp4", mjpeg_queue, normalized_mode, ocr_backend,
+        _user_id(current_user), _job_owners
     )
     return {"job_id": job_id, "preprocess_mode": normalized_mode, "ocr_backend": ocr_backend}
 
 
 @app.get("/records/{job_id}/{track_id}")
-async def get_track_record(job_id: str, track_id: int) -> dict:
-    from api.database.mongodb import get_record_by_track, is_db_configured
+async def get_track_record(
+    job_id: str,
+    track_id: int,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    from api.database.mongodb import get_record_by_track_for_user, is_db_configured
 
     if not is_db_configured():
         raise HTTPException(status_code=503, detail="Database not configured")
 
-    record = await get_record_by_track(job_id, track_id)
+    record = await get_record_by_track_for_user(job_id, track_id, _user_id(current_user))
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
 
@@ -114,9 +158,11 @@ async def get_track_record(job_id: str, track_id: int) -> dict:
 
 
 @app.get("/stream/{job_id}")
-async def stream(job_id: str) -> StreamingResponse:
+async def stream(job_id: str, current_user: User = Depends(get_current_user)) -> StreamingResponse:
     queue = _jobs.get(job_id)
     if queue is None:
+        return HTMLResponse("Job not found", status_code=404)
+    if _job_owners.get(job_id) != _user_id(current_user):
         return HTMLResponse("Job not found", status_code=404)
 
     async def gen():
@@ -137,9 +183,11 @@ async def stream(job_id: str) -> StreamingResponse:
 
 
 @app.get("/stream/{job_id}/mjpeg")
-async def stream_mjpeg(job_id: str) -> StreamingResponse:
+async def stream_mjpeg(job_id: str, current_user: User = Depends(get_current_user)) -> StreamingResponse:
     mjpeg_queue = _mjpeg_queues.get(job_id)
     if mjpeg_queue is None:
+        return HTMLResponse("Job not found", status_code=404)
+    if _job_owners.get(job_id) != _user_id(current_user):
         return HTMLResponse("Job not found", status_code=404)
 
     async def gen():
@@ -165,6 +213,54 @@ async def stream_mjpeg(job_id: str) -> StreamingResponse:
         media_type="multipart/x-mixed-replace; boundary=frame",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Auth and dashboard data routes ───────────────────────────────────────────
+app.include_router(auth_router)
+
+
+@app.get("/sessions")
+async def list_sessions(
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    from api.database.mongodb import is_db_configured, list_sessions_for_user
+
+    if not is_db_configured():
+        raise HTTPException(status_code=503, detail="Database not configured")
+    items = await list_sessions_for_user(_user_id(current_user), limit=limit)
+    return {"items": [_serialize_model(item) for item in items]}
+
+
+@app.get("/sessions/{session_id}")
+async def get_session(session_id: str, current_user: User = Depends(get_current_user)) -> dict:
+    from api.database.mongodb import get_session_for_user, is_db_configured
+
+    if not is_db_configured():
+        raise HTTPException(status_code=503, detail="Database not configured")
+    session = await get_session_for_user(session_id, _user_id(current_user))
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return _serialize_model(session)
+
+
+@app.get("/sessions/{session_id}/records")
+async def get_session_records(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    from api.database.mongodb import (
+        get_records_for_session_for_user,
+        get_session_for_user,
+        is_db_configured,
+    )
+
+    if not is_db_configured():
+        raise HTTPException(status_code=503, detail="Database not configured")
+    if await get_session_for_user(session_id, _user_id(current_user)) is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    records = await get_records_for_session_for_user(session_id, _user_id(current_user))
+    return {"items": [_serialize_model(record) for record in records]}
 
 
 # ── Mount monitor router ─────────────────────────────────────────────────────

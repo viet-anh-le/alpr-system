@@ -39,7 +39,14 @@ logger = logging.getLogger(__name__)
 # ── MongoDB helpers (called from thread-pool via run_coroutine_threadsafe) ────
 
 
-def _session_create(session_id: str, filename: str, loop: asyncio.AbstractEventLoop) -> None:
+def _session_create(
+    session_id: str,
+    filename: str,
+    loop: asyncio.AbstractEventLoop,
+    user_id: str | None = None,
+    preprocess_mode: str = "none",
+    ocr_backend: str = "default",
+) -> None:
     """Create (or reset) the MongoDB session document for this job."""
     try:
         from api.database.mongodb import is_db_configured, upsert_session
@@ -49,8 +56,11 @@ def _session_create(session_id: str, filename: str, loop: asyncio.AbstractEventL
             return
         session = RecognitionSession(
             session_id=session_id,
+            user_id=user_id,
             source_filename=filename,
             status="processing",
+            preprocess_mode=preprocess_mode,
+            ocr_backend=ocr_backend,
         )
         asyncio.run_coroutine_threadsafe(upsert_session(session), loop).result(timeout=5)
     except Exception:
@@ -77,6 +87,7 @@ def _record_save(
     ocr_method: str,
     vote_summary: dict[str, int],
     loop: asyncio.AbstractEventLoop,
+    user_id: str | None = None,
 ) -> None:
     """
     Build a RecognitionRecord from finalized tracker state and fire-and-forget
@@ -96,28 +107,33 @@ def _record_save(
         if not buf or not buf.crops:
             return
 
+        entries = buf.top_k_entries(k=buf.max_size)
+        if not entries:
+            return
+
         # Upload every buffered crop and build track_buffer
         track_frames: list[DBFrame] = []
-        for i, (crop, q_score, f_idx) in enumerate(
-            zip(buf.crops, buf.quality_scores, buf.frame_indices)
-        ):
-            _, jpg = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        for i, entry in enumerate(entries):
+            _, jpg = cv2.imencode(".jpg", entry.crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
             url = _storage_upload(
                 "evidence", f"{session_id}/track_{tid}_frame_{i}.jpg", bytes(jpg)
             )
             track_frames.append(DBFrame(
-                frame_index=int(f_idx),
-                quality_score=round(float(q_score), 4),
+                frame_index=int(entry.frame_idx),
+                quality_score=round(float(entry.quality_score), 4),
                 image_url=url,
+                ocr_text=chars_to_display_text(entry.char_probs) if entry.char_probs else None,
+                ocr_confidence=round(float(entry.ocr_conf), 4),
             ))
 
         if not track_frames:
             return
 
-        # Best-plate frame: use the crop stored by update_plate_img (highest conf)
+        best_entry = entries[0]
+
+        # Best-plate frame: use the crop stored by update_plate_img, and the
+        # frame id selected by the same combined score used by TrackBuffer.
         best_img = tracker._plate_img.get(tid)
-        best_q = tracker._plate_img_conf.get(tid, 0.0)
-        best_f_idx = max(track_frames, key=lambda f: f.quality_score).frame_index
 
         best_url: str | None = None
         if best_img is not None:
@@ -125,9 +141,11 @@ def _record_save(
             best_url = _storage_upload("evidence", f"{session_id}/plate_{tid}.jpg", bytes(jpg))
 
         best_plate_frame = DBFrame(
-            frame_index=best_f_idx,
-            quality_score=round(float(best_q), 4),
+            frame_index=int(best_entry.frame_idx),
+            quality_score=round(float(best_entry.quality_score), 4),
             image_url=best_url,
+            ocr_text=chars_to_display_text(best_entry.char_probs) if best_entry.char_probs else None,
+            ocr_confidence=round(float(best_entry.ocr_conf), 4),
         )
 
         # Vehicle thumbnail
@@ -142,7 +160,10 @@ def _record_save(
 
         record = DBRecord(
             session_id=session_id,
+            user_id=user_id,
             track_id=int(tid),
+            vehicle_track_id=tracker.vehicle_track_id(tid),
+            plate_track_id=tracker.plate_track_id(tid),
             vehicle_class=tracker._cls.get(tid, "vehicle"),
             best_plate_frame=best_plate_frame,
             track_buffer=track_frames,
@@ -170,6 +191,7 @@ def _record_save_later(
     ocr_method: str,
     vote_summary: dict[str, int],
     loop: asyncio.AbstractEventLoop,
+    user_id: str | None = None,
 ) -> None:
     """Schedule evidence persistence without blocking the inference worker."""
     try:
@@ -183,6 +205,7 @@ def _record_save_later(
             ocr_method,
             vote_summary,
             loop,
+            user_id,
         )
     except RuntimeError:
         logger.exception("MongoDB: failed to schedule save for track %d", tid)
@@ -202,6 +225,8 @@ def run_job(
     mjpeg_queue: asyncio.Queue | None = None,
     preprocess_mode: str = "none",
     ocr_backend: str = "default",
+    user_id: str | None = None,
+    job_owners: dict | None = None,
 ) -> None:
     """Legacy upload-and-process-whole-video entry point. Thin wrapper around
     pipeline_core.process_frames; owns video file lifecycle + session row."""
@@ -214,7 +239,8 @@ def run_job(
     def emit(event: dict) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, event)
 
-    _session_create(job_id, filename, loop)
+    normalized_mode = "none"
+    _session_create(job_id, filename, loop, user_id, preprocess_mode, ocr_backend)
 
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
@@ -237,6 +263,7 @@ def run_job(
                 mjpeg_queue=mjpeg_queue,
                 record_save=_record_save_later,
                 timings=timings,
+                user_id=user_id,
             )
         else:
             summary = process_frames(
@@ -249,6 +276,7 @@ def run_job(
                 record_save=_record_save_later,
                 timings=timings,
                 ocr_backend=ocr_backend,
+                user_id=user_id,
             )
             
         if timings is not None:
@@ -279,3 +307,5 @@ def run_job(
         jobs.pop(job_id, None)
         if mjpeg_queue is not None:
             loop.call_soon_threadsafe(_safe_put, mjpeg_queue, None)  # sentinel
+        if job_owners is not None:
+            job_owners.pop(job_id, None)

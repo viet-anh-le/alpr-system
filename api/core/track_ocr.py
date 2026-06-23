@@ -24,6 +24,7 @@ def finalise_track_ocr(
     loop: asyncio.AbstractEventLoop | None,
     record_save: Callable | None,
     ocr_backend: str = "default",
+    user_id: str | None = None,
 ) -> None:
     buf = tracker._buffers.get(tid)
     if buf is None:
@@ -40,11 +41,13 @@ def finalise_track_ocr(
     ocr_method = "ocr_output_ctm"
 
     if not result.char_probs or not result.is_valid:
+        tracker._done[tid] = True
+        tracker._ocr_count[tid] = max(tracker._ocr_count.get(tid, 0), len(prob_lists))
         _store_best_plate_image(tid, tracker, entries, result.char_probs)
         emit(
             {
                 "type": "rejected_vehicle",
-                "id": tid,
+                **tracker.identity_fields(tid),
                 "cls": tracker._cls.get(tid, ""),
                 "plate": result.text,
                 "chars": [[c, round(p, 3)] for c, p in result.char_probs],
@@ -70,6 +73,7 @@ def finalise_track_ocr(
                 ocr_method,
                 result.vote_summary,
                 loop,
+                user_id,
             )
         return
 
@@ -82,7 +86,7 @@ def finalise_track_ocr(
         emit(
             {
                 "type": "vehicle",
-                "id": tid,
+                **tracker.identity_fields(tid),
                 "cls": tracker._cls.get(tid, ""),
                 "plate": tracker.display_text(tid),
                 "chars": tracker.chars_json(tid),
@@ -101,7 +105,16 @@ def finalise_track_ocr(
         )
 
     if session_id and loop is not None and record_save is not None:
-        record_save(session_id, tid, tracker, result.char_probs, ocr_method, result.vote_summary, loop)
+        record_save(
+            session_id,
+            tid,
+            tracker,
+            result.char_probs,
+            ocr_method,
+            result.vote_summary,
+            loop,
+            user_id,
+        )
 
 
 def _entries_with_deferred_ocr(

@@ -144,7 +144,9 @@ def process_frames_yolov5_vietnamese(
     mjpeg_queue: asyncio.Queue | None = None,
     record_save: Callable | None = None,
     timings: dict[str, float] | None = None,
+    user_id: str | None = None,
 ) -> dict:
+    del record_save, user_id
     total_start = time.perf_counter()
     
     def _add_timing(name: str, started_at: float) -> None:
@@ -383,4 +385,3 @@ def process_frames_yolov5_vietnamese(
         "total_vehicles": len(best_results),
         "processed_frames": processed_seen,
     }
-

@@ -24,9 +24,12 @@ import numpy as np
 from .config import (
     CONF_THRESHOLD,
     LOST_THRESHOLD,
+    MAX_PLATES_PER_VEHICLE,
     MAX_BUFFER,
     MIN_FRAME_VOTES,
     MIN_FRAMES_FOR_OCR,
+    RECOGNITION_SLOT_CENTER_SCALE,
+    RECOGNITION_SLOT_IOU,
     TOP_K_FRAMES,
 )
 from .plate_format import chars_to_display_text
@@ -34,6 +37,54 @@ from .plate_format import chars_to_display_text
 logger = logging.getLogger(__name__)
 
 _VEHICLE_IMG_MAX_W = 320
+
+
+def _coerce_box(box: list[int] | tuple[int, int, int, int] | np.ndarray) -> tuple[float, float, float, float]:
+    x1, y1, x2, y2 = (float(v) for v in box)
+    return x1, y1, x2, y2
+
+
+def _box_area(box: tuple[float, float, float, float]) -> float:
+    x1, y1, x2, y2 = box
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
+
+def _box_iou(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+) -> float:
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    inter = _box_area((max(ax1, bx1), max(ay1, by1), min(ax2, bx2), min(ay2, by2)))
+    union = _box_area(a) + _box_area(b) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _box_center(box: tuple[float, float, float, float]) -> tuple[float, float]:
+    x1, y1, x2, y2 = box
+    return (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+
+def _box_max_dim(box: tuple[float, float, float, float]) -> float:
+    x1, y1, x2, y2 = box
+    return max(1.0, x2 - x1, y2 - y1)
+
+
+def _same_plate_slot(
+    current: tuple[float, float, float, float],
+    previous: tuple[float, float, float, float],
+    *,
+    iou_threshold: float = RECOGNITION_SLOT_IOU,
+    center_scale: float = RECOGNITION_SLOT_CENTER_SCALE,
+) -> bool:
+    if _box_iou(current, previous) >= iou_threshold:
+        return True
+    cx, cy = _box_center(current)
+    px, py = _box_center(previous)
+    dx = cx - px
+    dy = cy - py
+    center_dist = (dx * dx + dy * dy) ** 0.5
+    return center_dist <= center_scale * max(_box_max_dim(current), _box_max_dim(previous))
 
 # ── Vietnamese plate segment patterns ─────────────────────────────────────────
 # Order matters: most-specific first so _parse_plate_segments returns the right fmt.
@@ -226,7 +277,135 @@ class WebTrackletManager:
         self._buffers:    dict[int, TrackBuffer] = {}
         self._lost_count: dict[int, int]          = {}
 
+        # Recognition identity path. One recognition can be a plate sub-track
+        # inside a vehicle track, so the public result id is not necessarily
+        # the raw vehicle tracker id.
+        self._recognition_ids: dict[tuple[int, int | None], int] = {}
+        self._recognition_to_vehicle: dict[int, int] = {}
+        self._recognition_to_plate: dict[int, int | None] = {}
+        self._recognition_plate_boxes: dict[int, tuple[float, float, float, float]] = {}
+        self._next_recognition_id = 1
+
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def recognition_id_for(
+        self,
+        vehicle_track_id: int,
+        plate_track_id: int | None,
+    ) -> int:
+        key = (int(vehicle_track_id), None if plate_track_id is None else int(plate_track_id))
+        if key not in self._recognition_ids:
+            recognition_id = self._next_recognition_id
+            self._next_recognition_id += 1
+            self._recognition_ids[key] = recognition_id
+            self.register_recognition(recognition_id, key[0], key[1])
+        return self._recognition_ids[key]
+
+    def recognition_id_for_plate_detection(
+        self,
+        vehicle_track_id: int,
+        plate_track_id: int | None,
+        plate_box: list[int] | tuple[int, int, int, int] | np.ndarray | None,
+        *,
+        max_plates_per_vehicle: int = MAX_PLATES_PER_VEHICLE,
+    ) -> int | None:
+        """Map a plate detection to a stable recognition slot.
+
+        Plate tracker IDs can churn when detection jitters or the crop is
+        produced from overlapping vehicle regions.  Reuse a recognition when
+        the new plate box lands in an existing slot, and cap unmatched slots per
+        vehicle so noisy frames do not fan out into unbounded OCR jobs/records.
+        """
+        vehicle_track_id = int(vehicle_track_id)
+        plate_track_id = None if plate_track_id is None else int(plate_track_id)
+        key = (vehicle_track_id, plate_track_id)
+        box = _coerce_box(plate_box) if plate_box is not None else None
+
+        if key in self._recognition_ids:
+            recognition_id = self._recognition_ids[key]
+            if box is not None:
+                self._recognition_plate_boxes[recognition_id] = box
+            return recognition_id
+
+        if box is not None:
+            recognition_id = self._recognition_id_for_plate_slot(vehicle_track_id, box)
+            if recognition_id is not None:
+                if plate_track_id is not None:
+                    self._recognition_ids[key] = recognition_id
+                self._recognition_plate_boxes[recognition_id] = box
+                return recognition_id
+
+        existing = self.recognition_ids_for_vehicle(vehicle_track_id)
+        if max_plates_per_vehicle > 0 and len(existing) >= max_plates_per_vehicle:
+            return None
+
+        recognition_id = self.recognition_id_for(vehicle_track_id, plate_track_id)
+        if box is not None:
+            self._recognition_plate_boxes[recognition_id] = box
+        return recognition_id
+
+    def register_recognition(
+        self,
+        recognition_id: int,
+        vehicle_track_id: int,
+        plate_track_id: int | None,
+    ) -> None:
+        recognition_id = int(recognition_id)
+        vehicle_track_id = int(vehicle_track_id)
+        plate_track_id = None if plate_track_id is None else int(plate_track_id)
+        self._recognition_to_vehicle[recognition_id] = vehicle_track_id
+        self._recognition_to_plate[recognition_id] = plate_track_id
+        if recognition_id not in self._cls and vehicle_track_id in self._cls:
+            self._cls[recognition_id] = self._cls[vehicle_track_id]
+
+    def vehicle_track_id(self, recognition_id: int) -> int:
+        return self._recognition_to_vehicle.get(int(recognition_id), int(recognition_id))
+
+    def plate_track_id(self, recognition_id: int) -> int | None:
+        return self._recognition_to_plate.get(int(recognition_id))
+
+    def recognition_ids_for_vehicle(self, vehicle_track_id: int) -> list[int]:
+        vehicle_track_id = int(vehicle_track_id)
+        return [
+            recognition_id
+            for recognition_id, mapped_vehicle_id in self._recognition_to_vehicle.items()
+            if mapped_vehicle_id == vehicle_track_id
+        ]
+
+    def identity_fields(self, recognition_id: int) -> dict:
+        recognition_id = int(recognition_id)
+        return {
+            "id": recognition_id,
+            "recognition_id": recognition_id,
+            "vehicle_track_id": self.vehicle_track_id(recognition_id),
+            "plate_track_id": self.plate_track_id(recognition_id),
+        }
+
+    def display_text_for_vehicle(self, vehicle_track_id: int) -> str:
+        seen: set[str] = set()
+        texts: list[str] = []
+        for recognition_id in self.recognition_ids_for_vehicle(vehicle_track_id):
+            text = self.display_text(recognition_id)
+            if text and text not in seen:
+                seen.add(text)
+                texts.append(text)
+        return " | ".join(texts)
+
+    def vehicle_has_done_recognition(self, vehicle_track_id: int) -> bool:
+        return any(
+            self._done.get(recognition_id, False)
+            for recognition_id in self.recognition_ids_for_vehicle(vehicle_track_id)
+        )
+
+    def vehicle_has_pending_recognition(self, vehicle_track_id: int) -> bool:
+        return any(
+            self.should_ocr(recognition_id)
+            for recognition_id in self.recognition_ids_for_vehicle(vehicle_track_id)
+        )
+
+    def should_process_vehicle_for_ocr(self, vehicle_track_id: int) -> bool:
+        recognition_ids = self.recognition_ids_for_vehicle(vehicle_track_id)
+        return not recognition_ids or any(self.should_ocr(rid) for rid in recognition_ids)
 
     def should_ocr(self, tid: int) -> bool:
         return not self._done.get(tid, False)
@@ -343,6 +522,7 @@ class WebTrackletManager:
                 "frame_index": int(entry.frame_idx),
                 "quality_score": round(float(entry.quality_score), 4),
                 "ocr_confidence": round(float(entry.ocr_conf), 4),
+                "combined_score": round(float(entry.combined_score), 4),
                 "candidate_method": entry.candidate_method,
                 "route": entry.route,
                 "image_b64": self._encode(entry.crop, max_w=None, quality=85),
@@ -367,6 +547,17 @@ class WebTrackletManager:
         return False
 
     # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _recognition_id_for_plate_slot(
+        self,
+        vehicle_track_id: int,
+        plate_box: tuple[float, float, float, float],
+    ) -> int | None:
+        for recognition_id in self.recognition_ids_for_vehicle(vehicle_track_id):
+            previous = self._recognition_plate_boxes.get(recognition_id)
+            if previous is not None and _same_plate_slot(plate_box, previous):
+                return recognition_id
+        return None
 
     @staticmethod
     def _encode(

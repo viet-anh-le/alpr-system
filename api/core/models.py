@@ -13,6 +13,7 @@ from argparse import Namespace
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -37,7 +38,7 @@ from .config import (
     ROOT,
     SMALL_LPR_CTC_CKPT_PATH,
     SMALL_LPR_CKPT_PATH,
-    SMALL_LPR_NAR_CKPT_PATH,
+    SMALL_LPR_LINE_CTC_CKPT_PATH,
     SOS_IDX,
     VEHICLE_MODEL_PATH,
     YOLOV5_CHAR_CKPT_PATH,
@@ -45,6 +46,9 @@ from .config import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .yolov5_vehicle import YOLOv5VehicleDetector
 
 # Allow loading checkpoints that contain argparse.Namespace objects
 torch.serialization.add_safe_globals([Namespace])
@@ -54,7 +58,7 @@ sys.path.insert(0, str(ROOT / "LPRNet"))
 from lprnet import SmallLPR  # noqa: E402
 from lprnet.small_lpr import smart_resize  # noqa: E402
 from lprnet.small_lpr_ctc import SmallLPRCTC  # noqa: E402
-from lprnet.small_lpr_nar import SmallLPRNAR  # noqa: E402
+from lprnet.small_lpr_line_ctc import SmallLPRLineCTC  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -69,17 +73,6 @@ class ParseqOcrModel:
 
 
 @dataclass(frozen=True)
-class SmallLprNarOcrModel:
-    model: torch.nn.Module
-    chars: list[str]
-    max_len: int
-
-    def eval(self) -> "SmallLprNarOcrModel":
-        self.model.eval()
-        return self
-
-
-@dataclass(frozen=True)
 class SmallLprCtcOcrModel:
     model: torch.nn.Module
     chars: list[str]
@@ -89,12 +82,23 @@ class SmallLprCtcOcrModel:
         return self
 
 
+@dataclass(frozen=True)
+class SmallLprLineCtcOcrModel:
+    model: torch.nn.Module
+    chars: list[str]
+    two_line_threshold: float = 0.5
+
+    def eval(self) -> "SmallLprLineCtcOcrModel":
+        self.model.eval()
+        return self
+
+
 @dataclass
 class ModelBundle:
     device: torch.device
-    vehicle: YOLO
+    vehicle: YOLO | YOLOv5VehicleDetector
     plate: YOLO
-    ocr: SmallLPR | ParseqOcrModel | SmallLprNarOcrModel | SmallLprCtcOcrModel
+    ocr: SmallLPR | ParseqOcrModel | SmallLprCtcOcrModel | SmallLprLineCtcOcrModel
     vehicle_tracker: VehicleTracker
     quality_router: PlateQualityRouter | None = None
     ocr_backend: str = OCR_BACKEND
@@ -102,12 +106,27 @@ class ModelBundle:
     yolov5_object: object | None = None  # YOLOv5 object model
 
 
+def load_yolov5_vehicle_detector(
+    checkpoint_path: str | Path,
+    *,
+    device: torch.device,
+) -> "YOLOv5VehicleDetector":
+    from .yolov5_vehicle import load_yolov5_vehicle_detector as _load
+
+    return _load(checkpoint_path, device=device)
+
 
 def load_models() -> ModelBundle:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info("Loading models on %s…", device)
 
-    vehicle = YOLO(str(VEHICLE_MODEL_PATH))
+    use_yolov5_vehicle = (
+        Path(VEHICLE_MODEL_PATH).resolve() == Path(YOLOV5_OBJECT_CKPT_PATH).resolve()
+    )
+    if use_yolov5_vehicle:
+        vehicle = load_yolov5_vehicle_detector(VEHICLE_MODEL_PATH, device=device)
+    else:
+        vehicle = YOLO(str(VEHICLE_MODEL_PATH))
     plate = YOLO(str(PLATE_MODEL_PATH))
 
     ocr_backend = normalize_ocr_backend(OCR_BACKEND)
@@ -115,8 +134,8 @@ def load_models() -> ModelBundle:
         ocr = load_parseq_ocr_model(PARSEQ_OCR_CKPT_PATH, device=device)
     elif ocr_backend == "smalllpr_ctc":
         ocr = load_small_lpr_ctc_model(SMALL_LPR_CTC_CKPT_PATH, device=device)
-    elif ocr_backend == "smalllpr_nar":
-        ocr = load_small_lpr_nar_model(SMALL_LPR_NAR_CKPT_PATH, device=device)
+    elif ocr_backend == "smalllpr_line_ctc":
+        ocr = load_small_lpr_line_ctc_model(SMALL_LPR_LINE_CTC_CKPT_PATH, device=device)
     else:
         ocr = load_small_lpr_model(SMALL_LPR_CKPT_PATH, device=device)
 
@@ -136,16 +155,21 @@ def load_models() -> ModelBundle:
     logger.info("Plate quality router ready.")
 
     logger.info("All models ready.")
-    
+
     ocr_yolov5 = None
     yolov5_object = None
     if YOLOV5_CHAR_CKPT_PATH.exists():
         from api.core.ocr_yolov5 import load_yolov5_char_model
+
         ocr_yolov5 = load_yolov5_char_model(YOLOV5_CHAR_CKPT_PATH, device=device)
         logger.info("YOLOv5 Character Detection model ready.")
-        
-    if YOLOV5_OBJECT_CKPT_PATH.exists():
+
+    if use_yolov5_vehicle:
+        yolov5_object = vehicle
+        logger.info("YOLOv5 Object Detection model ready as vehicle detector.")
+    elif YOLOV5_OBJECT_CKPT_PATH.exists():
         from api.core.ocr_yolov5 import load_yolov5_object_model
+
         yolov5_object = load_yolov5_object_model(YOLOV5_OBJECT_CKPT_PATH, device=device)
         logger.info("YOLOv5 Object Detection model ready.")
 
@@ -168,11 +192,20 @@ def normalize_ocr_backend(value: str) -> str:
         return "smalllpr"
     if backend in {"small_lpr_ctc", "ctc"}:
         return "smalllpr_ctc"
-    if backend in {"small_lpr_nar", "nar"}:
-        return "smalllpr_nar"
-    if backend in {"parseq", "smalllpr", "smalllpr_ctc", "smalllpr_nar", "yolov5_char", "vietnamese_yolov5"}:
+    if backend in {"small_lpr_line_ctc", "line_ctc"}:
+        return "smalllpr_line_ctc"
+    if backend in {
+        "parseq",
+        "smalllpr",
+        "smalllpr_ctc",
+        "smalllpr_line_ctc",
+        "yolov5_char",
+        "vietnamese_yolov5",
+    }:
         return backend
-    raise ValueError("OCR_BACKEND must be one of: parseq, smalllpr, smalllpr_ctc, smalllpr_nar, yolov5_char, vietnamese_yolov5")
+    raise ValueError(
+        "OCR_BACKEND must be one of: parseq, smalllpr, smalllpr_ctc, smalllpr_line_ctc, yolov5_char, vietnamese_yolov5"
+    )
 
 
 def load_small_lpr_model(checkpoint_path: str | Path, *, device: torch.device) -> SmallLPR:
@@ -200,7 +233,9 @@ def load_parseq_ocr_model(checkpoint_path: str | Path, *, device: torch.device) 
     )
 
 
-def load_small_lpr_ctc_model(checkpoint_path: str | Path, *, device: torch.device) -> SmallLprCtcOcrModel:
+def load_small_lpr_ctc_model(
+    checkpoint_path: str | Path, *, device: torch.device
+) -> SmallLprCtcOcrModel:
     ckpt = torch.load(str(checkpoint_path), map_location=device, weights_only=False)
     sd = ckpt.get("state_dict", ckpt)
     sd = {k.removeprefix("model."): v for k, v in sd.items()}
@@ -209,39 +244,44 @@ def load_small_lpr_ctc_model(checkpoint_path: str | Path, *, device: torch.devic
     if not chars:
         raise ValueError("SmallLPR-CTC checkpoint must include hyper_parameters.args.chars")
 
-    model = SmallLPRCTC(
-        vocab_size=len(chars),
-        d_model=int(_arg_value(args, "d_model", 256)),
-        backbone_ch=int(_arg_value(args, "backbone_ch", 256)),
-    ).to(device).eval()
+    model = (
+        SmallLPRCTC(
+            vocab_size=len(chars),
+            d_model=int(_arg_value(args, "d_model", 256)),
+            backbone_ch=int(_arg_value(args, "backbone_ch", 256)),
+        )
+        .to(device)
+        .eval()
+    )
     model.load_state_dict(sd)
     return SmallLprCtcOcrModel(model=model, chars=chars)
 
 
-def load_small_lpr_nar_model(checkpoint_path: str | Path, *, device: torch.device) -> SmallLprNarOcrModel:
+def load_small_lpr_line_ctc_model(
+    checkpoint_path: str | Path, *, device: torch.device
+) -> SmallLprLineCtcOcrModel:
     ckpt = torch.load(str(checkpoint_path), map_location=device, weights_only=False)
     sd = ckpt.get("state_dict", ckpt)
     sd = {k.removeprefix("model."): v for k, v in sd.items()}
     args = _checkpoint_args(ckpt)
     chars = list(_arg_value(args, "chars", []) or [])
     if not chars:
-        raise ValueError("SmallLPR-NAR checkpoint must include hyper_parameters.args.chars")
+        raise ValueError("SmallLPR-Line-CTC checkpoint must include hyper_parameters.args.chars")
 
-    model = SmallLPRNAR(
-        vocab_size=len(chars),
-        d_model=int(_arg_value(args, "d_model", 256)),
-        backbone_ch=int(_arg_value(args, "backbone_ch", 256)),
-        max_len=int(_arg_value(args, "max_len", 14)),
-        nhead=int(_arg_value(args, "nhead", 4)),
-        num_layers=int(_arg_value(args, "num_layers", 4)),
-        dropout=float(_arg_value(args, "dropout", 0.1)),
-    ).to(device).eval()
-    model.load_state_dict(sd)
-    return SmallLprNarOcrModel(
-        model=model,
-        chars=chars,
-        max_len=int(_arg_value(args, "max_len", model.max_len)),
+    model = (
+        SmallLPRLineCTC(
+            vocab_size=len(chars),
+            d_model=int(_arg_value(args, "d_model", 256)),
+            backbone_ch=int(_arg_value(args, "backbone_ch", 256)),
+            line_prior_strength=float(_arg_value(args, "line_prior_strength", 1.0)),
+            use_stn=bool(_arg_value(args, "use_stn", True)),
+            use_pos_enc=bool(_arg_value(args, "use_pos_enc", True)),
+        )
+        .to(device)
+        .eval()
     )
+    model.load_state_dict(sd)
+    return SmallLprLineCtcOcrModel(model=model, chars=chars)
 
 
 def _checkpoint_args(checkpoint: dict) -> object:
@@ -274,12 +314,17 @@ def preprocess_plate(
         )
     if resolved_backend == "yolov5_char":
         from api.core.ocr_yolov5 import preprocess_plate_yolov5
+
         return preprocess_plate_yolov5(bgr)
     return preprocess_plate_small_lpr(bgr)
 
 
 def preprocess_plate_for_model(
-    model: SmallLPR | ParseqOcrModel | SmallLprNarOcrModel | SmallLprCtcOcrModel | object,
+    model: SmallLPR
+    | ParseqOcrModel
+    | SmallLprCtcOcrModel
+    | SmallLprLineCtcOcrModel
+    | object,
     bgr: np.ndarray,
 ) -> torch.Tensor:
     if _is_parseq_ocr_model(model):
@@ -290,6 +335,7 @@ def preprocess_plate_for_model(
         )
     if _is_yolov5_char_model(model):
         from api.core.ocr_yolov5 import preprocess_plate_yolov5
+
         return preprocess_plate_yolov5(bgr)
     return preprocess_plate_small_lpr(bgr)
 
@@ -326,18 +372,19 @@ def _parseq_transform(image_width: int, image_height: int):
 
 @torch.no_grad()
 def ocr_batch(
-    model: SmallLPR | ParseqOcrModel | SmallLprNarOcrModel | SmallLprCtcOcrModel,
+    model: SmallLPR | ParseqOcrModel | SmallLprCtcOcrModel | SmallLprLineCtcOcrModel,
     images: torch.Tensor,
     device: torch.device,
 ) -> list[tuple[list[tuple[str, float]], bool]]:
     if _is_parseq_ocr_model(model):
         return parseq_ocr_batch(model, images, device)
+    if _is_small_lpr_line_ctc_model(model):
+        return small_lpr_line_ctc_ocr_batch(model, images, device)
     if _is_small_lpr_ctc_model(model):
         return small_lpr_ctc_ocr_batch(model, images, device)
-    if _is_small_lpr_nar_model(model):
-        return small_lpr_nar_ocr_batch(model, images, device)
     if _is_yolov5_char_model(model):
         from api.core.ocr_yolov5 import yolov5_char_ocr_batch
+
         return yolov5_char_ocr_batch(model, images, device)
     return small_lpr_ocr_batch(model, images, device)
 
@@ -359,12 +406,11 @@ def _is_small_lpr_ctc_model(model: object) -> bool:
     )
 
 
-def _is_small_lpr_nar_model(model: object) -> bool:
-    return isinstance(model, SmallLprNarOcrModel) or (
-        type(model).__name__ == "SmallLprNarOcrModel"
+def _is_small_lpr_line_ctc_model(model: object) -> bool:
+    return isinstance(model, SmallLprLineCtcOcrModel) or (
+        type(model).__name__ == "SmallLprLineCtcOcrModel"
         and hasattr(model, "model")
         and hasattr(model, "chars")
-        and hasattr(model, "max_len")
     )
 
 
@@ -441,30 +487,54 @@ def small_lpr_ctc_ocr_batch(
 
 
 @torch.no_grad()
-def small_lpr_nar_ocr_batch(
-    wrapper: SmallLprNarOcrModel,
+def small_lpr_line_ctc_ocr_batch(
+    wrapper: SmallLprLineCtcOcrModel,
     images: torch.Tensor,
     device: torch.device,
 ) -> list[tuple[list[tuple[str, float]], bool]]:
     model = wrapper.model.to(device).eval()
-    logits = model(images.to(device, non_blocking=True))
+    outputs = model(images.to(device, non_blocking=True))
+    layout_probs = torch.softmax(outputs["layout_logits"], dim=-1)
+    one_line_logits = outputs.get("one_line_logits", outputs["global_logits"])
+
+    one_line_chars = _ctc_logits_to_char_probs(one_line_logits, wrapper.chars)
+    top_chars = _ctc_logits_to_char_probs(outputs["top_logits"], wrapper.chars)
+    bottom_chars = _ctc_logits_to_char_probs(outputs["bottom_logits"], wrapper.chars)
+
+    results: list[tuple[list[tuple[str, float]], bool]] = []
+    for idx, layout_prob in enumerate(layout_probs):
+        if float(layout_prob[1]) >= wrapper.two_line_threshold:
+            chars = [
+                *top_chars[idx],
+                ("[SEP]", float(layout_prob[1])),
+                *bottom_chars[idx],
+            ]
+        else:
+            chars = one_line_chars[idx]
+        all_confident = bool(chars) and all(prob >= CONF_THRESHOLD for _, prob in chars)
+        results.append((chars, all_confident))
+    return results
+
+
+def _ctc_logits_to_char_probs(
+    logits: torch.Tensor,
+    chars: list[str],
+) -> list[list[tuple[str, float]]]:
     probs = torch.softmax(logits, dim=-1)
     token_ids = probs.argmax(dim=-1)
     token_probs = probs.max(dim=-1).values
 
-    results: list[tuple[list[tuple[str, float]], bool]] = []
+    decoded: list[list[tuple[str, float]]] = []
     for seq_ids, seq_probs in zip(token_ids, token_probs, strict=False):
-        chars: list[tuple[str, float]] = []
+        sequence: list[tuple[str, float]] = []
+        prev_token = -1
         for token_id_tensor, prob_tensor in zip(seq_ids, seq_probs, strict=False):
             token_id = int(token_id_tensor)
-            if token_id == 0:
-                continue
-            if token_id >= len(wrapper.chars):
-                continue
-            chars.append((wrapper.chars[token_id], float(prob_tensor)))
-        all_confident = bool(chars) and all(prob >= CONF_THRESHOLD for _, prob in chars)
-        results.append((chars, all_confident))
-    return results
+            if token_id != prev_token and token_id != 0 and token_id < len(chars):
+                sequence.append((chars[token_id], float(prob_tensor)))
+            prev_token = token_id
+        decoded.append(sequence)
+    return decoded
 
 
 @torch.no_grad()
