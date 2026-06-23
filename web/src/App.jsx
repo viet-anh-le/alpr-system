@@ -1,74 +1,76 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
-import DropZone       from './components/DropZone'
-import LiveFrame      from './components/LiveFrame'
-import VehiclePanel   from './components/VehiclePanel'
-import OcrStatsPanel  from './components/OcrStatsPanel'
-import ErrorToast     from './components/ErrorToast'
-import HistoryModal   from './components/HistoryModal'
-import MonitorPage    from './components/monitor/MonitorPage'
-import { useUpload }  from './hooks/useUpload'
-import { useStream }  from './hooks/useStream'
+import HistoryModal from './components/HistoryModal'
+import MonitorPage from './components/monitor/MonitorPage'
+import { Badge, Button, SegmentedControl, TextInput, Toast } from './components/ui'
+import { MediaStage, ResultsPanel, SourcePanel } from './components/workbench'
+import { useAuth } from './auth'
+import { useStream } from './hooks/useStream'
+import { useUpload } from './hooks/useUpload'
+import LandingPage from './pages/LandingPage'
 
-export default function App() {
-  const [mode,      setMode]      = useState('process')  // 'process' | 'monitor'
-  const [vehicles,  setVehicles]  = useState({})
-  const [status,    setStatus]    = useState('idle')
-  const [progress,  setProgress]  = useState({ frame: 0, total: 0, pct: 0 })
-  const [error,     setError]     = useState(null)
-  const [jobId,     setJobId]     = useState(null)
-  const [videoUrl,  setVideoUrl]  = useState(null)   // local object URL for preview
-  const [frameB64,  setFrameB64]  = useState(null)   // latest annotated frame from SSE
-  const [showHistory, setShowHistory] = useState(false)
+function DashboardPage() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [mode, setMode] = useState('process')
+  const [vehicles, setVehicles] = useState({})
   const [rejectedVehicles, setRejectedVehicles] = useState({})
+  const [status, setStatus] = useState('idle')
+  const [progress, setProgress] = useState({ frame: 0, total: 0, pct: 0 })
+  const [error, setError] = useState(null)
+  const [jobId, setJobId] = useState(null)
+  const [videoUrl, setVideoUrl] = useState(null)
+  const [frameB64, setFrameB64] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
   const [preprocessMode, setPreprocessMode] = useState('none')
   const [ocrBackend, setOcrBackend] = useState('default')
 
   const { uploadVideo } = useUpload()
 
-  // ── SSE callbacks ─────────────────────────────────────────────────────────
-  const handleVehicle  = useCallback((data) =>
-    setVehicles(prev => ({ ...prev, [data.id]: data })), [])
+  const handleVehicle = useCallback((data) => {
+    setVehicles((prev) => ({ ...prev, [data.id]: data }))
+  }, [])
 
-  const handleProgress = useCallback((data) =>
-    setProgress({ frame: data.frame, total: data.total, pct: data.pct }), [])
+  const handleRejectedVehicle = useCallback((data) => {
+    setRejectedVehicles((prev) => ({ ...prev, [data.id]: data }))
+  }, [])
+
+  const handleProgress = useCallback((data) => {
+    setProgress({ frame: data.frame, total: data.total, pct: data.pct })
+  }, [])
 
   const handleComplete = useCallback(() => {
     setStatus('done')
-    setProgress(p => ({ ...p, pct: 100 }))
+    setProgress((prev) => ({ ...prev, pct: 100 }))
   }, [])
 
-  const handleError = useCallback((msg) => {
-    setError(msg)
+  const handleError = useCallback((message) => {
+    setError(message)
     setStatus('error')
   }, [])
 
   const handleFrame = useCallback((data) => setFrameB64(data.b64), [])
 
-  const handleRejectedVehicle = useCallback((data) =>
-    setRejectedVehicles(prev => ({ ...prev, [data.id]: data })), [])
-
   useStream(jobId, {
-    onVehicle:  handleVehicle,
+    onVehicle: handleVehicle,
     onRejectedVehicle: handleRejectedVehicle,
     onProgress: handleProgress,
     onComplete: handleComplete,
-    onError:    handleError,
-    onFrame:    handleFrame,
+    onError: handleError,
+    onFrame: handleFrame,
   })
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   const handleFileSelect = async (file) => {
-    // Create local video URL for in-browser preview
     if (videoUrl) URL.revokeObjectURL(videoUrl)
     setVideoUrl(URL.createObjectURL(file))
-
     setStatus('uploading')
     setVehicles({})
     setRejectedVehicles({})
     setProgress({ frame: 0, total: 0, pct: 0 })
     setError(null)
     setJobId(null)
+    setFrameB64(null)
 
     try {
       const id = await uploadVideo(file, preprocessMode, ocrBackend)
@@ -92,146 +94,306 @@ export default function App() {
     setFrameB64(null)
   }
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const vehicleList       = Object.values(vehicles).sort((a, b) => a.id - b.id)
-  const rejectedList      = Object.values(rejectedVehicles).sort((a, b) => a.id - b.id)
-  const totalDone         = vehicleList.filter(v => v.done).length
-  const isIdle            = status === 'idle'
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  const vehicleList = Object.values(vehicles).sort((a, b) => a.id - b.id)
+  const rejectedList = Object.values(rejectedVehicles).sort((a, b) => a.id - b.id)
+  const totalDone = vehicleList.filter((vehicle) => vehicle.done).length
 
   return (
-    <div className="bg-slate-900 min-h-screen flex flex-col text-white">
-      {/* ── Header ── */}
-      <header className="bg-slate-950 border-b border-slate-800 flex-shrink-0">
-        <div className="max-w-screen-xl mx-auto px-5 py-3 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24"
-                 stroke="currentColor" strokeWidth={2}>
-              <rect x="2" y="7" width="20" height="14" rx="2"
-                    stroke="currentColor" fill="none" />
-              <circle cx="12" cy="13" r="3" fill="currentColor" opacity={0.6} />
-              <circle cx="12" cy="13" r="1.5" fill="currentColor" />
-            </svg>
+    <div className="app-shell">
+      <AppTopbar
+        user={user}
+        mode={mode}
+        onModeChange={setMode}
+        status={status}
+        progress={progress}
+        vehicleCount={vehicleList.length}
+        onReset={handleReset}
+        onHistory={() => setShowHistory(true)}
+        onLogout={handleLogout}
+      />
+
+      <main className="mx-auto w-full max-w-[1500px] px-4 pb-16 pt-5 sm:px-6">
+        {mode === 'process' ? (
+          <div className="evidence-grid">
+            <div className="space-y-4">
+              <SourcePanel
+                onFileSelect={handleFileSelect}
+                preprocessMode={preprocessMode}
+                onPreprocessModeChange={setPreprocessMode}
+                ocrBackend={ocrBackend}
+                onOcrBackendChange={setOcrBackend}
+                disabled={status === 'uploading' || status === 'processing'}
+                compact={status !== 'idle'}
+              />
+              <MediaStage frameB64={frameB64} videoUrl={videoUrl} progress={progress} status={status} />
+            </div>
+            <ResultsPanel
+              vehicles={vehicleList}
+              rejectedVehicles={rejectedList}
+              totalDone={totalDone}
+              jobId={jobId}
+              status={status}
+            />
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-tight">
-              ALPR — Nhận dạng Biển số Xe Việt Nam
+        ) : (
+          <MonitorPage />
+        )}
+      </main>
+
+      <Toast message={error} onDismiss={() => setError(null)} />
+      <HistoryModal open={showHistory} onClose={() => setShowHistory(false)} />
+    </div>
+  )
+}
+
+function AppTopbar({
+  user,
+  mode,
+  onModeChange,
+  status,
+  progress,
+  vehicleCount,
+  onReset,
+  onHistory,
+  onLogout,
+}) {
+  const statusBadge = getStatusBadge(status, progress, vehicleCount)
+
+  return (
+    <header className="app-topbar">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="brand-mark">
+            <PlateGlyph />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-bold text-[var(--color-text)] sm:text-base">
+              Vietnamese ALPR Evidence Workbench
             </h1>
-            <p className="text-[10px] text-slate-400">
-              Automatic License Plate Recognition · AI-powered
+            <p className="truncate text-xs text-[var(--color-text-muted)]">
+              Detect · Track · OCR · Evidence review
             </p>
           </div>
-
-          <div className="ml-6 flex items-center gap-1">
-            <button
-              onClick={() => setMode('process')}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
-                mode === 'process' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Xử lý video
-            </button>
-            <button
-              onClick={() => setMode('monitor')}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
-                mode === 'monitor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Giám sát sự cố
-            </button>
-          </div>
-
-          {/* Status indicator (top-right) */}
-          <div className="ml-auto flex items-center gap-2">
-            {!isIdle && (
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium
-                ${status === 'done'       ? 'bg-emerald-900/50 text-emerald-400'
-                : status === 'error'      ? 'bg-red-900/50 text-red-400'
-                : 'bg-blue-900/50 text-blue-300'}`}>
-                {status === 'done'       ? `✓ Hoàn tất · ${vehicleList.length} xe`
-                 : status === 'error'    ? '✗ Lỗi'
-                 : status === 'uploading'? '↑ Đang tải…'
-                 : `⟳ Đang xử lý · ${progress.pct}%`}
-              </span>
-            )}
-            {!isIdle && (
-              <button
-                onClick={handleReset}
-                className="text-xs text-slate-400 hover:text-white border border-slate-700
-                           hover:border-slate-500 px-3 py-1 rounded-lg transition-colors"
-              >
-                Video mới
-              </button>
-            )}
-            <button
-              onClick={() => setShowHistory(true)}
-              className="text-xs ml-2 bg-slate-800 text-slate-300 hover:text-white border border-slate-700
-                         hover:border-slate-500 px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Lịch sử
-            </button>
-          </div>
         </div>
-      </header>
 
-      {/* ── Monitor mode ── */}
-      {mode === 'monitor' && <MonitorPage />}
+        <SegmentedControl
+          value={mode}
+          onChange={onModeChange}
+          options={[
+            { value: 'process', label: 'Process' },
+            { value: 'monitor', label: 'Monitor' },
+          ]}
+          className="lg:ml-6"
+        />
 
-      {/* ── Process mode: Main 2-column layout ── */}
-      {mode === 'process' && (
-      <div className="flex-1 max-w-screen-xl mx-auto w-full px-5 py-5
-                      flex gap-4 items-start">
-
-        {/* ── LEFT: Video / Drop zone (65%) ── */}
-        <div className="flex-1 min-w-0">
-          {isIdle ? (
-            /* Drop zone shown when idle */
-            <DropZone
-              onFileSelect={handleFileSelect}
-              dark
-              preprocessMode={preprocessMode}
-              onPreprocessModeChange={setPreprocessMode}
-              ocrBackend={ocrBackend}
-              onOcrBackendChange={setOcrBackend}
-            />
-          ) : (
-            <>
-              {/* Live annotated frame during processing, original video when done */}
-              <LiveFrame
-                frameB64={frameB64}
-                videoUrl={videoUrl}
-                progress={progress}
-                status={status}
-              />
-
-              {/* OCR Statistics panel */}
-              <OcrStatsPanel
-                vehicles={vehicleList}
-                rejectedVehicles={rejectedList}
-                jobId={jobId}
-              />
-            </>
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+          <Badge tone={statusBadge.tone}>{statusBadge.label}</Badge>
+          {status !== 'idle' && (
+            <Button size="sm" variant="secondary" onClick={onReset}>
+              Nguồn mới
+            </Button>
           )}
-        </div>
-
-        {/* ── RIGHT: Vehicle detection panel (35%) ── */}
-        <div className="w-80 flex-shrink-0" style={{ height: 'calc(100vh - 72px)' }}>
-          <VehiclePanel vehicles={vehicleList} totalDone={totalDone} jobId={jobId} />
+          <Button size="sm" variant="secondary" onClick={onHistory}>
+            Lịch sử
+          </Button>
+          {user && <span className="hidden text-xs text-[var(--color-text-muted)] md:inline">{user.name}</span>}
+          <Button size="sm" variant="ghost" onClick={onLogout}>
+            Đăng xuất
+          </Button>
         </div>
       </div>
-      )}
+    </header>
+  )
+}
 
-      {/* Error toast */}
-      {error && (
-        <ErrorToast message={error} onDismiss={() => setError(null)} />
-      )}
+function getStatusBadge(status, progress, vehicleCount) {
+  if (status === 'done') return { label: `Done · ${vehicleCount} plates`, tone: 'success' }
+  if (status === 'error') return { label: 'Failed', tone: 'danger' }
+  if (status === 'uploading') return { label: 'Uploading', tone: 'info' }
+  if (status === 'processing') return { label: `Processing · ${Math.round(progress.pct || 0)}%`, tone: 'info' }
+  return { label: 'Idle', tone: 'neutral' }
+}
 
-      {/* History Modal */}
-      {showHistory && (
-        <HistoryModal onClose={() => setShowHistory(false)} />
-      )}
+function AuthPage({ mode }) {
+  const isRegister = mode === 'register'
+  const { login, register } = useAuth()
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const submit = async (event) => {
+    event.preventDefault()
+    setError(null)
+
+    if (!email.trim() || !password) {
+      setError('Vui lòng nhập email và mật khẩu.')
+      return
+    }
+    if (isRegister && !name.trim()) {
+      setError('Vui lòng nhập họ tên.')
+      return
+    }
+    if (isRegister && password.length < 8) {
+      setError('Mật khẩu cần ít nhất 8 ký tự.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      if (isRegister) {
+        await register({ name: name.trim(), email: email.trim(), password })
+      } else {
+        await login({ email: email.trim(), password })
+      }
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <main className="app-shell flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="grid w-full max-w-5xl gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+        <section className="surface-panel overflow-hidden p-6 sm:p-8">
+          <div className="brand-mark mb-6">
+            <PlateGlyph />
+          </div>
+          <p className="section-label">Secure workspace</p>
+          <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight text-[var(--color-text)]">
+            {isRegister ? 'Tạo workspace cho ALPR evidence review' : 'Đăng nhập ALPR Evidence Workbench'}
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-7 text-[var(--color-text-muted)]">
+            Dashboard bảo vệ phiên xử lý, lịch sử nhận dạng, crop chứng cứ và track buffer theo tài khoản.
+          </p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <AuthMetric value="SSE" label="realtime events" />
+            <AuthMetric value="CSRF" label="protected writes" />
+            <AuthMetric value="DB" label="evidence history" />
+          </div>
+        </section>
+
+        <section className="surface-panel overflow-hidden">
+          <div className="panel-header">
+            <div>
+              <p className="section-label">{isRegister ? 'Register' : 'Login'}</p>
+              <h2 className="mt-1 text-lg font-bold">{isRegister ? 'Tạo tài khoản' : 'Mở dashboard'}</h2>
+            </div>
+            <Badge tone="info">Graduation demo</Badge>
+          </div>
+          <form onSubmit={submit} className="space-y-4 p-5">
+            {isRegister && (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-[var(--color-text-muted)]">Họ tên</span>
+                <TextInput value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" />
+              </label>
+            )}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[var(--color-text-muted)]">Email</span>
+              <TextInput type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[var(--color-text-muted)]">Mật khẩu</span>
+              <TextInput
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+              />
+            </label>
+
+            {error && (
+              <div className="rounded-[var(--radius-control)] border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" variant="primary" fullWidth loading={loading}>
+              {isRegister ? 'Đăng kí' : 'Đăng nhập'}
+            </Button>
+            <Button
+              fullWidth
+              variant="ghost"
+              onClick={() => navigate(isRegister ? '/login' : '/register')}
+            >
+              {isRegister ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng kí'}
+            </Button>
+          </form>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function AuthMetric({ value, label }) {
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-black/15 p-3">
+      <div className="data-font text-lg font-bold text-cyan-100">{value}</div>
+      <div className="mt-1 text-xs text-[var(--color-text-muted)]">{label}</div>
     </div>
+  )
+}
+
+function LoadingScreen() {
+  return (
+    <div className="app-shell flex min-h-screen items-center justify-center">
+      <div className="surface-panel flex items-center gap-3 px-5 py-4 text-sm text-[var(--color-text-muted)]">
+        <span className="h-4 w-4 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin" />
+        Đang kiểm tra phiên đăng nhập…
+      </div>
+    </div>
+  )
+}
+
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!user) return <Navigate to="/login" replace />
+  return children
+}
+
+function PublicAuthRoute({ mode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (user) return <Navigate to="/dashboard" replace />
+  return <AuthPage mode={mode} />
+}
+
+function PlateGlyph() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="7" width="18" height="10" rx="2" />
+      <path d="M7 11h4M14 11h3M7 14h10" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<PublicAuthRoute mode="login" />} />
+        <Route path="/register" element={<PublicAuthRoute mode="register" />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }

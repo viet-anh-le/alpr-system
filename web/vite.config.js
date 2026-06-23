@@ -8,9 +8,10 @@ export default defineConfig({
       '/upload':    'http://localhost:8000',
       '/stream':    'http://localhost:8000',
       '/records':   'http://localhost:8000',
+      '/auth':      'http://localhost:8000',
+      '/sessions':  'http://localhost:8000',
       '/monitor':   { target: 'http://localhost:8000', changeOrigin: true },
       '/incidents': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
 })
-
