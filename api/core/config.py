@@ -17,6 +17,23 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 MONGODB_URI: str = os.environ.get("MONGODB_URI", "")
 MONGODB_DB_NAME: str = os.environ.get("MONGODB_DB_NAME", "alpr_vn")
 
+# ── Web / Auth ───────────────────────────────────────────────────────────────
+WEB_ORIGIN: str = os.environ.get(
+    "WEB_ORIGIN",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000",
+)
+AUTH_SECRET_KEY: str = os.environ.get("AUTH_SECRET_KEY", "")
+AUTH_COOKIE_NAME: str = os.environ.get("AUTH_COOKIE_NAME", "alpr_session")
+AUTH_COOKIE_SECURE: bool = os.environ.get("AUTH_COOKIE_SECURE", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+AUTH_SESSION_TTL_HOURS: int = int(os.environ.get("AUTH_SESSION_TTL_HOURS", "24"))
+CSRF_COOKIE_NAME: str = os.environ.get("CSRF_COOKIE_NAME", "alpr_csrf")
+MAX_UPLOAD_MB: int = int(os.environ.get("MAX_UPLOAD_MB", "512"))
+
 
 def _env_bool(name: str, default: bool = False) -> bool:
     value = os.environ.get(name)
@@ -45,12 +62,25 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_int_list(name: str, default: list[int]) -> list[int]:
+    value = os.environ.get(name)
+    if value is None:
+        return list(default)
+    try:
+        return [int(part.strip()) for part in value.split(",") if part.strip()]
+    except ValueError:
+        return list(default)
+
+
 # ── Model paths ───────────────────────────────────────────────────────────────
-VEHICLE_MODEL_PATH = ROOT / "weights/detection/vehicle_best.pt"
+YOLOV5_OBJECT_DEFAULT = "references/Character-Time-series-Matching/Vietnamese/object.pt"
+# VEHICLE_MODEL_PATH_DEFAULT = "weights/detection/vehicle_best.pt"
+VEHICLE_MODEL_PATH = ROOT / os.environ.get("VEHICLE_MODEL_PATH", YOLOV5_OBJECT_DEFAULT)
+# VEHICLE_MODEL_PATH = ROOT / os.environ.get("VEHICLE_MODEL_PATH", VEHICLE_MODEL_PATH_DEFAULT)
 # PLATE_MODEL_PATH = ROOT / "weights/detection/best.pt"
 PLATE_MODEL_PATH = ROOT / "runs/obb/experiments/detection/lp_detection_obb_merged/weights/best.pt"
 
-OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_ctc").strip().lower()
+OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_line_ctc").strip().lower()
 SMALL_LPR_CKPT_PATH = ROOT / os.environ.get(
     "SMALL_LPR_CKPT_PATH",
     "weights/ocr/small_lpr-epoch=136-val_acc=0.914.ckpt",
@@ -59,9 +89,9 @@ SMALL_LPR_CTC_CKPT_PATH = ROOT / os.environ.get(
     "SMALL_LPR_CTC_CKPT_PATH",
     "weights/ocr/small_lpr_ctc/ctc_20260609_155238/small_lpr_ctc-epoch=055-val_acc=0.9358.ckpt",
 )
-SMALL_LPR_NAR_CKPT_PATH = ROOT / os.environ.get(
-    "SMALL_LPR_NAR_CKPT_PATH",
-    "weights/ocr/small_lpr_nar/nar_20260608_123600/small_lpr_nar-epoch=085-val_acc=0.9581.ckpt",
+SMALL_LPR_LINE_CTC_CKPT_PATH = ROOT / os.environ.get(
+    "SMALL_LPR_LINE_CTC_CKPT_PATH",
+    "weights/ocr/small_lpr_line_ctc/line_ctc_cleaned_20260618_061855/small_lpr_line_ctc-epoch=008-val_acc=0.9501.ckpt",
 )
 PARSEQ_OCR_CKPT_PATH = ROOT / os.environ.get(
     "PARSEQ_OCR_CKPT_PATH",
@@ -73,30 +103,32 @@ YOLOV5_CHAR_CKPT_PATH = ROOT / os.environ.get(
 )
 YOLOV5_OBJECT_CKPT_PATH = ROOT / os.environ.get(
     "YOLOV5_OBJECT_CKPT_PATH",
-    "references/Character-Time-series-Matching/Vietnamese/object.pt",
+    YOLOV5_OBJECT_DEFAULT,
 )
 PARSEQ_IMAGE_W = int(os.environ.get("PARSEQ_IMAGE_W", "128"))
 PARSEQ_IMAGE_H = int(os.environ.get("PARSEQ_IMAGE_H", "32"))
 
 # Backward-compatible alias for scripts that still import OCR_CKPT_PATH.
+_SMALL_LPR_CTC_BACKENDS = {"smalllpr_ctc", "small_lpr_ctc", "ctc"}
+_SMALL_LPR_LINE_CTC_BACKENDS = {"smalllpr_line_ctc", "small_lpr_line_ctc", "line_ctc"}
 OCR_CKPT_PATH = (
     PARSEQ_OCR_CKPT_PATH
     if OCR_BACKEND == "parseq"
     else (
-        SMALL_LPR_CTC_CKPT_PATH
-        if OCR_BACKEND in {"smalllpr_ctc", "small_lpr_ctc", "ctc"}
+        SMALL_LPR_LINE_CTC_CKPT_PATH
+        if OCR_BACKEND in _SMALL_LPR_LINE_CTC_BACKENDS
         else (
-            SMALL_LPR_NAR_CKPT_PATH
-            if OCR_BACKEND in {"smalllpr_nar", "small_lpr_nar", "nar"}
+            SMALL_LPR_CTC_CKPT_PATH
+            if OCR_BACKEND in _SMALL_LPR_CTC_BACKENDS
             else SMALL_LPR_CKPT_PATH
         )
     )
 )
 
 # ── Detection ─────────────────────────────────────────────────────────────────
-# vehicle_best.pt class IDs (5-class custom detector):
-#   0: car, 1: bus, 2: truck, 3: motorcycle, 4: motorbike_rider
-VEHICLE_CLASSES = [0, 1, 2, 3, 4]  # car, bus, truck, motorcycle, motorbike_rider
+# object.pt class IDs:
+#   1: motorbike, 6: car, 7: truck, 8: van, 9: bus, 10: delivery tricycle
+VEHICLE_CLASSES = _env_int_list("VEHICLE_CLASSES", [1, 6, 7, 8, 9, 10])
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
 CONF_THRESHOLD = 0.90
@@ -155,6 +187,9 @@ CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops
 CASCADE_VEHICLE_PAD_MIN = 16  # min vehicle crop context padding (px)
 CASCADE_PLATE_TRACK_IOU = 0.30  # IoU threshold for cascade plate track continuity
 CASCADE_PLATE_TRACK_BUFFER = 15  # frames to retain unmatched cascade plate tracks
+MAX_PLATES_PER_VEHICLE = _env_int("MAX_PLATES_PER_VEHICLE", 2)
+RECOGNITION_SLOT_IOU = _env_float("RECOGNITION_SLOT_IOU", 0.20)
+RECOGNITION_SLOT_CENTER_SCALE = _env_float("RECOGNITION_SLOT_CENTER_SCALE", 1.25)
 
 # ── Anti-hallucination — Layer 1 (Pre-OCR quality gates) ─────────────────────
 PLATE_DET_CONF = 0.50  # min YOLO OBB detection confidence
@@ -177,6 +212,9 @@ VN_CLASS = {
     "car": "Ô tô",
     "bus": "Xe buýt",
     "truck": "Xe tải",
+    "van": "Xe tải nhỏ",
     "motorcycle": "Xe máy",
     "motorbike_rider": "Xe máy",
+    "motorbike": "Xe máy",
+    "delivery tricycle": "Xe ba gác",
 }

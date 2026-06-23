@@ -20,7 +20,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
-from .models import Incident, RecognitionRecord, RecognitionSession
+from .models import AuthSession, Incident, RecognitionRecord, RecognitionSession, User
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,8 @@ _db: AsyncIOMotorDatabase | None = None
 SESSIONS_COL = "recognition_sessions"
 RECORDS_COL = "recognition_records"
 INCIDENTS_COL = "incidents"
+USERS_COL = "users"
+AUTH_SESSIONS_COL = "auth_sessions"
 
 
 # ── Connection lifecycle ──────────────────────────────────────────────────────
@@ -73,15 +75,30 @@ def get_db() -> AsyncIOMotorDatabase:
 #   - (session_id, track_id)   unique compound — dedup / upsert guard
 
 async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
+    await db[USERS_COL].create_indexes([
+        IndexModel([("email", ASCENDING)], unique=True, name="uq_email"),
+        IndexModel([("created_at", DESCENDING)], name="ix_created_at_desc"),
+    ])
+
+    await db[AUTH_SESSIONS_COL].create_indexes([
+        IndexModel([("session_id", ASCENDING)], unique=True, name="uq_session_id"),
+        IndexModel([("user_id", ASCENDING)], name="ix_user_id"),
+        IndexModel([("expires_at", ASCENDING)], name="ix_expires_at"),
+    ])
+
     await db[SESSIONS_COL].create_indexes([
         IndexModel([("session_id", ASCENDING)], unique=True, name="uq_session_id"),
+        IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="ix_user_created_at"),
         IndexModel([("status", ASCENDING)], name="ix_status"),
         IndexModel([("created_at", DESCENDING)], name="ix_created_at_desc"),
     ])
 
     await db[RECORDS_COL].create_indexes([
         IndexModel([("session_id", ASCENDING)], name="ix_session_id"),
+        IndexModel([("user_id", ASCENDING), ("session_id", ASCENDING)], name="ix_user_session"),
         IndexModel([("plate_text", ASCENDING)], name="ix_plate_text"),
+        IndexModel([("vehicle_track_id", ASCENDING)], name="ix_vehicle_track_id"),
+        IndexModel([("plate_track_id", ASCENDING)], name="ix_plate_track_id"),
         IndexModel([("vehicle_class", ASCENDING)], name="ix_vehicle_class"),
         IndexModel([("created_at", DESCENDING)], name="ix_created_at_desc"),
         IndexModel(
@@ -106,6 +123,51 @@ async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
 def is_db_configured() -> bool:
     """Return True when the Motor client is initialised and ready."""
     return _db is not None
+
+
+async def create_user(user: User) -> str:
+    """Insert a user and return the inserted _id as hex string."""
+    db = get_db()
+    doc = user.model_dump(by_alias=True, exclude={"id"})
+    result = await db[USERS_COL].insert_one(doc)
+    return str(result.inserted_id)
+
+
+async def get_user_by_email(email: str) -> User | None:
+    db = get_db()
+    doc = await db[USERS_COL].find_one({"email": email.strip().lower()})
+    return User.model_validate(doc) if doc else None
+
+
+async def get_user_by_id(user_id: str) -> User | None:
+    db = get_db()
+    if not ObjectId.is_valid(user_id):
+        return None
+    doc = await db[USERS_COL].find_one({"_id": ObjectId(user_id)})
+    return User.model_validate(doc) if doc else None
+
+
+async def create_auth_session(session: AuthSession) -> str:
+    db = get_db()
+    doc = session.model_dump(by_alias=True, exclude={"id"})
+    result = await db[AUTH_SESSIONS_COL].insert_one(doc)
+    return str(result.inserted_id)
+
+
+async def get_auth_session(session_id: str) -> AuthSession | None:
+    db = get_db()
+    doc = await db[AUTH_SESSIONS_COL].find_one({"session_id": session_id})
+    return AuthSession.model_validate(doc) if doc else None
+
+
+async def revoke_auth_session(session_id: str) -> None:
+    from datetime import datetime, timezone
+
+    db = get_db()
+    await db[AUTH_SESSIONS_COL].update_one(
+        {"session_id": session_id},
+        {"$set": {"revoked": True, "updated_at": datetime.now(timezone.utc)}},
+    )
 
 
 async def insert_session(session: RecognitionSession) -> str:
@@ -150,6 +212,24 @@ async def get_session(session_id: str) -> RecognitionSession | None:
     return RecognitionSession.model_validate(doc)
 
 
+async def get_session_for_user(session_id: str, user_id: str) -> RecognitionSession | None:
+    db = get_db()
+    doc = await db[SESSIONS_COL].find_one({"session_id": session_id, "user_id": user_id})
+    return RecognitionSession.model_validate(doc) if doc else None
+
+
+async def list_sessions_for_user(user_id: str, limit: int = 50) -> list[RecognitionSession]:
+    db = get_db()
+    safe_limit = max(1, min(int(limit), 100))
+    cursor = (
+        db[SESSIONS_COL]
+        .find({"user_id": user_id})
+        .sort("created_at", DESCENDING)
+        .limit(safe_limit)
+    )
+    return [RecognitionSession.model_validate(doc) async for doc in cursor]
+
+
 async def insert_record(record: RecognitionRecord) -> str:
     """Insert a recognition record. Returns the inserted _id as hex string."""
     db = get_db()
@@ -183,10 +263,39 @@ async def get_record_by_track(session_id: str, track_id: int) -> RecognitionReco
     return RecognitionRecord.model_validate(doc) if doc else None
 
 
+async def get_record_by_track_for_user(
+    session_id: str,
+    track_id: int,
+    user_id: str,
+) -> RecognitionRecord | None:
+    """Return one recognition record only when owned by user_id."""
+    db = get_db()
+    doc = await db[RECORDS_COL].find_one({
+        "session_id": session_id,
+        "track_id": track_id,
+        "user_id": user_id,
+    })
+    return RecognitionRecord.model_validate(doc) if doc else None
+
+
 async def get_records_for_session(session_id: str) -> list[RecognitionRecord]:
     """Return all recognition records belonging to a session."""
     db = get_db()
     cursor = db[RECORDS_COL].find({"session_id": session_id})
+    return [RecognitionRecord.model_validate(doc) async for doc in cursor]
+
+
+async def get_records_for_session_for_user(
+    session_id: str,
+    user_id: str,
+) -> list[RecognitionRecord]:
+    """Return all recognition records for a user-owned session."""
+    db = get_db()
+    cursor = (
+        db[RECORDS_COL]
+        .find({"session_id": session_id, "user_id": user_id})
+        .sort("track_id", ASCENDING)
+    )
     return [RecognitionRecord.model_validate(doc) async for doc in cursor]
 
 
@@ -239,4 +348,3 @@ async def list_incidents(
         query["source_type"] = source_type
     cursor = db[INCIDENTS_COL].find(query).sort("marked_at", DESCENDING).limit(limit)
     return [Incident.model_validate(doc) async for doc in cursor]
-

@@ -84,6 +84,35 @@ class PlateFrame(BaseModel):
 
 # ── Top-level collections ─────────────────────────────────────────────────────
 
+class User(BaseModel):
+    """Application user stored in MongoDB."""
+
+    id: PyObjectId | None = Field(default=None, alias="_id")
+    email: str
+    name: str
+    password_hash: str
+    role: Literal["user", "admin"] = "user"
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+class AuthSession(BaseModel):
+    """Server-side session backing the HttpOnly auth cookie."""
+
+    id: PyObjectId | None = Field(default=None, alias="_id")
+    session_id: str
+    user_id: str
+    expires_at: datetime
+    revoked: bool = False
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
 class RecognitionSession(BaseModel):
     """
     One video-processing job submitted via POST /upload.
@@ -94,11 +123,14 @@ class RecognitionSession(BaseModel):
 
     id: PyObjectId | None = Field(default=None, alias="_id")
     session_id: str                      # UUID hex — stable public identifier
+    user_id: str | None = None           # FK → users._id for authenticated jobs
     source_filename: str
     source_type: Literal["video", "image_dir", "rtsp"] = "video"
     status: Literal["queued", "processing", "completed", "failed"] = "queued"
     total_records: int = 0               # vehicles finalised
     processed_frames: int = 0
+    preprocess_mode: str = "none"
+    ocr_backend: str = "default"
     error_message: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
@@ -124,7 +156,10 @@ class RecognitionRecord(BaseModel):
 
     # ── Identity ──────────────────────────────────────────────────────────────
     session_id: str                      # FK → RecognitionSession.session_id
+    user_id: str | None = None           # FK → users._id for authenticated jobs
     track_id: int                        # assigned by SORT-family tracker
+    vehicle_track_id: int | None = None  # raw vehicle tracker id for this result
+    plate_track_id: int | None = None    # raw plate tracker id, when available
     vehicle_class: str                   # "car" | "motorcycle" | "bus" | "truck"
 
     # ── Key image fields ──────────────────────────────────────────────────────
@@ -175,6 +210,8 @@ class IncidentVehicle(BaseModel):
     """One vehicle detected within an incident's analysis window."""
 
     track_id: int
+    vehicle_track_id: int | None = None
+    plate_track_id: int | None = None
     plate_text: str
     plate_text_confidence: float
     chars: list[tuple[str, float]]
