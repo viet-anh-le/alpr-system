@@ -1,0 +1,51 @@
+# ============================================================
+# SmallLPR-Line-CTC Config
+# Index 0 = <blank> for all CTC heads.
+# ============================================================
+
+train_dir: "data/datasets/ocr/train"
+valid_dir: "data/datasets/ocr/valid"
+test_dir:  "data/datasets/ocr/valid"
+saving_ckpt: "weights/ocr/small_lpr_line_ctc"
+
+img_size: !!python/tuple [96, 48]
+min_img_width: 20
+min_img_height: 8
+exclude_paths_file: ""
+
+d_model: 256
+backbone_ch: 256
+augment: true
+use_stn: true
+use_pos_enc: true
+line_prior_strength: 1.0
+two_line_threshold: 0.5
+decode_mode: "layout"
+
+global_loss_weight: 1.0
+one_line_loss_weight: 1.0
+top_loss_weight: 1.0
+bottom_loss_weight: 1.0
+layout_loss_weight: 0.2
+
+lr: 0.001
+weight_decay: 0.0001
+batch_size: 64
+max_epochs: 200
+gradient_clip_val: 1.0
+num_workers: 4
+accumulate_grad_batches: 1
+scheduler: "cosine"
+min_lr: 0.000001
+
+chars: [
+    "<blank>",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    "M", "N", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z",
+    "Đ",
+    "-",
+    ".",
+    "[SEP]",
+    "_",
+]

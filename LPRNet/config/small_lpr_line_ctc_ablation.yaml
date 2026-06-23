@@ -1,0 +1,129 @@
+# SmallLPR-Line-CTC ablation matrix.
+# Designed to mirror the LPRNet-style table of incremental recognition tricks.
+
+python: "/home/vietanh/anaconda3/envs/myenv/bin/python"
+
+defaults:
+  data_root: "data/datasets/ocr"
+  config: "LPRNet/config/small_lpr_line_ctc_config.yaml"
+  epochs: 50
+  batch_size: 64
+  lr: 0.0003
+  devices: "1"
+  precision: "32"
+  seed: 42
+  accumulate_grad: 1
+
+runs:
+  - id: "A0_global_no_aug"
+    train: true
+    description: "Global CTC baseline without augmentation, STN, or 2D positional encoding."
+    augment: false
+    use_stn: false
+    use_pos_enc: false
+    decode_mode: "global"
+    line_prior_strength: 0.0
+    loss_weights:
+      global: 1.0
+      one_line: 0.0
+      top: 0.0
+      bottom: 0.0
+      layout: 0.0
+    format_correction: false
+
+  - id: "A1_global_aug"
+    train: true
+    description: "Global CTC baseline with training augmentation."
+    augment: true
+    use_stn: false
+    use_pos_enc: false
+    decode_mode: "global"
+    line_prior_strength: 0.0
+    loss_weights:
+      global: 1.0
+      one_line: 0.0
+      top: 0.0
+      bottom: 0.0
+      layout: 0.0
+    format_correction: false
+
+  - id: "A2_global_aug_stn"
+    train: true
+    description: "Global CTC with augmentation and STN alignment."
+    augment: true
+    use_stn: true
+    use_pos_enc: false
+    decode_mode: "global"
+    line_prior_strength: 0.0
+    loss_weights:
+      global: 1.0
+      one_line: 0.0
+      top: 0.0
+      bottom: 0.0
+      layout: 0.0
+    format_correction: false
+
+  - id: "A3_global_aug_stn_pe"
+    train: true
+    description: "Global CTC with augmentation, STN, and 2D positional encoding."
+    augment: true
+    use_stn: true
+    use_pos_enc: true
+    decode_mode: "global"
+    line_prior_strength: 0.0
+    loss_weights:
+      global: 1.0
+      one_line: 0.0
+      top: 0.0
+      bottom: 0.0
+      layout: 0.0
+    format_correction: false
+
+  - id: "A4_layout_no_prior"
+    train: true
+    description: "Layout-aware CTC heads without vertical line prior."
+    augment: true
+    use_stn: true
+    use_pos_enc: true
+    decode_mode: "layout"
+    line_prior_strength: 0.0
+    loss_weights:
+      global: 1.0
+      one_line: 1.0
+      top: 1.0
+      bottom: 1.0
+      layout: 0.2
+    format_correction: false
+
+  - id: "A5_full"
+    train: true
+    description: "Full SmallLPR-Line-CTC model."
+    augment: true
+    use_stn: true
+    use_pos_enc: true
+    decode_mode: "layout"
+    line_prior_strength: 1.0
+    loss_weights:
+      global: 1.0
+      one_line: 1.0
+      top: 1.0
+      bottom: 1.0
+      layout: 0.2
+    format_correction: false
+
+  - id: "A6_full_format_corrected"
+    train: false
+    source_run: "A5_full"
+    description: "Evaluation-only full model with Vietnamese format ambiguity correction."
+    augment: true
+    use_stn: true
+    use_pos_enc: true
+    decode_mode: "layout"
+    line_prior_strength: 1.0
+    loss_weights:
+      global: 1.0
+      one_line: 1.0
+      top: 1.0
+      bottom: 1.0
+      layout: 0.2
+    format_correction: true
