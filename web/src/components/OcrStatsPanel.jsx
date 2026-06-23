@@ -235,7 +235,7 @@ function RejectedCard({ vehicle, jobId }) {
             <button
               onClick={() => setShowBuffer(true)}
               className="text-[10px] px-2.5 py-1 rounded-md transition-colors
-                         bg-slate-700 hover:bg-blue-700 text-slate-300 hover:text-white
+                         bg-slate-700 hover:bg-blue-700 text-white
                          border border-slate-600 hover:border-blue-500"
             >
               Xem bộ đệm track

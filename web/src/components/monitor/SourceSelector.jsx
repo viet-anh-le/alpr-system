@@ -1,81 +1,121 @@
-import { useState } from 'react'
-import DropZone from '../DropZone'
+import { useRef, useState } from 'react'
 
-const OCR_OPTIONS = [
-  { value: 'default', label: 'Mặc định' },
-  { value: 'smalllpr_ctc', label: 'SmallLPR CTC' },
-  { value: 'parseq', label: 'PARSeq' },
-  { value: 'yolov5_char', label: 'YOLOv5 Char' },
-]
+import { Button, SegmentedControl, Select, TextInput } from '../ui'
+import { OCR_OPTIONS, PREPROCESS_OPTIONS, formatBytes } from '../workbench/constants'
 
-export default function SourceSelector({ onConnectLive, onSelectFile }) {
+export default function SourceSelector({
+  onConnectLive,
+  onSelectFile,
+  isConnectingLive = false,
+  isOpeningVideo = false,
+}) {
+  const inputRef = useRef(null)
   const [tab, setTab] = useState('rtsp')
   const [url, setUrl] = useState('')
+  const [file, setFile] = useState(null)
   const [preprocessMode, setPreprocessMode] = useState('none')
   const [ocrBackend, setOcrBackend] = useState('default')
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-      <div className="flex items-center gap-1 mb-3">
-        <button
-          onClick={() => setTab('rtsp')}
-          className={`text-xs px-3 py-1.5 rounded ${
-            tab === 'rtsp' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          RTSP camera
-        </button>
-        <button
-          onClick={() => setTab('upload')}
-          className={`text-xs px-3 py-1.5 rounded ${
-            tab === 'upload' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Upload video
-        </button>
+    <section className="surface-panel overflow-hidden">
+      <div className="panel-header">
+        <div>
+          <p className="section-label">Incident source</p>
+          <h2 className="mt-1 text-lg font-bold">Giám sát sự cố theo cửa sổ ngắn</h2>
+        </div>
+        <SegmentedControl
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'rtsp', label: 'RTSP camera' },
+            { value: 'upload', label: 'Upload video' },
+          ]}
+        />
       </div>
 
-      {tab === 'rtsp' ? (
-        <form
-          onSubmit={(e) => { e.preventDefault(); if (url.trim()) onConnectLive(url.trim(), ocrBackend) }}
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
-        >
-          <input
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="rtsp://10.0.0.5:554/main"
-            className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm
-                       focus:border-blue-500 focus:outline-none text-white"
-          />
-          <select
-            value={ocrBackend}
-            onChange={(e) => setOcrBackend(e.target.value)}
-            className="bg-slate-900 border-slate-700 text-slate-100 w-full sm:w-auto text-xs border rounded px-2.5 py-2 focus:outline-none focus:border-blue-500"
+      <div className="p-4">
+        {tab === 'rtsp' ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (url.trim()) onConnectLive(url.trim(), ocrBackend)
+            }}
+            className="grid gap-3 lg:grid-cols-[1fr_220px_auto] lg:items-end"
           >
-            {OCR_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="text-xs px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-medium whitespace-nowrap"
-          >
-            Kết nối
-          </button>
-        </form>
-      ) : (
-        <DropZone
-          onFileSelect={onSelectFile}
-          dark
-          preprocessMode={preprocessMode}
-          onPreprocessModeChange={setPreprocessMode}
-          ocrBackend={ocrBackend}
-          onOcrBackendChange={setOcrBackend}
-        />
-      )}
-    </div>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[var(--color-text-muted)]">RTSP URL</span>
+              <TextInput
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="rtsp://10.0.0.5:554/main"
+              />
+            </label>
+            <Select
+              label="OCR backend"
+              value={ocrBackend}
+              onChange={(event) => setOcrBackend(event.target.value)}
+              options={OCR_OPTIONS}
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!url.trim()}
+              loading={isConnectingLive}
+            >
+              Kết nối
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="w-full rounded-[var(--radius-panel)] border border-dashed border-[var(--color-border)] bg-black/10 p-6 text-center transition-colors hover:border-[var(--color-border-strong)] hover:bg-white/5"
+            >
+              <p className="font-semibold">Chọn video để đánh dấu interval</p>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">Video dài sẽ được phát trong trình duyệt; chỉ interval được gửi đi phân tích.</p>
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+            />
+            {file && (
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{file.name}</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-subtle)]">{formatBytes(file.size)}</p>
+                  </div>
+                  <Select
+                    label="Tiền xử lý"
+                    value={preprocessMode}
+                    onChange={(event) => setPreprocessMode(event.target.value)}
+                    options={PREPROCESS_OPTIONS}
+                    className="lg:w-52"
+                  />
+                  <Select
+                    label="OCR backend"
+                    value={ocrBackend}
+                    onChange={(event) => setOcrBackend(event.target.value)}
+                    options={OCR_OPTIONS}
+                    className="lg:w-52"
+                  />
+                  <Button
+                    variant="primary"
+                    loading={isOpeningVideo}
+                    onClick={() => onSelectFile(file, preprocessMode, ocrBackend)}
+                  >
+                    {isOpeningVideo ? 'Đang mở video' : 'Mở video'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

@@ -1,164 +1,195 @@
 import { useEffect, useState } from 'react'
 
-const qualityColor = (q) =>
-  q >= 0.8 ? 'bg-emerald-500' : q >= 0.6 ? 'bg-amber-500' : 'bg-red-500'
-
-const qualityText = (q) =>
-  q >= 0.8 ? 'text-emerald-400' : q >= 0.6 ? 'text-amber-400' : 'text-red-400'
+import { apiFetch } from '../apiClient'
+import { Badge, Dialog, EmptyState, Skeleton, cx } from './ui'
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 
 export default function TrackBufferModal({ vehicle, jobId, onClose }) {
-  const [record, setRecord]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const initialRecord = buildInlineRecord(vehicle, jobId)
+  const [record, setRecord] = useState(initialRecord)
+  const [loading, setLoading] = useState(!initialRecord)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    setLoading(true)
+    if (!vehicle || !jobId) return
+    const inlineRecord = buildInlineRecord(vehicle, jobId)
+    const trackId = vehicle.recognition_id ?? vehicle.id ?? vehicle.track_id
+    setRecord(inlineRecord)
+    setLoading(!inlineRecord)
     setError(null)
-    setRecord(null)
 
-    fetch(`/records/${jobId}/${vehicle.id}`)
-      .then(r => {
-        if (!r.ok) throw new Error(r.status === 404 ? 'Dữ liệu chưa được lưu xong, thử lại sau.' : `Lỗi HTTP ${r.status}`)
-        return r.json()
+    apiFetch(`/records/${jobId}/${trackId}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(response.status === 404 ? 'Dữ liệu chưa được lưu xong, thử lại sau.' : `Lỗi HTTP ${response.status}`)
+        }
+        return response.json()
       })
-      .then(data => { setRecord(data); setLoading(false) })
-      .catch(err  => { setError(err.message); setLoading(false) })
-  }, [jobId, vehicle.id])
+      .then((data) => setRecord(mergePersistedRecord(data, inlineRecord)))
+      .catch((err) => {
+        if (!inlineRecord) setError(err.message)
+      })
+      .finally(() => setLoading(false))
+  }, [jobId, vehicle])
 
-  const frames       = record?.track_buffer ?? []
-  const sortedFrames = [...frames].sort((a, b) => b.quality_score - a.quality_score)
-  const bestIdx      = record?.best_plate_frame?.frame_index
-  const votes        = Object.entries(record?.ocr_vote_summary ?? {}).sort((a, b) => b[1] - a[1])
+  const frames = record?.track_buffer ?? []
+  const sortedFrames = [...frames].sort((a, b) => frameScore(b) - frameScore(a))
+  const bestIdx = record?.best_plate_frame?.frame_index
+  const votes = Object.entries(record?.ocr_vote_summary ?? {}).sort((a, b) => b[1] - a[1])
+  const titlePlate = displayPlateText(record?.plate_text || vehicle?.plate)
+  const titleTrackId = vehicle?.recognition_id ?? vehicle?.id ?? vehicle?.track_id
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}
+    <Dialog
+      open={!!vehicle}
+      onClose={onClose}
+      title={`Result #${titleTrackId}${titlePlate ? ` · ${titlePlate}` : ''}`}
+      description={record ? `${frames.length} ảnh evidence · ${record.ocr_method || 'OCR'} · ${Math.round((record.plate_text_confidence || 0) * 100)}% confidence` : 'Bộ đệm track được lưu sau khi OCR hoàn tất.'}
+      className="max-w-4xl"
     >
-      <div className="bg-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden"
-           style={{ maxHeight: '88vh' }}>
-
-        {/* ── Header ── */}
-        <div className="bg-blue-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
-          <div>
-            <p className="text-white text-sm font-bold leading-tight">
-              Track #{vehicle.id}
-              {record?.plate_text && (
-                <span className="ml-2 font-mono tracking-widest">{displayPlateText(record.plate_text)}</span>
-              )}
-            </p>
-            <p className="text-blue-200 text-[11px] mt-0.5">
-              {loading ? 'Đang tải…'
-                : record ? `${frames.length} ảnh · ${{ segment_vote: 'Segment-vote OCR', prob_vote: 'Prob-vote OCR', paddle_segment_vote: 'Paddle segment-vote OCR', paddle_prob_vote: 'Paddle prob-vote OCR' }[record.ocr_method] ?? record.ocr_method} · conf ${Math.round((record.plate_text_confidence ?? 0) * 100)}%`
-                : ''}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-blue-200 hover:text-white w-8 h-8 flex items-center justify-center
-                       rounded-full hover:bg-blue-600 transition-colors text-lg leading-none"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-
-          {/* Loading skeleton */}
-          {loading && <Skeleton />}
-
-          {/* Error */}
-          {error && !loading && (
-            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-              <span className="text-3xl">⚠️</span>
-              <p className="text-red-400 text-sm">{error}</p>
+      <div className="max-h-[76vh] overflow-y-auto p-4">
+        {loading && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
             </div>
-          )}
+            <Skeleton className="h-16" />
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {Array.from({ length: 10 }).map((_, index) => <Skeleton key={index} className="h-24" />)}
+            </div>
+          </div>
+        )}
 
-          {record && (
-            <>
-              {/* Best images */}
-              <div className="flex gap-3">
-                <ImageBox
-                  url={record.vehicle_thumbnail_url}
-                  label="Phương tiện"
-                  height={96}
-                />
-                <ImageBox
-                  url={record.best_plate_frame?.image_url}
-                  label={`Biển số tốt nhất · q = ${(record.best_plate_frame?.quality_score ?? 0).toFixed(2)}`}
-                  height={96}
-                  highlight
-                />
+        {error && !loading && <EmptyState title="Không tải được track buffer">{error}</EmptyState>}
+
+        {record && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ImageBox url={record.vehicle_thumbnail_url} label="Vehicle thumbnail" />
+              <ImageBox
+                url={record.best_plate_frame?.image_url || record.best_plate_frame?.image_b64}
+                label={`Best plate · score=${frameScore(record.best_plate_frame).toFixed(2)}`}
+                highlight
+              />
+            </div>
+
+            {votes.length > 0 && (
+              <section className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+                <p className="section-label">OCR vote summary</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {votes.map(([text, count]) => (
+                    <Badge
+                      key={text}
+                      tone={displayPlateText(text) === displayPlateText(record.plate_text) ? 'success' : 'neutral'}
+                    >
+                      <span className="plate-font">{displayPlateText(text)}</span>
+                      <span className="text-[var(--color-text-subtle)]">×{count}</span>
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="section-label">Track buffer · sắp xếp theo score</p>
+                <Badge tone="info">{sortedFrames.length} frames</Badge>
               </div>
-
-              {/* OCR vote summary */}
-              {votes.length > 0 && (
-                <div className="bg-slate-900/60 rounded-xl px-3 py-2.5">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">
-                    Kết quả bỏ phiếu OCR
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {votes.map(([text, count]) => (
-                      <span
-                        key={text}
-                        className={`text-xs px-2.5 py-1 rounded-lg font-mono font-bold
-                          ${displayPlateText(text) === displayPlateText(record.plate_text)
-                            ? 'bg-emerald-600 text-white ring-1 ring-emerald-400'
-                            : 'bg-slate-700 text-slate-300'}`}
-                      >
-                        {displayPlateText(text)}
-                        <span className="ml-1.5 opacity-60 font-normal">×{count}</span>
-                      </span>
-                    ))}
-                  </div>
+              {sortedFrames.length === 0 ? (
+                <EmptyState title="Không có ảnh trong bộ đệm" />
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                  {sortedFrames.map((frame, index) => (
+                    <FrameCell
+                      key={`${frame.frame_index}-${index}`}
+                      frame={frame}
+                      isBest={frame.frame_index === bestIdx}
+                    />
+                  ))}
                 </div>
               )}
-
-              {/* Track buffer grid */}
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">
-                  Bộ đệm track — {frames.length} ảnh (sắp xếp theo chất lượng)
-                </p>
-                {sortedFrames.length === 0 ? (
-                  <p className="text-slate-500 text-sm text-center py-6">Không có ảnh trong bộ đệm</p>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {sortedFrames.map((frame) => (
-                      <FrameCell
-                        key={frame.frame_index}
-                        frame={frame}
-                        isBest={frame.frame_index === bestIdx}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+            </section>
+          </div>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }
 
-/* ── Sub-components ─────────────────────────────────────────────────────── */
+function buildInlineRecord(vehicle, jobId) {
+  const frames = Array.isArray(vehicle?.track_buffer) ? vehicle.track_buffer : []
+  if (!vehicle || frames.length === 0) return null
 
-function ImageBox({ url, label, height, highlight }) {
+  const bestFrame = frames.reduce(
+    (best, frame) => (frameScore(frame) > frameScore(best) ? frame : best),
+    null,
+  )
+  const charConf = Array.isArray(vehicle.chars) && vehicle.chars.length > 0
+    ? vehicle.chars.reduce((sum, item) => sum + (Number(item?.[1]) || 0), 0) / vehicle.chars.length
+    : 0
+
+  return {
+    session_id: jobId,
+    track_id: vehicle.recognition_id ?? vehicle.id ?? vehicle.track_id,
+    vehicle_track_id: vehicle.vehicle_track_id,
+    plate_track_id: vehicle.plate_track_id,
+    vehicle_class: vehicle.cls,
+    vehicle_thumbnail_url: vehicle.vehicle_b64,
+    best_plate_frame: bestFrame || {
+      frame_index: null,
+      quality_score: vehicle.confidence || 0,
+      image_b64: vehicle.plate_b64,
+    },
+    track_buffer: frames,
+    plate_text: vehicle.plate,
+    plate_text_confidence: charConf,
+    ocr_vote_summary: vehicle.vote_summary || {},
+    ocr_method: vehicle.ocr_method || 'realtime_buffer',
+  }
+}
+
+function mergePersistedRecord(record, inlineRecord) {
+  if (!inlineRecord) return record
+  const hasPersistedFrames = Array.isArray(record?.track_buffer) && record.track_buffer.length > 0
+  if (hasPersistedFrames) return record
+
+  return {
+    ...inlineRecord,
+    ...record,
+    best_plate_frame: record?.best_plate_frame || inlineRecord.best_plate_frame,
+    track_buffer: inlineRecord.track_buffer,
+  }
+}
+
+function normalizeImageSrc(src) {
+  if (!src) return null
+  return src.startsWith?.('http') || src.startsWith?.('data:')
+    ? src
+    : `data:image/jpeg;base64,${src}`
+}
+
+function frameScore(frame) {
+  if (!frame) return -1
+  if (Number.isFinite(Number(frame.combined_score))) return Number(frame.combined_score)
+  const quality = Number(frame.quality_score) || 0
+  const ocrConfidence = Math.max(Number(frame.ocr_confidence) || 0.1, 0.1)
+  return quality * ocrConfidence
+}
+
+function ImageBox({ url, label, highlight = false }) {
+  const src = normalizeImageSrc(url)
   return (
-    <div className={`flex-1 rounded-xl overflow-hidden flex flex-col
-      ${highlight ? 'ring-2 ring-emerald-500' : 'ring-1 ring-slate-700'}`}
-    >
-      <div className="flex-1 bg-slate-950 flex items-center justify-center" style={{ height }}>
-        {url
-          ? <img src={url} alt={label} className="max-w-full max-h-full object-contain" />
-          : <span className="text-slate-600 text-[11px]">Không có ảnh</span>
-        }
+    <div className={cx('overflow-hidden rounded-[var(--radius-panel)] border bg-black', highlight ? 'border-emerald-300/45' : 'border-[var(--color-border)]')}>
+      <div className="flex h-36 items-center justify-center">
+        {src ? (
+          <img src={src} alt={label} className="max-h-full max-w-full object-contain" />
+        ) : (
+          <span className="text-xs text-[var(--color-text-subtle)]">No image</span>
+        )}
       </div>
-      <p className="text-center text-[10px] text-slate-400 bg-slate-900 py-1 px-2 truncate">
+      <p className="border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 text-xs font-semibold text-[var(--color-text-muted)]">
         {label}
       </p>
     </div>
@@ -166,56 +197,37 @@ function ImageBox({ url, label, height, highlight }) {
 }
 
 function FrameCell({ frame, isBest }) {
-  const q = frame.quality_score ?? 0
+  const score = frameScore(frame)
+  const normalizedSrc = normalizeImageSrc(frame.image_url || frame.image_b64)
 
   return (
-    <div className={`rounded-lg overflow-hidden bg-slate-900 flex flex-col
-      ${isBest ? 'ring-2 ring-emerald-500' : 'ring-1 ring-slate-700'}`}
-    >
-      {/* Image */}
-      <div className="relative bg-black flex items-center justify-center" style={{ height: 64 }}>
-        {frame.image_url
-          ? <img src={frame.image_url} alt={`frame ${frame.frame_index}`}
-                 className="max-w-full max-h-full object-contain" />
-          : <span className="text-slate-700 text-[9px]">no img</span>
-        }
-        {isBest && (
-          <span className="absolute top-0.5 right-0.5 bg-emerald-600 text-white
-                           text-[8px] font-bold px-1 py-px rounded">
-            BEST
-          </span>
+    <div className={cx('overflow-hidden rounded-lg border bg-black', isBest ? 'border-emerald-300/55' : 'border-[var(--color-border)]')}>
+      <div className="relative flex h-20 items-center justify-center">
+        {normalizedSrc ? (
+          <img src={normalizedSrc} alt={`frame ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
+        ) : (
+          <span className="text-[10px] text-[var(--color-text-subtle)]">no img</span>
         )}
+        {isBest && <span className="absolute right-1 top-1 rounded bg-emerald-300 px-1.5 py-0.5 text-[9px] font-bold text-black">BEST</span>}
       </div>
-
-      {/* Quality bar */}
-      <div className="h-1 bg-slate-700">
-        <div
-          className={`h-full ${qualityColor(q)}`}
-          style={{ width: `${Math.min(q * 100, 100)}%` }}
-        />
+      <div className="h-1 bg-white/10">
+        <div className={cx('h-full', qualityColor(score))} style={{ width: `${Math.min(score * 100, 100)}%` }} />
       </div>
-
-      {/* Label */}
-      <p className={`text-center text-[9px] py-1 ${qualityText(q)}`}>
-        f{frame.frame_index} · {q.toFixed(2)}
+      <p className={cx('data-font px-1 py-1 text-center text-[10px]', qualityText(score))}>
+        f{frame.frame_index} · {score.toFixed(2)}
       </p>
     </div>
   )
 }
 
-function Skeleton() {
-  return (
-    <div className="animate-pulse space-y-3">
-      <div className="flex gap-3">
-        <div className="flex-1 h-24 bg-slate-700 rounded-xl" />
-        <div className="flex-1 h-24 bg-slate-700 rounded-xl" />
-      </div>
-      <div className="h-12 bg-slate-700 rounded-xl" />
-      <div className="grid grid-cols-4 gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-20 bg-slate-700 rounded-lg" />
-        ))}
-      </div>
-    </div>
-  )
+function qualityColor(quality) {
+  if (quality >= 0.8) return 'bg-emerald-300'
+  if (quality >= 0.6) return 'bg-amber-300'
+  return 'bg-red-300'
+}
+
+function qualityText(quality) {
+  if (quality >= 0.8) return 'text-emerald-100'
+  if (quality >= 0.6) return 'text-amber-100'
+  return 'text-red-100'
 }

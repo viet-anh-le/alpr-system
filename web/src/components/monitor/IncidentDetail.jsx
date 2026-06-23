@@ -1,97 +1,141 @@
+import { useState } from 'react'
+
+import { Badge, Button, Dialog, EmptyState, cx } from '../ui'
+
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 
 export default function IncidentDetail({ incident }) {
-  const vehArr = Object.values(incident.vehicles || {})
+  const vehicles = Object.values(incident.vehicles || {})
+  if (vehicles.length === 0) {
+    return <EmptyState title="Không có vehicle evidence" />
+  }
+
   return (
-    <div className="mt-2 space-y-2">
-      {vehArr.map((v) => (
-        <div key={v.track_id ?? v.id} className="bg-slate-900/50 rounded p-2">
-          <div className="grid grid-cols-2 gap-px bg-slate-950 rounded overflow-hidden mb-2">
-            <ImageBox
-              src={imageSrc(v.vehicle_b64)}
-              alt={`Xe ${v.track_id ?? v.id}`}
-              fallback="Không có ảnh xe"
-            />
-            <ImageBox
-              src={imageSrc(v.plate_b64)}
-              alt={displayPlateText(v.plate)}
-              fallback="Không có ảnh biển số"
-            />
-          </div>
-          <div className="text-sm font-mono text-emerald-300">{displayPlateText(v.plate)}</div>
-          <div className="text-[10px] text-slate-500">{v.cls} · {v.ocr_frames} frames</div>
-          <TrackBuffer frames={v.track_buffer || []} />
-        </div>
+    <div className="mt-3 space-y-3">
+      {vehicles.map((vehicle) => (
+        <IncidentVehicleDetail key={vehicle.track_id ?? vehicle.id} vehicle={vehicle} />
       ))}
     </div>
   )
 }
 
-function TrackBuffer({ frames }) {
-  const sortedFrames = [...frames].sort(
-    (a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0)
-  )
+function IncidentVehicleDetail({ vehicle }) {
+  const [showBuffer, setShowBuffer] = useState(false)
+  const frames = vehicle.track_buffer || []
+  const vehicleId = vehicle.track_id ?? vehicle.id
+  const identityLabel = formatRecognitionIdentity(vehicle)
+  const confidence = Math.round((vehicle.confidence || 0) * 100)
 
   return (
-    <div className="mt-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-          Bộ đệm track
-        </span>
-        <span className="text-[10px] text-slate-500">{sortedFrames.length} ảnh</span>
+    <article className="rounded-xl border border-[var(--color-border)] bg-black/15 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <ImageBox src={imageSrc(vehicle.vehicle_b64)} alt={`Xe ${vehicleId}`} fallback="Không có ảnh xe" />
+        <ImageBox src={imageSrc(vehicle.plate_b64)} alt={displayPlateText(vehicle.plate)} fallback="Không có ảnh biển số" dark />
       </div>
-      {sortedFrames.length === 0 ? (
-        <p className="text-[10px] text-slate-600 text-center py-3 bg-slate-950 rounded">
-          Không có ảnh trong bộ đệm
-        </p>
-      ) : (
-        <div className="grid grid-cols-3 gap-1.5">
-          {sortedFrames.map((frame, index) => (
-            <FrameCell key={`${frame.frame_index}-${frame.candidate_method || ''}-${index}`} frame={frame} />
-          ))}
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="plate-font truncate text-base font-bold tracking-widest text-emerald-100">
+            {displayPlateText(vehicle.plate) || '—'}
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            {identityLabel} · {vehicle.cls || 'vehicle'} · {vehicle.ocr_frames || 0} frames
+          </p>
         </div>
-      )}
-    </div>
+        <Badge tone={confidence >= 90 ? 'success' : confidence >= 70 ? 'warning' : 'danger'}>
+          {confidence || '—'}%
+        </Badge>
+      </div>
+      <Button className="mt-3" size="sm" onClick={() => setShowBuffer(true)}>
+        Bộ đệm ({frames.length})
+      </Button>
+
+      <TrackBufferDialog
+        open={showBuffer}
+        vehicle={vehicle}
+        frames={frames}
+        onClose={() => setShowBuffer(false)}
+      />
+    </article>
+  )
+}
+
+function TrackBufferDialog({ open, vehicle, frames, onClose }) {
+  const identityLabel = formatRecognitionIdentity(vehicle)
+  const sortedFrames = [...frames].sort((a, b) => frameScore(b) - frameScore(a))
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`Incident ${identityLabel}`}
+      description={`${sortedFrames.length} frames trong incident buffer`}
+      className="max-w-3xl"
+    >
+      <div className="max-h-[70vh] overflow-y-auto p-4">
+        {sortedFrames.length === 0 ? (
+          <EmptyState title="Không có ảnh trong bộ đệm" />
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {sortedFrames.map((frame, index) => (
+              <FrameCell key={`${frame.frame_index}-${frame.candidate_method || ''}-${index}`} frame={frame} />
+            ))}
+          </div>
+        )}
+      </div>
+    </Dialog>
   )
 }
 
 function FrameCell({ frame }) {
-  const quality = frame.quality_score ?? 0
+  const score = frameScore(frame)
   const src = imageSrc(frame.image_b64) || frame.image_url
 
   return (
-    <div className="bg-slate-950 rounded overflow-hidden ring-1 ring-slate-800">
-      <div className="h-14 bg-black flex items-center justify-center">
+    <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-black">
+      <div className="flex h-20 items-center justify-center">
         {src ? (
-          <img
-            src={src}
-            alt={`frame ${frame.frame_index}`}
-            className="max-w-full max-h-full object-contain"
-          />
+          <img src={src} alt={`frame ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-[9px] text-slate-700">no img</span>
+          <span className="text-[10px] text-[var(--color-text-subtle)]">no img</span>
         )}
       </div>
-      <div className="h-1 bg-slate-800">
-        <div
-          className={`h-full ${qualityColor(quality)}`}
-          style={{ width: `${Math.min(quality * 100, 100)}%` }}
-        />
+      <div className="h-1 bg-white/10">
+        <div className={cx('h-full', qualityColor(score))} style={{ width: `${Math.min(score * 100, 100)}%` }} />
       </div>
-      <div className="px-1 py-0.5 text-[9px] text-slate-500 text-center tabular-nums">
-        f{frame.frame_index} · {quality.toFixed(2)}
-      </div>
+      <p className="data-font px-1 py-1 text-center text-[10px] text-[var(--color-text-muted)]">
+        f{frame.frame_index} · {score.toFixed(2)}
+      </p>
     </div>
   )
 }
 
-function ImageBox({ src, alt, fallback }) {
+function formatRecognitionIdentity(vehicle) {
+  const resultId = vehicle.recognition_id ?? vehicle.track_id ?? vehicle.id
+  const parts = [`Result #${resultId}`]
+  if (vehicle.vehicle_track_id !== undefined && vehicle.vehicle_track_id !== null) {
+    parts.push(`Vehicle #${vehicle.vehicle_track_id}`)
+  }
+  if (vehicle.plate_track_id !== undefined && vehicle.plate_track_id !== null) {
+    parts.push(`Plate #${vehicle.plate_track_id}`)
+  }
+  return parts.join(' · ')
+}
+
+function frameScore(frame) {
+  if (!frame) return 0
+  if (Number.isFinite(Number(frame.combined_score))) return Number(frame.combined_score)
+  const quality = Number(frame.quality_score) || 0
+  const ocrConfidence = Math.max(Number(frame.ocr_confidence) || 0.1, 0.1)
+  return quality * ocrConfidence
+}
+
+function ImageBox({ src, alt, fallback, dark = false }) {
   return (
-    <div className="h-16 bg-black flex items-center justify-center">
+    <div className={cx('flex h-24 items-center justify-center rounded-lg border border-[var(--color-border)]', dark ? 'bg-black' : 'bg-black/30')}>
       {src ? (
-        <img src={src} alt={alt} className="max-w-full max-h-full object-contain" />
+        <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
       ) : (
-        <span className="text-[10px] text-slate-700">{fallback}</span>
+        <span className="text-xs text-[var(--color-text-subtle)]">{fallback}</span>
       )}
     </div>
   )
@@ -104,7 +148,7 @@ function imageSrc(value) {
 }
 
 function qualityColor(quality) {
-  if (quality >= 0.8) return 'bg-emerald-500'
-  if (quality >= 0.6) return 'bg-amber-500'
-  return 'bg-red-500'
+  if (quality >= 0.8) return 'bg-emerald-300'
+  if (quality >= 0.6) return 'bg-amber-300'
+  return 'bg-red-300'
 }

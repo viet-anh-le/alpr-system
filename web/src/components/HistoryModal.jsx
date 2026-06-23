@@ -1,139 +1,190 @@
-import { useState, useEffect } from 'react'
-import supabase from '../supabaseClient'
+import { useEffect, useState } from 'react'
+
+import { apiJson } from '../apiClient'
+import { Badge, Drawer, EmptyState, Skeleton, cx } from './ui'
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 
-export default function HistoryModal({ onClose }) {
+export default function HistoryModal({ open, onClose }) {
   const [jobs, setJobs] = useState([])
   const [selectedJobId, setSelectedJobId] = useState(null)
   const [vehicles, setVehicles] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loadingJobs, setLoadingJobs] = useState(false)
+  const [loadingVehicles, setLoadingVehicles] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Prevent background scrolling
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = 'auto' }
-  }, [])
-
-  // Fetch Jobs
-  useEffect(() => {
+    if (!open) return
     async function fetchJobs() {
-      if (!supabase) return setLoading(false)
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (!error && data) {
-        setJobs(data)
-        if (data.length > 0) setSelectedJobId(data[0].id)
+      setLoadingJobs(true)
+      setError(null)
+      try {
+        const data = await apiJson('/sessions?limit=50')
+        const items = data.items || []
+        setJobs(items)
+        setSelectedJobId(items[0]?.session_id || null)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoadingJobs(false)
       }
-      setLoading(false)
     }
     fetchJobs()
-  }, [])
+  }, [open])
 
-  // Fetch Vehicles when a job is selected
   useEffect(() => {
+    if (!open || !selectedJobId) return
     async function fetchVehicles() {
-      if (!supabase || !selectedJobId) return
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('job_id', selectedJobId)
-        .order('tracker_id', { ascending: true })
-
-      if (!error && data) setVehicles(data)
+      setVehicles([])
+      setLoadingVehicles(true)
+      setError(null)
+      try {
+        const data = await apiJson(`/sessions/${selectedJobId}/records`)
+        setVehicles(data.items || [])
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoadingVehicles(false)
+      }
     }
     fetchVehicles()
-  }, [selectedJobId])
+  }, [open, selectedJobId])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-6xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/50">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Lịch sử Hệ thống
-          </h2>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-full transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {!supabase ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-            <svg className="w-16 h-16 mb-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18.364 5.636a9 9 0 00-12.728 0m12.728 0A9 9 0 0112 21m0-18A9 9 0 003 12m18 0a9 9 0 01-9 9m9-9H3" />
-            </svg>
-            <p className="text-lg font-medium text-white mb-2">Chưa kết nối CSDL</p>
-            <p className="text-sm max-w-md">Vui lòng cung cấp `VITE_SUPABASE_URL` và config backend để xem bằng chứng.</p>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title="Lịch sử nhận dạng"
+      description="Các phiên đã lưu, crop chứng cứ và confidence theo tài khoản."
+    >
+      <div className="grid min-h-full lg:grid-cols-[320px_1fr]">
+        <aside className="border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] lg:border-b-0 lg:border-r">
+          <div className="panel-header">
+            <div>
+              <p className="section-label">Sessions</p>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">{jobs.length} phiên gần nhất</p>
+            </div>
           </div>
-        ) : (
-          <div className="flex-1 flex min-h-0">
-            {/* Sidebar (List of Jobs) */}
-            <div className="w-72 border-r border-slate-800 flex flex-col bg-slate-900/50 overflow-y-auto">
-              {loading ? (
-                <p className="p-4 text-sm text-slate-500">Đang tải...</p>
-              ) : jobs.length === 0 ? (
-                <p className="p-4 text-sm text-slate-500">Chưa có dữ liệu nào được lưu.</p>
-              ) : (
-                jobs.map(job => (
+          <div className="max-h-[42vh] overflow-y-auto p-3 lg:max-h-none">
+            {loadingJobs ? (
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Skeleton key={index} className="h-20" />
+                ))}
+              </div>
+            ) : jobs.length === 0 ? (
+              <EmptyState title="Chưa có session">
+                Sau khi xử lý video thành công, session và recognition records sẽ xuất hiện ở đây.
+              </EmptyState>
+            ) : (
+              <div className="space-y-2">
+                {jobs.map((job) => (
                   <button
-                    key={job.id}
-                    onClick={() => setSelectedJobId(job.id)}
-                    className={`text-left px-4 py-3 border-b border-slate-800/50 transition-colors ${selectedJobId === job.id ? 'bg-blue-600/20 border-l-2 border-l-blue-500' : 'hover:bg-slate-800 border-l-2 border-l-transparent'}`}
+                    key={job.session_id}
+                    type="button"
+                    onClick={() => setSelectedJobId(job.session_id)}
+                    className={cx(
+                      'w-full rounded-xl border p-3 text-left transition-colors duration-200',
+                      selectedJobId === job.session_id
+                        ? 'border-cyan-300/45 bg-cyan-300/10'
+                        : 'border-[var(--color-border)] bg-black/10 hover:bg-white/5',
+                    )}
                   >
-                    <p className={`font-medium text-sm truncate ${selectedJobId === job.id ? 'text-blue-400' : 'text-slate-200'}`}>
-                      {job.filename}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold">{job.source_filename}</p>
+                      <Badge tone={job.status === 'completed' ? 'success' : job.status === 'failed' ? 'danger' : 'info'}>
+                        {job.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 data-font truncate text-[11px] text-[var(--color-text-subtle)]">#{job.session_id}</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      {new Date(job.created_at).toLocaleString('vi')} · {job.total_records || 0} records
                     </p>
-                    <div className="flex justify-between items-center mt-1">
-                      <p className="text-xs text-slate-500">#{job.id}</p>
-                      <p className="text-[10px] text-slate-500">{new Date(job.created_at).toLocaleDateString()}</p>
-                    </div>
                   </button>
-                ))
-              )}
-            </div>
-
-            {/* Main Area (Vehicles Grid) */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/20">
-              {vehicles.length === 0 && selectedJobId ? (
-                <p className="text-slate-400 text-sm">Không tìm thấy biển số nào trong phiên này.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vehicles.map(v => (
-                    <div key={v.id} className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden flex flex-col">
-                      <div className="flex-1 p-3 flex gap-2 justify-center items-center bg-slate-900">
-                         {v.vehicle_image_url ? (
-                            <img src={v.vehicle_image_url} alt="Vehicle" className="h-24 w-1/2 object-contain bg-slate-950 rounded-md" />
-                         ) : <div className="h-24 w-1/2 bg-slate-950 rounded-md" />}
-                         {v.plate_image_url ? (
-                            <img src={v.plate_image_url} alt="Plate" className="h-24 w-1/2 object-contain bg-black rounded-md" />
-                         ) : <div className="h-24 w-1/2 bg-black rounded-md" />}
-                      </div>
-                      <div className="p-3 bg-slate-800">
-                        <div className="flex justify-between items-start mb-1">
-                          <p className="plate-font text-xl font-bold text-white tracking-widest">{displayPlateText(v.plate_text)}</p>
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
-                            {v.class_name}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400">ID: {v.tracker_id} &bull; Độ tin cậy: <span className="text-amber-400">{v.confidence}%</span></p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </aside>
+
+        <section className="min-h-0 bg-[var(--color-bg)] p-4">
+          {error ? (
+            <EmptyState title="Không tải được lịch sử">{error}</EmptyState>
+          ) : loadingVehicles ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={index} className="h-64" />
+              ))}
+            </div>
+          ) : !selectedJobId ? (
+            <EmptyState title="Chọn một session">
+              Danh sách record sẽ hiển thị crop phương tiện, crop biển số và confidence OCR.
+            </EmptyState>
+          ) : vehicles.length === 0 ? (
+            <EmptyState title="Session chưa có record">
+              Không tìm thấy biển số hợp lệ trong phiên này hoặc dữ liệu chưa được lưu.
+            </EmptyState>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {vehicles.map((vehicle) => (
+                <HistoryRecord key={`${vehicle.session_id}-${vehicle.track_id}`} vehicle={vehicle} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+    </Drawer>
+  )
+}
+
+function HistoryRecord({ vehicle }) {
+  const confidence = Math.round((vehicle.plate_text_confidence || 0) * 100)
+  const identity = formatRecognitionIdentity(vehicle)
+  return (
+    <article className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+      <div className="grid grid-cols-2 gap-px bg-[var(--color-border)]">
+        <HistoryImage src={vehicle.vehicle_thumbnail_url} alt="Vehicle evidence" />
+        <HistoryImage src={vehicle.best_plate_frame?.image_url} alt="Plate evidence" dark />
+      </div>
+      <div className="space-y-3 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <p className="plate-font min-w-0 truncate text-lg font-bold tracking-widest">
+            {displayPlateText(vehicle.plate_text) || '—'}
+          </p>
+          <Badge tone={confidence >= 90 ? 'success' : confidence >= 70 ? 'warning' : 'danger'}>
+            {confidence}%
+          </Badge>
+        </div>
+        <p className="text-xs text-[var(--color-text-muted)]">
+          {identity} · {vehicle.vehicle_class || 'vehicle'} · {vehicle.ocr_method || 'OCR'}
+        </p>
+        <p className="data-font text-[11px] text-[var(--color-text-subtle)]">
+          Frame {vehicle.first_seen_frame ?? '—'} → {vehicle.last_seen_frame ?? '—'}
+        </p>
+      </div>
+    </article>
+  )
+}
+
+function formatRecognitionIdentity(vehicle) {
+  const parts = [`Result #${vehicle.track_id}`]
+  if (vehicle.vehicle_track_id !== undefined && vehicle.vehicle_track_id !== null) {
+    parts.push(`Vehicle #${vehicle.vehicle_track_id}`)
+  }
+  if (vehicle.plate_track_id !== undefined && vehicle.plate_track_id !== null) {
+    parts.push(`Plate #${vehicle.plate_track_id}`)
+  }
+  return parts.join(' · ')
+}
+
+function HistoryImage({ src, alt, dark = false }) {
+  return (
+    <div className={cx('flex h-32 items-center justify-center', dark ? 'bg-black' : 'bg-black/30')}>
+      {src ? (
+        <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+      ) : (
+        <span className="text-xs text-[var(--color-text-subtle)]">No image</span>
+      )}
     </div>
   )
 }
