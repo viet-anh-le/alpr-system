@@ -9,8 +9,17 @@ services:
       - "8000:8000"
     environment:
       - MONGODB_URI=mongodb://mongo:27017/alpr
+      - WEB_ORIGIN=http://localhost:3000,http://localhost:5173
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
+      - AUTH_COOKIE_SECURE=false
+      - AUTH_SESSION_TTL_HOURS=24
+      - MAX_UPLOAD_MB=512
+      - MEDIAMTX_API_URL=http://mediamtx:9997
+      - MEDIAMTX_INTERNAL_RTSP_BASE=rtsp://mediamtx:8554
+      - MEDIAMTX_PUBLIC_WEBRTC_BASE=http://localhost:8889
     depends_on:
       - mongo
+      - mediamtx
 
   web:
     build:
