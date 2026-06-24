@@ -25,7 +25,7 @@ export default function IntervalPicker({ duration, initialStart, initialEnd, onS
     <div className="border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="section-label">Incident window</p>
+          <p className="section-label">Event window</p>
           <p className="mt-1 data-font text-sm text-[var(--color-text-muted)]">
             {fmt(start)} → {fmt(end)} · Δ {delta.toFixed(1)}s
           </p>

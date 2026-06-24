@@ -19,7 +19,8 @@ import numpy as np
 
 from boxmot.reid.core.config import MODEL_TYPES
 from boxmot.reid.core.reid import ReID
-from boxmot.trackers.botsort.botsort import BotSort
+
+from .botsort_reid import AlwaysReIDBotSort
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ class VehicleTracker:
 
         # BotSort expects the backend model (ReID(...).model), not the ReID wrapper
         reid_model = ReID(path=self._reid_weights, device=self._device, half=half)
-        self._tracker = BotSort(
+        self._tracker = AlwaysReIDBotSort(
             reid_model=reid_model.model,
             track_high_thresh=self._TRACK_HIGH_THRESH,
             track_low_thresh=self._TRACK_LOW_THRESH,

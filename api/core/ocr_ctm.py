@@ -162,10 +162,10 @@ def fuse_ocr_outputs_ctm(
             key=lambda item: (item[1][0], item[1][1]),
         )
         support = count / valid_frames
-        weighted_conf = conf_sum / valid_frames
+        avg_conf = conf_sum / count if count > 0 else 0.0
         ctm_support.append(round(float(support), 4))
-        if support > min_support_ratio and weighted_conf >= min_confidence:
-            slot_chars.append((best_char, round(float(weighted_conf), 4)))
+        if support > min_support_ratio and avg_conf >= min_confidence:
+            slot_chars.append((best_char, round(float(avg_conf), 4)))
         else:
             unresolved_slots.append(slot_idx)
             slot_chars.append(("?", 0.0))

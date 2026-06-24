@@ -21,7 +21,7 @@ const metrics = [
 
 const surfaces = [
   ['Processing workbench', 'Upload video, theo dõi tiến trình SSE, review plate evidence và confidence.'],
-  ['Incident monitor', 'Kết nối RTSP hoặc video dài, mark cửa sổ ngắn để phân tích nhanh.'],
+  ['Event monitor', 'Kết nối RTSP hoặc video dài, mark cửa sổ ngắn để phân tích nhanh.'],
   ['History review', 'Truy xuất session, recognition records, crop phương tiện và crop biển số đã lưu.'],
 ]
 
@@ -66,7 +66,7 @@ export default function LandingPage() {
             Evidence workbench for Vietnamese license plate recognition
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--color-text-muted)]">
-            Upload video or monitor a short incident window, run the ALPR pipeline, then inspect plate text, confidence, vehicle crops, plate crops, rejected candidates, and saved history.
+            Upload video or monitor a short event window, run the ALPR pipeline, then inspect plate text, confidence, vehicle crops, plate crops, rejected candidates, and saved history.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link to={primaryCta.to}><Button variant="primary" size="lg">{primaryCta.label}</Button></Link>

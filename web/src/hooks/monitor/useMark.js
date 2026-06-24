@@ -5,5 +5,5 @@ export async function postMark(sessionId, body) {
     body: JSON.stringify(body),
   })
   if (!resp.ok) throw new Error(await resp.text())
-  return (await resp.json()).incident_id
+  return (await resp.json()).event_id
 }

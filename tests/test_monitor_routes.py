@@ -38,7 +38,7 @@ async def client(monkeypatch):
         await c.aclose()
         routes_monitor.cleanup_all_upload_sessions()
         routes_monitor.monitor_sessions.clear()
-        routes_monitor.incident_queues.clear()
+        routes_monitor.event_queues.clear()
 
 
 @pytest.mark.integration
@@ -118,7 +118,7 @@ async def test_mark_upload_validates_window_too_long(client):
 async def test_mark_upload_accepts_valid_window(client, monkeypatch):
     from api import routes_monitor
 
-    monkeypatch.setattr(routes_monitor, "_dispatch_incident", lambda *a, **kw: None)
+    monkeypatch.setattr(routes_monitor, "_dispatch_event", lambda *a, **kw: None)
 
     resp = await client.post("/monitor/upload",
         files={"file": ("short.mp4", open("tests/fixtures/short_clip.mp4", "rb"), "video/mp4")})
@@ -127,27 +127,27 @@ async def test_mark_upload_accepts_valid_window(client, monkeypatch):
     resp = await client.post(f"/monitor/{sid}/mark",
         json={"mode": "upload", "t_start": 0.0, "t_end": 1.0})
     assert resp.status_code == 200
-    assert "incident_id" in resp.json()
+    assert "event_id" in resp.json()
 
 
 @pytest.mark.integration
-async def test_incident_stream_returns_event_stream_headers(client, monkeypatch):
+async def test_event_stream_returns_event_stream_headers(client, monkeypatch):
     """SSE endpoint returns 200 + text/event-stream.
 
     Push None sentinel BEFORE streaming so the generator exits immediately
     after the initial keep-alive comment — avoids blocking on queue.get()."""
     from api import routes_monitor
 
-    monkeypatch.setattr(routes_monitor, "_dispatch_incident", lambda *a, **kw: None)
+    monkeypatch.setattr(routes_monitor, "_dispatch_event", lambda *a, **kw: None)
 
     resp = await client.post("/monitor/upload",
         files={"file": ("short.mp4", open("tests/fixtures/short_clip.mp4", "rb"), "video/mp4")})
     sid = resp.json()["session_id"]
 
     # Sentinel closes the generator after the keep-alive comment is sent.
-    routes_monitor.incident_queues[sid].put_nowait(None)
+    routes_monitor.event_queues[sid].put_nowait(None)
 
-    async with client.stream("GET", f"/monitor/{sid}/incidents/stream") as r:
+    async with client.stream("GET", f"/monitor/{sid}/events/stream") as r:
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/event-stream")
         assert r.headers.get("cache-control") == "no-cache"
@@ -156,8 +156,8 @@ async def test_incident_stream_returns_event_stream_headers(client, monkeypatch)
 
 
 @pytest.mark.integration
-async def test_incident_stream_404_for_unknown_session(client):
-    resp = await client.get("/monitor/unknown_session_xyz/incidents/stream")
+async def test_event_stream_404_for_unknown_session(client):
+    resp = await client.get("/monitor/unknown_session_xyz/events/stream")
     assert resp.status_code == 404
 
 
@@ -211,7 +211,7 @@ async def test_monitor_upload_disconnect_404_unknown_session(client):
 
 
 @pytest.mark.integration
-async def test_monitor_upload_disconnect_defers_cleanup_when_incident_active(client):
+async def test_monitor_upload_disconnect_defers_cleanup_when_event_active(client):
     from api import routes_monitor
 
     resp = await client.post("/monitor/upload",
@@ -219,7 +219,7 @@ async def test_monitor_upload_disconnect_defers_cleanup_when_incident_active(cli
     sid = resp.json()["session_id"]
     sess = routes_monitor.monitor_sessions[sid]
     upload_path = Path(sess["path"])
-    sess["active_incidents"] = 1
+    sess["active_events"] = 1
 
     resp = await client.delete(f"/monitor/upload/{sid}")
 
@@ -245,15 +245,15 @@ def test_upload_lifecycle_release_runs_deferred_cleanup(tmp_path):
         "preprocess_mode": "none",
         "created_at": 0.0,
         "last_access_at": 0.0,
-        "active_incidents": 1,
+        "active_events": 1,
         "cleanup_requested": True,
     }
-    routes_monitor.incident_queues[sid] = asyncio.Queue()
+    routes_monitor.event_queues[sid] = asyncio.Queue()
 
-    routes_monitor._release_upload_incident(sid)
+    routes_monitor._release_upload_event(sid)
 
     assert sid not in routes_monitor.monitor_sessions
-    assert sid not in routes_monitor.incident_queues
+    assert sid not in routes_monitor.event_queues
     assert not upload_path.exists()
 
 
@@ -273,7 +273,7 @@ def test_upload_lifecycle_wrapper_emits_error_when_runner_crashes(tmp_path):
         "preprocess_mode": "none",
         "created_at": 0.0,
         "last_access_at": 0.0,
-        "active_incidents": 1,
+        "active_events": 1,
         "cleanup_requested": False,
     }
 
@@ -281,10 +281,10 @@ def test_upload_lifecycle_wrapper_emits_error_when_runner_crashes(tmp_path):
         raise TypeError("unexpected kw")
 
     try:
-        routes_monitor._run_incident_with_upload_lifecycle(
+        routes_monitor._run_event_with_upload_lifecycle(
             upload_session_id=sid,
-            run_incident_fn=failing_runner,
-            incident_id="inc_wrapper_error",
+            run_event_fn=failing_runner,
+            event_id="evt_wrapper_error",
             queue=queue,
             loop=loop,
         )
@@ -297,8 +297,8 @@ def test_upload_lifecycle_wrapper_emits_error_when_runner_crashes(tmp_path):
         routes_monitor.monitor_sessions.pop(sid, None)
         loop.close()
 
-    assert ev["type"] == "incident_error"
-    assert ev["incident_id"] == "inc_wrapper_error"
+    assert ev["type"] == "event_error"
+    assert ev["event_id"] == "evt_wrapper_error"
     assert "unexpected kw" in ev["message"]
 
 
@@ -322,7 +322,7 @@ def test_ttl_cleanup_removes_expired_inactive_uploads_only(tmp_path, monkeypatch
         "preprocess_mode": "none",
         "created_at": now - 200.0,
         "last_access_at": now - 200.0,
-        "active_incidents": 0,
+        "active_events": 0,
         "cleanup_requested": False,
     }
     routes_monitor.monitor_sessions[active_sid] = {
@@ -332,11 +332,11 @@ def test_ttl_cleanup_removes_expired_inactive_uploads_only(tmp_path, monkeypatch
         "preprocess_mode": "none",
         "created_at": now - 200.0,
         "last_access_at": now - 200.0,
-        "active_incidents": 1,
+        "active_events": 1,
         "cleanup_requested": False,
     }
-    routes_monitor.incident_queues[expired_sid] = asyncio.Queue()
-    routes_monitor.incident_queues[active_sid] = asyncio.Queue()
+    routes_monitor.event_queues[expired_sid] = asyncio.Queue()
+    routes_monitor.event_queues[active_sid] = asyncio.Queue()
 
     removed = routes_monitor.cleanup_expired_upload_sessions(now=now)
 
@@ -497,14 +497,14 @@ async def test_mark_live_on_upload_session_returns_400(client):
     assert "upload" in resp.json()["detail"].lower()
 
 
-# ── _dispatch_incident direct unit tests ─────────────────────────────────────
+# ── _dispatch_event direct unit tests ─────────────────────────────────────
 
 
 @pytest.mark.unit
-def test_dispatch_incident_upload_mode_submits_to_executor(monkeypatch):
-    """Lines 179-212: _dispatch_incident upload mode path."""
+def test_dispatch_event_upload_mode_submits_to_executor(monkeypatch):
+    """Lines 179-212: _dispatch_event upload mode path."""
     from api import routes_monitor
-    from api.routes_monitor import _dispatch_incident, MarkBody
+    from api.routes_monitor import _dispatch_event, MarkBody
 
     submitted = []
 
@@ -512,9 +512,9 @@ def test_dispatch_incident_upload_mode_submits_to_executor(monkeypatch):
         submitted.append(kwargs)
         return MagicMock()
 
-    monkeypatch.setattr(routes_monitor._incident_executor, "submit", fake_submit)
+    monkeypatch.setattr(routes_monitor._event_executor, "submit", fake_submit)
 
-    # _dispatch_incident calls get_running_loop(); supply a real one
+    # _dispatch_event calls get_running_loop(); supply a real one
     fake_loop = asyncio.new_event_loop()
     monkeypatch.setattr(asyncio, "get_running_loop", lambda: fake_loop)
 
@@ -528,14 +528,14 @@ def test_dispatch_incident_upload_mode_submits_to_executor(monkeypatch):
         "preprocess_mode": "night",
         "created_at": 0.0,
         "last_access_at": 0.0,
-        "active_incidents": 0,
+        "active_events": 0,
         "cleanup_requested": False,
     }
     routes_monitor.monitor_sessions["ses_disp"] = dict(sess)
 
     try:
-        _dispatch_incident(
-            incident_id="inc_disp_upload",
+        _dispatch_event(
+            event_id="evt_disp_upload",
             session_id="ses_disp",
             sess=sess,
             body=MarkBody(mode="upload", t_start=0.0, t_end=1.0),
@@ -547,17 +547,17 @@ def test_dispatch_incident_upload_mode_submits_to_executor(monkeypatch):
         fake_loop.close()
 
     assert len(submitted) == 1
-    assert submitted[0]["incident_id"] == "inc_disp_upload"
+    assert submitted[0]["event_id"] == "evt_disp_upload"
     assert submitted[0]["source_type"] == "upload"
     assert submitted[0]["source_ref"] == "short_clip.mp4"
     assert submitted[0]["source"].mode == "night"
 
 
 @pytest.mark.unit
-def test_dispatch_incident_live_mode_submits_to_executor(monkeypatch):
-    """Lines 190-212: _dispatch_incident live mode path."""
+def test_dispatch_event_live_mode_submits_to_executor(monkeypatch):
+    """Lines 190-212: _dispatch_event live mode path."""
     from api import routes_monitor
-    from api.routes_monitor import _dispatch_incident, MarkBody
+    from api.routes_monitor import _dispatch_event, MarkBody
 
     submitted = []
 
@@ -565,7 +565,7 @@ def test_dispatch_incident_live_mode_submits_to_executor(monkeypatch):
         submitted.append(kwargs)
         return MagicMock()
 
-    monkeypatch.setattr(routes_monitor._incident_executor, "submit", fake_submit)
+    monkeypatch.setattr(routes_monitor._event_executor, "submit", fake_submit)
 
     fake_loop = asyncio.new_event_loop()
     monkeypatch.setattr(asyncio, "get_running_loop", lambda: fake_loop)
@@ -587,8 +587,8 @@ def test_dispatch_incident_live_mode_submits_to_executor(monkeypatch):
     mock_request = MagicMock()
     mock_request.app.state.models = MagicMock()
 
-    _dispatch_incident(
-        incident_id="inc_disp_live",
+    _dispatch_event(
+        event_id="evt_disp_live",
         session_id="ses_disp_live",
         sess=sess,
         body=MarkBody(mode="live"),
@@ -619,7 +619,7 @@ async def test_mark_live_buffer_warmup_returns_409(client):
         "mjpeg_queue": asyncio.Queue(),
         "rtsp_url": "rtsp://cam/warmup",
     }
-    routes_monitor.incident_queues[sid] = asyncio.Queue()
+    routes_monitor.event_queues[sid] = asyncio.Queue()
 
     try:
         resp = await client.post(f"/monitor/{sid}/mark", json={"mode": "live"})
@@ -627,51 +627,51 @@ async def test_mark_live_buffer_warmup_returns_409(client):
         assert "warming up" in resp.json()["detail"]
     finally:
         routes_monitor.monitor_sessions.pop(sid, None)
-        routes_monitor.incident_queues.pop(sid, None)
+        routes_monitor.event_queues.pop(sid, None)
 
 
 # ── SSE event data yield ──────────────────────────────────────────────────────
 
 
 @pytest.mark.integration
-async def test_incident_stream_yields_event_data(client, monkeypatch):
+async def test_event_stream_yields_event_data(client, monkeypatch):
     """Line 263: gen() yields data line when event dict is in queue."""
     from api import routes_monitor
 
-    monkeypatch.setattr(routes_monitor, "_dispatch_incident", lambda *a, **kw: None)
+    monkeypatch.setattr(routes_monitor, "_dispatch_event", lambda *a, **kw: None)
 
     resp = await client.post("/monitor/upload",
         files={"file": ("short.mp4", open("tests/fixtures/short_clip.mp4", "rb"), "video/mp4")})
     sid = resp.json()["session_id"]
 
-    routes_monitor.incident_queues[sid].put_nowait({"type": "incident_started", "incident_id": "x"})
-    routes_monitor.incident_queues[sid].put_nowait(None)
+    routes_monitor.event_queues[sid].put_nowait({"type": "event_started", "event_id": "x"})
+    routes_monitor.event_queues[sid].put_nowait(None)
 
-    async with client.stream("GET", f"/monitor/{sid}/incidents/stream") as r:
+    async with client.stream("GET", f"/monitor/{sid}/events/stream") as r:
         body = await r.aread()
-        assert b"incident_started" in body
+        assert b"event_started" in body
 
 
-# ── /incidents GET routes ─────────────────────────────────────────────────────
+# ── /events GET routes ─────────────────────────────────────────────────────
 
 
 @pytest.mark.integration
-async def test_get_incident_503_when_db_not_configured(client, monkeypatch):
-    """Lines 278-279: GET /incidents/{id} → 503 when DB not configured."""
+async def test_get_event_503_when_db_not_configured(client, monkeypatch):
+    """Lines 278-279: GET /events/{id} → 503 when DB not configured."""
     import api.database.mongodb as mongodb_mod
     monkeypatch.setattr(mongodb_mod, "is_db_configured", lambda: False)
 
-    resp = await client.get("/incidents/some_incident_id")
+    resp = await client.get("/events/some_event_id")
     assert resp.status_code == 503
 
 
 @pytest.mark.integration
-async def test_list_incidents_returns_empty_items_when_no_db(client, monkeypatch):
-    """Lines 294-295: GET /incidents → {"items": []} when DB not configured."""
+async def test_list_events_returns_empty_items_when_no_db(client, monkeypatch):
+    """Lines 294-295: GET /events → {"items": []} when DB not configured."""
     import api.database.mongodb as mongodb_mod
     monkeypatch.setattr(mongodb_mod, "is_db_configured", lambda: False)
 
-    resp = await client.get("/incidents")
+    resp = await client.get("/events")
     assert resp.status_code == 200
     assert resp.json() == {"items": []}
 
@@ -680,19 +680,29 @@ def test_get_track_record_uses_initialised_api_database_module(monkeypatch):
     """GET /records must use the same mongodb module initialised by app startup."""
     import api.main as main_mod
     import api.database.mongodb as mongodb_mod
+    from api.database.models import User
+    from bson import ObjectId
 
     class FakeRecord:
         def model_dump(self, mode):
             return {"session_id": "job-1", "track_id": 1, "mode": mode}
 
-    async def fake_get_record_by_track(job_id, track_id):
+    user = User(
+        id=ObjectId(),
+        email="owner@example.com",
+        name="Owner",
+        password_hash="hash",
+    )
+
+    async def fake_get_record_by_track(job_id, track_id, user_id):
         assert job_id == "job-1"
         assert track_id == 1
+        assert user_id == str(user.id)
         return FakeRecord()
 
     monkeypatch.setattr(mongodb_mod, "is_db_configured", lambda: True)
-    monkeypatch.setattr(mongodb_mod, "get_record_by_track", fake_get_record_by_track)
+    monkeypatch.setattr(mongodb_mod, "get_record_by_track_for_user", fake_get_record_by_track)
 
-    result = asyncio.run(main_mod.get_track_record("job-1", 1))
+    result = asyncio.run(main_mod.get_track_record("job-1", 1, user))
 
     assert result == {"session_id": "job-1", "track_id": 1, "mode": "json"}

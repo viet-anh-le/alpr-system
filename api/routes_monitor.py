@@ -1,6 +1,6 @@
-"""HTTP routes for the Incident Monitor feature.
+"""HTTP routes for the Event Monitor feature.
 
-Mounted under /monitor and /incidents by api/main.py.
+Mounted under /monitor and /events by api/main.py.
 """
 from __future__ import annotations
 
@@ -31,14 +31,14 @@ router = APIRouter()
 
 # Module-level registries; main.py initialises them.
 monitor_sessions: dict[str, dict] = {}   # session_id → {"kind", "path"|"live_session", ...}
-incident_queues: dict[str, asyncio.Queue] = {}   # session_id → SSE queue
+event_queues: dict[str, asyncio.Queue] = {}   # session_id → SSE queue
 _sessions_lock = threading.Lock()
 
 _WEBRTC_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_WEBRTC_BASE", "http://localhost:8889")
 _MJPEG_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_MJPEG_BASE", "")  # relative if blank
 
 # Single-worker pool — only one mark analyzes at a time to avoid GPU contention.
-_incident_executor = ThreadPoolExecutor(max_workers=1)
+_event_executor = ThreadPoolExecutor(max_workers=1)
 _cleanup_task: asyncio.Task | None = None
 
 MAX_INTERVAL_SEC = 30.0
@@ -57,8 +57,8 @@ def _new_session_id() -> str:
     return f"mon_{uuid.uuid4().hex[:10]}"
 
 
-def _new_incident_id() -> str:
-    return f"inc_{uuid.uuid4().hex[:10]}"
+def _new_event_id() -> str:
+    return f"evt_{uuid.uuid4().hex[:10]}"
 
 
 def _now() -> float:
@@ -79,7 +79,7 @@ def _delete_file(path: str | os.PathLike[str] | None) -> None:
 
 
 def cleanup_upload_session(session_id: str, *, force: bool = False) -> dict:
-    """Delete an upload session, deferring if an incident still needs the file."""
+    """Delete an upload session, deferring if an event still needs the file."""
     path: str | None = None
     with _sessions_lock:
         sess = monitor_sessions.get(session_id)
@@ -87,65 +87,65 @@ def cleanup_upload_session(session_id: str, *, force: bool = False) -> dict:
             return {"ok": True, "cleanup": "missing"}
         if sess.get("kind") != "upload":
             raise ValueError("Not an upload session")
-        if int(sess.get("active_incidents", 0)) > 0 and not force:
+        if int(sess.get("active_events", 0)) > 0 and not force:
             sess["cleanup_requested"] = True
             _touch_session(sess)
             return {"ok": True, "cleanup": "deferred"}
 
         path = sess.get("path")
         monitor_sessions.pop(session_id, None)
-        incident_queues.pop(session_id, None)
+        event_queues.pop(session_id, None)
 
     _delete_file(path)
     return {"ok": True, "cleanup": "deleted"}
 
 
-def _retain_upload_incident(session_id: str) -> None:
+def _retain_upload_event(session_id: str) -> None:
     with _sessions_lock:
         sess = monitor_sessions.get(session_id)
         if sess is None or sess.get("kind") != "upload":
             raise RuntimeError("Upload session no longer exists")
-        sess["active_incidents"] = int(sess.get("active_incidents", 0)) + 1
+        sess["active_events"] = int(sess.get("active_events", 0)) + 1
         _touch_session(sess)
 
 
-def _release_upload_incident(session_id: str) -> None:
+def _release_upload_event(session_id: str) -> None:
     should_cleanup = False
     with _sessions_lock:
         sess = monitor_sessions.get(session_id)
         if sess is None or sess.get("kind") != "upload":
             return
-        sess["active_incidents"] = max(0, int(sess.get("active_incidents", 0)) - 1)
+        sess["active_events"] = max(0, int(sess.get("active_events", 0)) - 1)
         _touch_session(sess)
-        should_cleanup = sess["active_incidents"] == 0 and bool(sess.get("cleanup_requested"))
+        should_cleanup = sess["active_events"] == 0 and bool(sess.get("cleanup_requested"))
 
     if should_cleanup:
         cleanup_upload_session(session_id)
 
 
-def _run_incident_with_upload_lifecycle(
+def _run_event_with_upload_lifecycle(
     *,
     upload_session_id: str,
-    run_incident_fn,
+    run_event_fn,
     **kwargs,
 ) -> None:
     try:
-        run_incident_fn(**kwargs)
+        run_event_fn(**kwargs)
     except Exception as exc:
-        logger.exception("Incident %s failed before analyzer could emit an error", kwargs.get("incident_id"))
+        logger.exception("Event %s failed before analyzer could emit an error", kwargs.get("event_id"))
         loop = kwargs.get("loop")
         queue = kwargs.get("queue")
         if loop is not None and queue is not None:
             loop.call_soon_threadsafe(
                 queue.put_nowait,
                 {
-                    "type": "incident_error",
-                    "incident_id": kwargs.get("incident_id"),
+                    "type": "event_error",
+                    "event_id": kwargs.get("event_id"),
                     "message": str(exc),
                 },
             )
     finally:
-        _release_upload_incident(upload_session_id)
+        _release_upload_event(upload_session_id)
 
 
 def cleanup_expired_upload_sessions(*, now: float | None = None) -> list[str]:
@@ -155,7 +155,7 @@ def cleanup_expired_upload_sessions(*, now: float | None = None) -> list[str]:
         for session_id, sess in list(monitor_sessions.items()):
             if sess.get("kind") != "upload":
                 continue
-            if int(sess.get("active_incidents", 0)) > 0:
+            if int(sess.get("active_events", 0)) > 0:
                 continue
             last_access = float(sess.get("last_access_at", sess.get("created_at", current)))
             if current - last_access >= MONITOR_UPLOAD_TTL_SEC:
@@ -272,10 +272,10 @@ async def monitor_upload(
         "ocr_backend": ocr_backend,
         "created_at": now,
         "last_access_at": now,
-        "active_incidents": 0,
+        "active_events": 0,
         "cleanup_requested": False,
     }
-    incident_queues[session_id] = asyncio.Queue()
+    event_queues[session_id] = asyncio.Queue()
     return {
         "session_id": session_id,
         "video_url": f"/monitor/upload/{session_id}/video",
@@ -337,7 +337,7 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
         "rtsp_url": body.rtsp_url,
         "ocr_backend": body.ocr_backend,
     }
-    incident_queues[session_id] = asyncio.Queue()
+    event_queues[session_id] = asyncio.Queue()
 
     whep_url = f"{_WEBRTC_PUBLIC_BASE}/{path}/whep"
     mjpeg_url = f"{_MJPEG_PUBLIC_BASE}/monitor/live/{session_id}/mjpeg"
@@ -352,7 +352,7 @@ async def monitor_live_disconnect(session_id: str) -> dict:
     if sess["kind"] != "live":
         raise HTTPException(status_code=400, detail="Not a live session")
     monitor_sessions.pop(session_id, None)
-    incident_queues.pop(session_id, None)
+    event_queues.pop(session_id, None)
     sess["live_session"].stop()
     return {"ok": True}
 
@@ -395,18 +395,18 @@ class MarkBody(BaseModel):
     t_end: float | None = None
 
 
-def _dispatch_incident(
+def _dispatch_event(
     *,
-    incident_id: str,
+    event_id: str,
     session_id: str,
     sess: dict,
     body: MarkBody,
     queue: asyncio.Queue,
     request: Request,
 ) -> None:
-    """Build a FrameSource and submit run_incident to the worker pool."""
+    """Build a FrameSource and submit run_event to the worker pool."""
     from api.core.frame_source import FileFrameSource, LiveBufferFrameSource
-    from api.core.incident_analyzer import run_incident
+    from api.core.event_analyzer import run_event
 
     models = request.app.state.models if hasattr(request.app.state, "models") else None
 
@@ -414,7 +414,7 @@ def _dispatch_incident(
     retained_upload = False
 
     if body.mode == "upload":
-        _retain_upload_incident(session_id)
+        _retain_upload_event(session_id)
         retained_upload = True
         try:
             source = FileFrameSource(sess["path"], t_start=body.t_start, t_end=body.t_end)
@@ -424,7 +424,7 @@ def _dispatch_incident(
             source_ref = sess["filename"]
             ws, we = body.t_start, body.t_end
         except Exception:
-            _release_upload_incident(session_id)
+            _release_upload_event(session_id)
             raise
     else:
         live_sess = sess["live_session"]
@@ -437,7 +437,7 @@ def _dispatch_incident(
         we = snap[-1][2]
 
     kwargs = {
-        "incident_id": incident_id,
+        "event_id": event_id,
         "session_id": session_id,
         "source": source,
         "source_type": body.mode,
@@ -452,18 +452,18 @@ def _dispatch_incident(
 
     if body.mode == "upload":
         try:
-            _incident_executor.submit(
-                _run_incident_with_upload_lifecycle,
+            _event_executor.submit(
+                _run_event_with_upload_lifecycle,
                 upload_session_id=session_id,
-                run_incident_fn=run_incident,
+                run_event_fn=run_event,
                 **kwargs,
             )
         except Exception:
             if retained_upload:
-                _release_upload_incident(session_id)
+                _release_upload_event(session_id)
             raise
     else:
-        _incident_executor.submit(run_incident, **kwargs)
+        _event_executor.submit(run_event, **kwargs)
 
 
 @router.post("/monitor/{session_id}/mark")
@@ -486,25 +486,25 @@ async def monitor_mark(session_id: str, body: MarkBody, request: Request) -> dic
         if sess["kind"] != "live":
             raise HTTPException(status_code=400, detail="Session is upload; expected live mark")
 
-    incident_id = _new_incident_id()
-    queue = incident_queues[session_id]
-    _dispatch_incident(
-        incident_id=incident_id,
+    event_id = _new_event_id()
+    queue = event_queues[session_id]
+    _dispatch_event(
+        event_id=event_id,
         session_id=session_id,
         sess=sess,
         body=body,
         queue=queue,
         request=request,
     )
-    return {"incident_id": incident_id}
+    return {"event_id": event_id}
 
 
-# ── Incident SSE + GET endpoints ──────────────────────────────────────────────
+# ── Event SSE + GET endpoints ──────────────────────────────────────────────
 
 
-@router.get("/monitor/{session_id}/incidents/stream")
-async def monitor_incidents_stream(session_id: str) -> StreamingResponse:
-    queue = incident_queues.get(session_id)
+@router.get("/monitor/{session_id}/events/stream")
+async def monitor_events_stream(session_id: str) -> StreamingResponse:
+    queue = event_queues.get(session_id)
     if queue is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -526,27 +526,27 @@ async def monitor_incidents_stream(session_id: str) -> StreamingResponse:
     )
 
 
-@router.get("/incidents/{incident_id}")
-async def get_incident_route(incident_id: str) -> dict:
-    from api.database.mongodb import get_incident, is_db_configured
+@router.get("/events/{event_id}")
+async def get_event_route(event_id: str) -> dict:
+    from api.database.mongodb import get_event, is_db_configured
 
     if not is_db_configured():
         raise HTTPException(status_code=503, detail="Database not configured")
-    inc = await get_incident(incident_id)
-    if inc is None:
-        raise HTTPException(status_code=404, detail="Incident not found")
-    return inc.model_dump(mode="json")
+    event = await get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event.model_dump(mode="json")
 
 
-@router.get("/incidents")
-async def list_incidents_route(
+@router.get("/events")
+async def list_events_route(
     source: str | None = None,
     session_id: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
 ) -> dict:
-    from api.database.mongodb import list_incidents, is_db_configured
+    from api.database.mongodb import list_events, is_db_configured
 
     if not is_db_configured():
         return {"items": []}
-    items = await list_incidents(session_id=session_id, source_type=source, limit=limit)
+    items = await list_events(session_id=session_id, source_type=source, limit=limit)
     return {"items": [i.model_dump(mode="json") for i in items]}

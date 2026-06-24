@@ -1,0 +1,142 @@
+@startuml
+title Biểu đồ E-R logic và ánh xạ NoSQL - Hệ thống ALPR Việt Nam
+
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontSize 12
+}
+
+entity "User\n<<collection: users>>" as User {
+  * _id : ObjectId
+  --
+  email : string
+  name : string
+  password_hash : string
+  role : string
+  is_active : boolean
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "AuthSession\n<<collection: auth_sessions>>" as AuthSession {
+  * _id : ObjectId
+  --
+  session_id : string
+  user_id : string
+  expires_at : datetime
+  revoked : boolean
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "RecognitionSession\n<<collection: recognition_sessions>>" as RecognitionSession {
+  * _id : ObjectId
+  --
+  session_id : string
+  user_id : string
+  source_filename : string
+  source_type : string
+  status : string
+  total_records : int
+  processed_frames : int
+  preprocess_mode : string
+  ocr_backend : string
+  error_message : string
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "RecognitionRecord\n<<collection: recognition_records>>" as RecognitionRecord {
+  * _id : ObjectId
+  --
+  session_id : string
+  user_id : string
+  track_id : int
+  vehicle_track_id : int
+  plate_track_id : int
+  vehicle_class : string
+  plate_text : string
+  plate_text_confidence : float
+  ocr_method : string
+  ocr_vote_summary : object
+  vehicle_thumbnail_url : string
+  first_seen_frame : int
+  last_seen_frame : int
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "PlateFrame\n<<embedded document>>" as PlateFrame {
+  frame_index : int
+  quality_score : float
+  image_url : string
+  timestamp_ms : float
+  plate_bbox : array
+  detection_confidence : float
+  ocr_text : string
+  ocr_confidence : float
+}
+
+entity "MonitorEvent\n<<collection: events>>" as Event {
+  * event_id : string
+  --
+  session_id : string
+  source_type : string
+  source_ref : string
+  marked_at : datetime
+  window_start_sec : float
+  window_end_sec : float
+  duration_sec : float
+  status : string
+  total_vehicles : int
+  processing_ms : int
+  error_message : string
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "EventVehicle\n<<embedded document>>" as EventVehicle {
+  track_id : int
+  vehicle_track_id : int
+  plate_track_id : int
+  plate_text : string
+  plate_text_confidence : float
+  chars : array
+  vehicle_class : string
+  plate_image_url : string
+  vehicle_image_url : string
+  ocr_method : string
+  ocr_frames : int
+  first_seen_frame : int
+  last_seen_frame : int
+}
+
+entity "EvidenceObject\n<<Supabase/S3 object>>" as EvidenceObject {
+  * object_path : string
+  --
+  bucket : string
+  public_url : string
+  content_type : string
+}
+
+User ||..o{ AuthSession : "owns"
+User ||..o{ RecognitionSession : "submits"
+User ||..o{ RecognitionRecord : "owns"
+
+RecognitionSession ||..o{ RecognitionRecord : "has"
+RecognitionSession ||..o{ Event : "contains"
+
+RecognitionRecord ||--|| PlateFrame : "embeds best_plate_frame"
+RecognitionRecord ||--o{ PlateFrame : "embeds track_buffer"
+
+Event ||--o{ EventVehicle : "embeds vehicles"
+
+RecognitionRecord }o..o{ EvidenceObject : "stores public URLs"
+EventVehicle }o..o{ EvidenceObject : "stores public URLs"
+PlateFrame }o..o{ EvidenceObject : "image_url"
+
+@enduml

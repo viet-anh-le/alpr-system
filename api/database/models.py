@@ -203,11 +203,11 @@ class RecognitionRecord(BaseModel):
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
 
 
-# ── Incident-Monitor models ──────────────────────────────────────────────────
+# ── Event-Monitor models ──────────────────────────────────────────────────
 
 
-class IncidentVehicle(BaseModel):
-    """One vehicle detected within an incident's analysis window."""
+class EventVehicle(BaseModel):
+    """One vehicle detected within an event's analysis window."""
 
     track_id: int
     vehicle_track_id: int | None = None
@@ -224,11 +224,11 @@ class IncidentVehicle(BaseModel):
     last_seen_frame: int
 
 
-class Incident(BaseModel):
-    """A user-marked incident: a short window pulled out of a live stream
+class MonitorEvent(BaseModel):
+    """A user-marked event: a short window pulled out of a live stream
     or uploaded video for fast ALPR analysis."""
 
-    incident_id: str
+    event_id: str
     session_id: str
     source_type: Literal["live", "upload"]
     source_ref: str
@@ -237,7 +237,7 @@ class Incident(BaseModel):
     window_end_sec: float
     duration_sec: float
     status: Literal["processing", "completed", "failed"]
-    vehicles: list[IncidentVehicle] = Field(default_factory=list)
+    vehicles: list[EventVehicle] = Field(default_factory=list)
     total_vehicles: int = 0
     processing_ms: int | None = None
     created_at: datetime

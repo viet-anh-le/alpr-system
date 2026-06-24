@@ -1,33 +1,76 @@
 from __future__ import annotations
 
 import asyncio
-import gc
 import logging
+import math
+import sys
 import time
 from typing import Callable
 
+import cv2
 import numpy as np
 import torch
-import cv2
 
-from .config import ALPR_PREVIEW_FPS, FRAME_STRIDE
+from .config import ALPR_PREVIEW_FPS, ROOT
 from .frame_source import FrameSource
 from .models import ModelBundle
 from .progress import make_progress_event
 from .video_processor import draw_annotated_frame
 
-import sys
-from .config import ROOT
 if str(ROOT / "references" / "Character-Time-series-Matching") not in sys.path:
     sys.path.insert(0, str(ROOT / "references" / "Character-Time-series-Matching"))
 if str(ROOT / "references" / "Character-Time-series-Matching" / "yolov5") not in sys.path:
     sys.path.insert(0, str(ROOT / "references" / "Character-Time-series-Matching" / "yolov5"))
 
 import process_plate
-from utils.general import non_max_suppression, scale_coords
 from boxmot.trackers.bytetrack.bytetrack import ByteTrack
+from utils.general import non_max_suppression, scale_coords
 
 logger = logging.getLogger(__name__)
+
+CHARACTER_NAMES_PATH = ROOT / "references" / "Character-Time-series-Matching" / "character_name.txt"
+# Char_detection_yolo.py / evaluate.py defaults
+CHAR_DET_CONF = 0.05
+CHAR_DET_IOU = 0.01
+ROTATION_MIN_DEG = 3.0
+ROTATION_MAX_DEG = 25.0
+
+
+def load_vn_character_names() -> list[str]:
+    """Class labels for char.pt — matches reference character_name.txt."""
+    if not CHARACTER_NAMES_PATH.exists():
+        return []
+    return [
+        line.strip()
+        for line in CHARACTER_NAMES_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def rotate_plate_crop(bgr: np.ndarray, angle_deg: float) -> np.ndarray:
+    """Rotate a plate crop like evaluate.py (imutils.rotate, same canvas size)."""
+    if abs(angle_deg) < 1e-6:
+        return bgr
+    height, width = bgr.shape[:2]
+    center = (width / 2.0, height / 2.0)
+    matrix = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
+    return cv2.warpAffine(
+        bgr,
+        matrix,
+        (width, height),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
+
+
+def update_rotation_alpha(track_box: np.ndarray, alpha: float) -> float:
+    """Accumulate deskew angle from detected character centers (evaluate.py)."""
+    center_x = (track_box[:, 0] + track_box[:, 2]) / 2
+    center_y = (track_box[:, 1] + track_box[:, 3]) / 2
+    degree = process_plate.find_angle(center_x, center_y)
+    if ROTATION_MIN_DEG < abs(math.degrees(degree)) < ROTATION_MAX_DEG:
+        alpha -= degree
+    return alpha
 
 def preprocess_image_object(bgr: np.ndarray, size=(1280, 1280), device='cpu'):
     # Resizing logic from DETECTION.py (ResizeImg)
@@ -60,12 +103,11 @@ def preprocess_image_object(bgr: np.ndarray, size=(1280, 1280), device='cpu'):
         image = image.unsqueeze(0)
     return image, img, trans_x, trans_y
 
-def preprocess_image_char(bgr: np.ndarray, size=(128, 128), device='cpu'):
+def preprocess_image_char(bgr: np.ndarray, size=(128, 128), device="cpu"):
     h1, w1, _ = bgr.shape
     h, w = size
     stride = 64
-    import math
-    if w1 < h1*(w/h):
+    if w1 < h1 * (w / h):
         char_digit = cv2.resize(bgr, (int(float(w1/h1)*h), h), cv2.INTER_LANCZOS4)
         a = math.ceil(int(float(w1/h1)*h)/stride)
         b = a*stride-int(float(w1/h1)*h)
@@ -87,6 +129,59 @@ def preprocess_image_char(bgr: np.ndarray, size=(128, 128), device='cpu'):
     if image.ndimension() == 3:
         image = image.unsqueeze(0)
     return image, thresh
+
+
+def detect_char_track_box(
+    plate_crop: np.ndarray,
+    *,
+    char_model: torch.nn.Module,
+    char_names: list[str],
+    device: torch.device,
+) -> np.ndarray | None:
+    """Run char.pt on a (possibly rotated) plate crop; return track_box or None."""
+    char_tensor, _char_resized = preprocess_image_char(plate_crop, size=(128, 128), device=device)
+    char_preds = char_model(char_tensor, augment=False)[0]
+    char_dets = non_max_suppression(
+        char_preds,
+        conf_thres=CHAR_DET_CONF,
+        iou_thres=CHAR_DET_IOU,
+        multi_label=True,
+        max_det=1000,
+    )
+
+    raw_char_detections: list[list[object]] = []
+    for det in char_dets:
+        if not len(det):
+            continue
+        for *xyxy, conf, cls_idx in det.tolist():
+            xc = (xyxy[0] + xyxy[2]) / 2
+            yc = (xyxy[1] + xyxy[3]) / 2
+            w_ = xyxy[2] - xyxy[0]
+            h_ = xyxy[3] - xyxy[1]
+            cls_id = int(cls_idx)
+            if cls_id < 0 or cls_id >= len(char_names):
+                continue
+            raw_char_detections.append([char_names[cls_id], str(conf), (xc, yc, w_, h_)])
+
+    if not raw_char_detections:
+        return None
+
+    merged_dets = process_plate.merge_box(raw_char_detections)
+    track_box: list[list[object]] = []
+    for label, confidence, box_c in merged_dets:
+        track_box.append(
+            [
+                int(round(box_c[0] - box_c[2] / 2)),
+                int(round(box_c[1] - box_c[3] / 2)),
+                int(round(box_c[0] + box_c[2] / 2)),
+                int(round(box_c[1] + box_c[3] / 2)),
+                [[float(c)] for c in confidence.split("-")],
+                [[char] for char in label.split("-")],
+            ]
+        )
+    if not track_box:
+        return None
+    return np.array(track_box, dtype=object)
 
 
 def get_final_plate_text(track_boxs, Hs, Ws):
@@ -179,16 +274,22 @@ def process_frames_yolov5_vietnamese(
     obj_model = models.yolov5_object.model
     obj_names = models.yolov5_object.names
     char_model = models.ocr_yolov5.model
-    char_names = models.ocr_yolov5.names
-    
+    char_names = load_vn_character_names()
+    if not char_names:
+        char_names = list(models.ocr_yolov5.names)
+        logger.warning(
+            "character_name.txt not found; falling back to char.pt embedded class names."
+        )
+
     # Track states
     # tid -> list of track_box arrays
-    plate_char_history = {}
-    plate_dims_history = {}
-    done_tids = set()
-    best_results = {}
-    best_plate_crop = {}
-    previously_tracked = set()
+    plate_char_history: dict[int, list[np.ndarray]] = {}
+    plate_dims_history: dict[int, dict[str, list[int]]] = {}
+    plate_rotation_alpha: dict[int, float] = {}
+    done_tids: set[int] = set()
+    best_results: dict[int, str] = {}
+    best_plate_crop: dict[int, tuple[int, np.ndarray, np.ndarray]] = {}
+    previously_tracked: set[int] = set()
     
     def encode_img(img):
         if img is None:
@@ -262,40 +363,23 @@ def process_frames_yolov5_vietnamese(
                 area = plate_crop.shape[0] * plate_crop.shape[1]
                 if tid not in best_plate_crop or area > best_plate_crop[tid][0]:
                     best_plate_crop[tid] = (area, plate_crop.copy(), veh_crop.copy())
-                
-                # Character Detection
-                char_tensor, char_resized = preprocess_image_char(plate_crop, size=(128, 128), device=models.device)
-                char_preds = char_model(char_tensor, augment=False)[0]
-                char_dets = non_max_suppression(char_preds, conf_thres=0.1, iou_thres=0.1, multi_label=True, max_det=100)
-                
-                raw_char_detections = []
-                for det in char_dets:
-                    if len(det):
-                        # Don't scale coords, evaluate.py works on the resized image scale or original?
-                        # evaluate.py uses char_model.detect which doesn't scale back to original crop size.
-                        # It uses the coords from `resized_img` directly!
-                        for *xyxy, conf, cls_idx in det.tolist():
-                            xc, yc = (xyxy[0]+xyxy[2])/2, (xyxy[1]+xyxy[3])/2
-                            w_, h_ = (xyxy[2]-xyxy[0]), (xyxy[3]-xyxy[1])
-                            raw_char_detections.append([char_names[int(cls_idx)], str(conf), (xc, yc, w_, h_)])
-                            
-                merged_dets = process_plate.merge_box(raw_char_detections)
-                track_box = []
-                for label, confidence, box_c in merged_dets:
-                    track_box.append([
-                        int(round(box_c[0] - box_c[2]/2)), int(round(box_c[1] - box_c[3]/2)),
-                        int(round(box_c[0] + box_c[2]/2)), int(round(box_c[1] + box_c[3]/2)),
-                        [[float(c)] for c in confidence.split("-")], [[l] for l in label.split("-")]
-                    ])
-                
-                if track_box:
-                    track_box = np.array(track_box, dtype=object)
+
+                alpha = plate_rotation_alpha.setdefault(tid, 0.0)
+                rotated_crop = rotate_plate_crop(plate_crop, math.degrees(alpha))
+                track_box = detect_char_track_box(
+                    rotated_crop,
+                    char_model=char_model,
+                    char_names=char_names,
+                    device=models.device,
+                )
+                if track_box is not None:
+                    plate_rotation_alpha[tid] = update_rotation_alpha(track_box, alpha)
                     if tid not in plate_char_history:
                         plate_char_history[tid] = []
-                        plate_dims_history[tid] = {'H': [], 'W': []}
+                        plate_dims_history[tid] = {"H": [], "W": []}
                     plate_char_history[tid].append(track_box)
-                    plate_dims_history[tid]['H'].append(plate_crop.shape[0])
-                    plate_dims_history[tid]['W'].append(plate_crop.shape[1])
+                    plate_dims_history[tid]["H"].append(rotated_crop.shape[0])
+                    plate_dims_history[tid]["W"].append(rotated_crop.shape[1])
 
         # Finalize lost tracks
         for tid in previously_tracked - currently_tracked:

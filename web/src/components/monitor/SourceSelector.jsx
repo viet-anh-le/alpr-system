@@ -20,8 +20,8 @@ export default function SourceSelector({
     <section className="surface-panel overflow-hidden">
       <div className="panel-header">
         <div>
-          <p className="section-label">Incident source</p>
-          <h2 className="mt-1 text-lg font-bold">Giám sát sự cố theo cửa sổ ngắn</h2>
+          <p className="section-label">Event source</p>
+          <h2 className="mt-1 text-lg font-bold">Giám sát sự kiện theo cửa sổ ngắn</h2>
         </div>
         <SegmentedControl
           value={tab}

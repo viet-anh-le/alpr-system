@@ -1,13 +1,72 @@
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
+import torch
+
+
+def _frame(h: int = 120, w: int = 200) -> np.ndarray:
+    return np.zeros((h, w, 3), dtype=np.uint8)
+
+
+def _chars(text: str, conf: float = 0.95) -> list[tuple[str, float]]:
+    return [(char, conf) for char in text]
+
+
+def _compact_plate(text: str) -> str:
+    return "".join(char for char in text if char.isalnum())
+
+
+@pytest.mark.unit
+def test_run_job_uses_async_pipeline_by_default(monkeypatch):
+    from api.core import frame_source, pipeline, pipeline_async
+
+    class FakeFileFrameSource:
+        fps = 30.0
+        total_frames = 0
+        frame_size = (0, 0)
+
+        def __init__(self, path: str) -> None:
+            self.path = path
+
+        def iter_frames(self):
+            return iter(())
+
+    calls: list[dict] = []
+
+    def fake_process_frames_async(source, emit, models, **kwargs):
+        calls.append({"source": source, "models": models, "kwargs": kwargs})
+        return {"total_vehicles": 0, "processed_frames": 0}
+
+    monkeypatch.setattr(frame_source, "FileFrameSource", FakeFileFrameSource)
+    monkeypatch.setattr(pipeline_async, "process_frames_async", fake_process_frames_async)
+    monkeypatch.setattr(pipeline, "_session_create", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "_session_update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline.os, "unlink", lambda path: None)
+
+    loop = asyncio.new_event_loop()
+    try:
+        pipeline.run_job(
+            "input.mp4",
+            "job_async",
+            asyncio.Queue(),
+            loop,
+            MagicMock(),
+            {"job_async": object()},
+        )
+    finally:
+        loop.close()
+
+    assert len(calls) == 1
+    assert calls[0]["kwargs"]["session_id"] == "job_async"
 
 
 @pytest.mark.unit
 def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
-    """Final vehicle snapshots must preserve incident detail buffer data."""
+    """Final vehicle snapshots must preserve event detail buffer data."""
     from api.core import pipeline_async
 
     class FakeTracker:
@@ -36,6 +95,14 @@ def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
         def ocr_frames(self, tid: int) -> int:
             return 4
 
+        def identity_fields(self, tid: int) -> dict:
+            return {
+                "id": tid,
+                "recognition_id": tid,
+                "vehicle_track_id": tid,
+                "plate_track_id": None,
+            }
+
     source = MagicMock()
     source.total_frames = 0
     source.fps = 30.0
@@ -54,3 +121,62 @@ def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
     assert vehicle_events[0]["track_buffer"] == [
         {"frame_index": 12, "quality_score": 0.91}
     ]
+
+
+@pytest.mark.unit
+def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatch):
+    from api.core import pipeline_async
+    from api.core.config import MIN_FRAMES_FOR_OCR
+    from api.core.quality_router import PlateQualityRouter
+
+    class FakeAssociator:
+        def __init__(self, *args, **kwargs) -> None:
+            self.vehicle_cache = {32: (0, 0, 180, 140)}
+
+        def process_frame(self, plate_tracks, vehicle_tracks):
+            return [(32, plate) for plate in plate_tracks]
+
+    frames = [_frame() for _ in range(MIN_FRAMES_FOR_OCR)]
+    source = MagicMock()
+    source.total_frames = len(frames)
+    source.fps = 30.0
+    source.iter_frames.return_value = iter([(idx, frame, idx / 30.0) for idx, frame in enumerate(frames)])
+
+    v_pred = MagicMock()
+    v_pred.boxes = MagicMock()
+    v_pred.boxes.__len__ = lambda self: 0
+
+    models = MagicMock()
+    models.vehicle.predict.return_value = [v_pred]
+    models.vehicle.names = {5: "motorcycle"}
+    models.vehicle_tracker.reset = MagicMock()
+    models.vehicle_tracker.track.return_value = (
+        np.array([[0, 0, 180, 140]], dtype=np.int32),
+        np.array([32], dtype=np.int64),
+        np.array([5], dtype=np.int32),
+    )
+    models.quality_router = PlateQualityRouter(classifier=lambda crop: {"poor": 0.96})
+
+    finalise_calls: list[int] = []
+
+    def fake_finalise(tid, *_args, **_kwargs):
+        finalise_calls.append(tid)
+
+    monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
+    monkeypatch.setattr(pipeline_async, "TrajectoryAssociator", FakeAssociator)
+    monkeypatch.setattr(
+        pipeline_async,
+        "detect_plate_tracks_cascade",
+        lambda *args, **kwargs: [
+            {
+                "id": 65,
+                "crop": np.full((48, 96, 3), 77, dtype=np.uint8),
+                "box": [10, 10, 70, 30],
+            }
+        ],
+    )
+    monkeypatch.setattr(pipeline_async, "_finalise_track_ocr", fake_finalise)
+
+    pipeline_async.process_frames_async(source, emit=lambda event: None, models=models)
+
+    assert finalise_calls == [32]

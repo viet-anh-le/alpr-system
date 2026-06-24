@@ -1,4 +1,4 @@
-# MediaMTX runtime config for ALPR Incident Monitor.
+# MediaMTX runtime config for ALPR Event Monitor.
 # All RTSP camera paths are added dynamically by FastAPI via the HTTP API.
 
 api: yes

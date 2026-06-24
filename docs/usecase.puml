@@ -1,0 +1,27 @@
+@startuml
+title Sơ đồ use case tổng quan - Hệ thống nhận dạng biển số xe Việt Nam
+
+left to right direction
+skinparam actorStyle stickman
+
+actor "Người dùng" as User
+
+rectangle "Hệ thống nhận dạng biển số xe Việt Nam" {
+  usecase "Đăng ký" as UC_Register
+  usecase "Đăng nhập" as UC_Login
+  usecase "Xử lý video\nnhận dạng biển số" as UC_ProcessVideo
+  usecase "Giám sát và\nđánh dấu sự cố" as UC_Monitor
+  usecase "Xem kết quả và\nevidence nhận dạng" as UC_Result
+  usecase "Xem lịch sử\nnhận dạng" as UC_History
+  usecase "Đăng xuất" as UC_Logout
+}
+
+User --> UC_Register
+User --> UC_Login
+User --> UC_ProcessVideo
+User --> UC_Monitor
+User --> UC_Result
+User --> UC_History
+User --> UC_Logout
+
+@enduml

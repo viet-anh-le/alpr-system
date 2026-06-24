@@ -4,8 +4,8 @@ import { Badge, Button, Toast } from '../ui'
 import SourceSelector from './SourceSelector'
 import LiveViewer from './LiveViewer'
 import UploadViewer from './UploadViewer'
-import IncidentsPanel from './IncidentsPanel'
-import useIncidentStream from '../../hooks/monitor/useIncidentStream'
+import EventsPanel from './EventsPanel'
+import useEventStream from '../../hooks/monitor/useEventStream'
 import { postMark } from '../../hooks/monitor/useMark'
 
 function cleanupMonitorSession(session) {
@@ -21,16 +21,16 @@ function cleanupMonitorSession(session) {
 
 export default function MonitorPage() {
   const [session, setSession] = useState(null)
-  const [incidents, setIncidents] = useState({})
+  const [events, setEvents] = useState({})
   const [error, setError] = useState(null)
   const [pendingAction, setPendingAction] = useState(null)
   const cleanupTimersRef = useRef(new Map())
 
   const handleEvent = useCallback((event) => {
-    const id = event.incident_id
+    const id = event.event_id
     if (!id) return
 
-    setIncidents((prev) => {
+    setEvents((prev) => {
       const current = prev[id] || {
         id,
         status: 'pending',
@@ -41,7 +41,7 @@ export default function MonitorPage() {
       }
 
       switch (event.type) {
-        case 'incident_started':
+        case 'event_started':
           return {
             ...prev,
             [id]: {
@@ -53,19 +53,19 @@ export default function MonitorPage() {
               framesCount: event.frames_count,
             },
           }
-        case 'incident_progress':
+        case 'event_progress':
           return { ...prev, [id]: { ...current, pct: event.pct } }
-        case 'incident_vehicle':
+        case 'event_vehicle':
           return {
             ...prev,
             [id]: { ...current, vehicles: { ...current.vehicles, [event.id]: event } },
           }
-        case 'incident_rejected_vehicle':
+        case 'event_rejected_vehicle':
           return {
             ...prev,
             [id]: { ...current, rejected: { ...(current.rejected || {}), [event.id]: event } },
           }
-        case 'incident_complete':
+        case 'event_complete':
           return {
             ...prev,
             [id]: {
@@ -75,7 +75,7 @@ export default function MonitorPage() {
               totalVehicles: event.total_vehicles,
             },
           }
-        case 'incident_error':
+        case 'event_error':
           return { ...prev, [id]: { ...current, status: 'failed', error: event.message } }
         default:
           return prev
@@ -83,7 +83,7 @@ export default function MonitorPage() {
     })
   }, [])
 
-  useIncidentStream(session?.sessionId, handleEvent)
+  useEventStream(session?.sessionId, handleEvent)
 
   useEffect(() => {
     if (!session?.sessionId) return undefined
@@ -121,7 +121,7 @@ export default function MonitorPage() {
       }
       const data = await response.json()
       setSession({ mode: 'live', sessionId: data.session_id, whepUrl: data.whep_url, mjpegUrl: data.mjpeg_url, rtspUrl, ocrBackend })
-      setIncidents({})
+      setEvents({})
     } catch (err) {
       setError(`Không kết nối được camera: ${err.message}`)
     } finally {
@@ -151,7 +151,7 @@ export default function MonitorPage() {
         ocrBackend: data.ocr_backend,
         file,
       })
-      setIncidents({})
+      setEvents({})
     } catch (err) {
       setError(`Không mở được video: ${err.message}`)
     } finally {
@@ -162,7 +162,7 @@ export default function MonitorPage() {
   const handleMarkLive = async () => {
     try {
       const id = await postMark(session.sessionId, { mode: 'live' })
-      setIncidents((prev) => (
+      setEvents((prev) => (
         prev[id]
           ? prev
           : {
@@ -185,7 +185,7 @@ export default function MonitorPage() {
   const handleMarkUpload = async (start, end) => {
     try {
       const id = await postMark(session.sessionId, { mode: 'upload', t_start: start, t_end: end })
-      setIncidents((prev) => (
+      setEvents((prev) => (
         prev[id]
           ? prev
           : {
@@ -208,7 +208,7 @@ export default function MonitorPage() {
   const disconnect = () => {
     cleanupMonitorSession(session)
     setSession(null)
-    setIncidents({})
+    setEvents({})
   }
 
   if (!session) {
@@ -253,7 +253,7 @@ export default function MonitorPage() {
             <UploadViewer videoUrl={session.videoUrl} onMark={handleMarkUpload} />
           )}
         </div>
-        <IncidentsPanel incidents={incidents} />
+        <EventsPanel events={events} />
       </div>
       <Toast message={error} onDismiss={() => setError(null)} />
     </>

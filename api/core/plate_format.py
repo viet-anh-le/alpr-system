@@ -38,7 +38,6 @@ VN_PLATE_TEMPLATE_PATTERNS: tuple[str, ...] = (
     "DD[SEP]DDD-LL",
     "DD[SEP]DDDL",
     "DL-LD[SEP]DDD.DD",
-    "LD[SEP]DDD.DD",
     "LL-DD-DD",
     "LL[SEP]DD-DD",
 )

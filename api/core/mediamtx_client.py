@@ -1,7 +1,7 @@
 """Thin HTTP client for the MediaMTX control API.
 
 The MediaMTX API lets us add/remove paths at runtime, which is how we make
-each Incident-Monitor session a separately-addressable stream.
+each Event-Monitor session a separately-addressable stream.
 """
 from __future__ import annotations
 

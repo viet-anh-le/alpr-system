@@ -11,7 +11,7 @@ export default defineConfig({
       '/auth':      'http://localhost:8000',
       '/sessions':  'http://localhost:8000',
       '/monitor':   { target: 'http://localhost:8000', changeOrigin: true },
-      '/incidents': { target: 'http://localhost:8000', changeOrigin: true },
+      '/events': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
 })

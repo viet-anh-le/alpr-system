@@ -229,12 +229,10 @@ def run_job(
     job_owners: dict | None = None,
 ) -> None:
     """Legacy upload-and-process-whole-video entry point. Thin wrapper around
-    pipeline_core.process_frames; owns video file lifecycle + session row."""
+    the async frame pipeline; owns video file lifecycle + session row."""
     from .frame_source import FileFrameSource
     from .preprocessing import PreprocessedFrameSource, normalize_preprocess_mode
-    # from .pipeline_core import _safe_put, process_frames
-    from .pipeline_async import process_frames_async as process_frames
-    from .pipeline_core import _safe_put
+    from .pipeline_async import _safe_put, process_frames_async as process_frames
 
     def emit(event: dict) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, event)

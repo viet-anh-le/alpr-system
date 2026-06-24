@@ -20,7 +20,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
-from .models import AuthSession, Incident, RecognitionRecord, RecognitionSession, User
+from .models import AuthSession, MonitorEvent, RecognitionRecord, RecognitionSession, User
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ _db: AsyncIOMotorDatabase | None = None
 
 SESSIONS_COL = "recognition_sessions"
 RECORDS_COL = "recognition_records"
-INCIDENTS_COL = "incidents"
+EVENTS_COL = "events"
 USERS_COL = "users"
 AUTH_SESSIONS_COL = "auth_sessions"
 
@@ -108,8 +108,8 @@ async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
         ),
     ])
 
-    await db[INCIDENTS_COL].create_indexes([
-        IndexModel([("incident_id", ASCENDING)], unique=True, name="uq_incident_id"),
+    await db[EVENTS_COL].create_indexes([
+        IndexModel([("event_id", ASCENDING)], unique=True, name="uq_event_id"),
         IndexModel([("session_id", ASCENDING)], name="ix_session_id"),
         IndexModel([("marked_at", DESCENDING)], name="ix_marked_at_desc"),
         IndexModel([("status", ASCENDING)], name="ix_status"),
@@ -311,40 +311,40 @@ async def search_by_plate(plate_text: str) -> list[RecognitionRecord]:
     return [RecognitionRecord.model_validate(doc) async for doc in cursor]
 
 
-# ── Incident CRUD ─────────────────────────────────────────────────────────────
+# ── Event CRUD ─────────────────────────────────────────────────────────────
 
 
-async def upsert_incident(incident: Incident) -> None:
-    """Insert or replace an incident document, matched by incident_id."""
+async def upsert_event(event: MonitorEvent) -> None:
+    """Insert or replace an event document, matched by event_id."""
     from datetime import datetime, timezone
 
     db = get_db()
-    doc = incident.model_dump(by_alias=True)
+    doc = event.model_dump(by_alias=True)
     doc["updated_at"] = datetime.now(timezone.utc)
-    await db[INCIDENTS_COL].update_one(
-        {"incident_id": incident.incident_id},
+    await db[EVENTS_COL].update_one(
+        {"event_id": event.event_id},
         {"$set": doc},
         upsert=True,
     )
 
 
-async def get_incident(incident_id: str) -> Incident | None:
+async def get_event(event_id: str) -> MonitorEvent | None:
     db = get_db()
-    doc = await db[INCIDENTS_COL].find_one({"incident_id": incident_id})
-    return Incident.model_validate(doc) if doc else None
+    doc = await db[EVENTS_COL].find_one({"event_id": event_id})
+    return MonitorEvent.model_validate(doc) if doc else None
 
 
-async def list_incidents(
+async def list_events(
     *,
     session_id: str | None = None,
     source_type: str | None = None,
     limit: int = 50,
-) -> list[Incident]:
+) -> list[MonitorEvent]:
     db = get_db()
     query: dict = {}
     if session_id is not None:
         query["session_id"] = session_id
     if source_type is not None:
         query["source_type"] = source_type
-    cursor = db[INCIDENTS_COL].find(query).sort("marked_at", DESCENDING).limit(limit)
-    return [Incident.model_validate(doc) async for doc in cursor]
+    cursor = db[EVENTS_COL].find(query).sort("marked_at", DESCENDING).limit(limit)
+    return [MonitorEvent.model_validate(doc) async for doc in cursor]

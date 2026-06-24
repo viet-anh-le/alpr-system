@@ -1,6 +1,6 @@
 # Tổng kết project ALPR Vietnamese và đối chiếu phiếu giao nhiệm vụ
 
-Tài liệu này được viết theo hiện trạng repo ngày 10/06/2026, đối chiếu với phiếu giao nhiệm vụ `LeVietAnh_20225250_PGNV_20252.pdf`. Mục tiêu của em ở đây không phải là liệt kê file cho đủ, mà là nối lại toàn bộ quá trình làm đồ án: yêu cầu ban đầu là gì, em đã chọn hướng giải quyết nào, từng giai đoạn triển khai ra sao, vì sao lại triển khai như vậy, dữ liệu được xử lý thế nào, mô hình được tinh chỉnh thế nào, các kết quả định lượng hiện có là bao nhiêu, và trong pipeline phần nào là preprocessing, phần nào là huấn luyện mô hình, phần nào là heuristic, phần nào là post-processing.
+Tài liệu này được viết theo hiện trạng repo ngày 14/06/2026, đối chiếu với phiếu giao nhiệm vụ `LeVietAnh_20225250_PGNV_20252.pdf`. Mục tiêu của em ở đây không phải là liệt kê file cho đủ, mà là nối lại toàn bộ quá trình làm đồ án: yêu cầu ban đầu là gì, em đã chọn hướng giải quyết nào, từng giai đoạn triển khai ra sao, vì sao lại triển khai như vậy, dữ liệu được xử lý thế nào, mô hình được tinh chỉnh thế nào, các kết quả định lượng hiện có là bao nhiêu, trong pipeline phần nào là preprocessing, phần nào là huấn luyện mô hình, phần nào là heuristic, phần nào là post-processing, và phần sản phẩm web gồm landing page, đăng nhập, dashboard được tổ chức như thế nào.
 
 Một lưu ý quan trọng: em chỉ ghi số liệu khi repo có artifact rõ ràng như `results.csv`, `metrics.csv`, log huấn luyện hoặc file benchmark. Với các model có checkpoint nhưng không có file đánh giá đi kèm trong repo, em ghi rõ là chưa có artifact đánh giá độc lập để tránh đưa số liệu không kiểm chứng được.
 
@@ -39,7 +39,7 @@ Sản phẩm kỳ vọng trong phiếu là:
 - Có giao diện web cho phép người dùng tải video lên và xem kết quả nhận dạng trực tiếp trên trình duyệt.
 - Có khả năng theo dõi và nhận diện biển số đối với các phương tiện trong video.
 
-Trong repo, sản phẩm đã mở rộng hơn yêu cầu ban đầu ở hai điểm. Ngoài chế độ upload video, hệ thống còn có chế độ monitor/live để nhận RTSP hoặc video upload rồi đánh dấu một đoạn sự kiện cần phân tích. Kết quả nhận dạng được stream về frontend bằng SSE, còn khung hình annotate có thể truyền bằng MJPEG.
+Trong repo, sản phẩm đã mở rộng hơn yêu cầu ban đầu ở ba điểm. Ngoài chế độ upload video, hệ thống còn có chế độ monitor/live để nhận RTSP hoặc video upload rồi đánh dấu một đoạn sự kiện cần phân tích. Kết quả nhận dạng được stream về frontend bằng SSE, còn khung hình annotate có thể truyền bằng MJPEG. Bên cạnh đó, phần web đã có landing page public để giới thiệu năng lực hệ thống, luồng đăng ký/đăng nhập tài khoản và dashboard riêng sau đăng nhập để upload video, xem tiến trình, xem kết quả nhận dạng và mở lịch sử theo người dùng.
 
 ### 1.3. Yêu cầu về vấn đề thực tiễn
 
@@ -75,8 +75,11 @@ Repo hiện tại bám khá sát năm giai đoạn này. Phần khảo sát và 
 | Kết hợp đa khung hình | Có `TrackBuffer`, chọn top-k frame, CTM fusion theo template biển Việt Nam | Đã triển khai |
 | Web upload video | Có React `DropZone`, FastAPI `/upload`, SSE `/stream/{job_id}` | Đã triển khai |
 | Hiển thị kết quả trực tiếp | Có SSE event `progress`, `vehicle`, `rejected_vehicle`, `complete`; MJPEG preview nếu bật | Đã triển khai |
-| Live/video incident monitor | Có `/monitor/upload`, `/monitor/live/connect`, `/monitor/{session_id}/mark` | Đã triển khai mở rộng |
-| Lưu lịch sử nhận dạng | Có MongoDB models `RecognitionSession`, `RecognitionRecord`, `Incident` và upload ảnh chứng cứ | Đã triển khai, phụ thuộc env DB/storage |
+| Landing page giới thiệu sản phẩm | Có route `/`, React `LandingPage.jsx`, CTA chuyển đến đăng ký/đăng nhập hoặc dashboard theo trạng thái phiên | Đã triển khai |
+| Đăng ký/đăng nhập người dùng | Có FastAPI router `/auth`, bcrypt password hash, JWT trong HttpOnly cookie, session MongoDB, CSRF token cho request ghi | Đã triển khai |
+| Dashboard sau đăng nhập | Có route `/dashboard` được bảo vệ bởi `RequireAuth`, gồm upload video, monitor mode, OCR stats, danh sách xe, rejected vehicles, lịch sử | Đã triển khai |
+| Live/video event monitor | Có `/monitor/upload`, `/monitor/live/connect`, `/monitor/{session_id}/mark` | Đã triển khai mở rộng |
+| Lưu lịch sử nhận dạng | Có MongoDB models `RecognitionSession`, `RecognitionRecord`, `Event`, gắn `user_id`, lọc lịch sử theo tài khoản và upload ảnh chứng cứ | Đã triển khai, phụ thuộc env DB/storage |
 | Thử nghiệm và đánh giá | Có kết quả OBB, OCR, router, benchmark sync/async; chưa có artifact chính thức cho vehicle detector và ReID | Đã có một phần, cần bổ sung cho báo cáo cuối |
 
 ## 3. Giải pháp tổng thể em đã đưa ra
@@ -632,7 +635,101 @@ FastAPI entrypoint là `api/main.py`. Luồng upload:
 
 `run_job` hiện dùng `process_frames_async` làm pipeline mặc định. Nếu `ocr_backend == "vietnamese_yolov5"` thì dùng pipeline riêng.
 
-#### 4.10.2. Monitor và live incident
+Route `/upload` hiện không còn là endpoint public. Backend yêu cầu người dùng đã đăng nhập qua dependency `get_current_user_with_csrf`, sau đó gắn `job_id` với `user_id` trong `_job_owners`. Vì vậy, các stream kết quả như `/stream/{job_id}` và `/stream/{job_id}/mjpeg` chỉ trả dữ liệu khi người gọi là chủ của job đó. Đây là thay đổi quan trọng so với demo upload đơn giản, vì nó biến dashboard thành không gian làm việc theo phiên người dùng.
+
+Backend cũng kiểm tra file upload ở boundary:
+
+- Chỉ nhận các extension video như `.mp4`, `.avi`, `.webm`, `.mov`, `.mkv`.
+- Kiểm tra `content_type`.
+- Giới hạn dung lượng bằng `MAX_UPLOAD_MB`.
+- Từ chối file rỗng.
+- Chuẩn hóa `preprocess_mode` trước khi đưa vào pipeline.
+
+#### 4.10.2. Đăng nhập, đăng ký và bảo vệ phiên
+
+Phần đăng nhập nằm ở `api/auth.py` và `web/src/auth.jsx`. Backend cung cấp các endpoint:
+
+- `POST /auth/register`: tạo tài khoản mới, normalize email, kiểm tra mật khẩu tối thiểu 8 ký tự, hash mật khẩu bằng `bcrypt`.
+- `POST /auth/login`: xác thực email/mật khẩu và phát hành phiên đăng nhập.
+- `POST /auth/logout`: revoke session server-side, xóa cookie đăng nhập và cookie CSRF.
+- `GET /auth/me`: kiểm tra phiên hiện tại và trả thông tin user public.
+- `GET /auth/csrf`: phát hành CSRF token mới cho các request ghi.
+
+Phiên đăng nhập dùng hai lớp:
+
+- JWT ngắn gọn chứa `sub`, `sid`, `exp`, lưu trong HttpOnly cookie `alpr_session`.
+- Bản ghi server-side `AuthSession` trong MongoDB để có thể kiểm tra session còn tồn tại, hết hạn hay đã bị revoke.
+
+CSRF token được lưu ở cookie riêng `alpr_csrf` và frontend gửi lại qua header `X-CSRF-Token` cho các request không phải `GET/HEAD/OPTIONS`. Cách này phù hợp với mô hình cookie auth: cookie đăng nhập được browser gửi tự động, còn thao tác thay đổi dữ liệu cần thêm token mà script frontend lấy chủ động từ `/auth/csrf`.
+
+Các biến cấu hình chính nằm trong `api/core/config.py`:
+
+- `AUTH_SECRET_KEY`: khóa ký JWT, nên cấu hình bằng biến môi trường khi triển khai thật.
+- `AUTH_COOKIE_NAME`: mặc định `alpr_session`.
+- `AUTH_COOKIE_SECURE`: bật secure cookie khi chạy HTTPS.
+- `AUTH_SESSION_TTL_HOURS`: thời gian sống của session, mặc định 24 giờ.
+- `CSRF_COOKIE_NAME`: mặc định `alpr_csrf`.
+- `WEB_ORIGIN`: danh sách origin được CORS cho phép.
+
+Frontend bọc toàn bộ app bằng `AuthProvider` trong `web/src/main.jsx`. Provider tự gọi `/auth/me` khi app khởi động để khôi phục phiên. Các hàm `login`, `register`, `logout` dùng chung `apiJson`, tự gửi cookie với `credentials: include` và reset CSRF cache sau khi trạng thái auth thay đổi.
+
+#### 4.10.3. Dashboard sau đăng nhập
+
+Dashboard chính nằm trong `DashboardPage` của `web/src/App.jsx`, route `/dashboard` được bảo vệ bằng `RequireAuth`. Nếu chưa có user, frontend tự chuyển về `/login`; nếu user đã đăng nhập mà vào `/login` hoặc `/register`, route public auth tự chuyển về `/dashboard`.
+
+Dashboard có hai chế độ:
+
+- `Xử lý video`: upload video, chọn preprocessing mode, chọn OCR backend, xem frame annotate realtime, tiến trình xử lý, thống kê OCR và danh sách xe nhận dạng.
+- `Giám sát sự kiện`: dùng `MonitorPage` để xử lý nguồn live/upload theo luồng event monitor.
+
+Trong chế độ xử lý video, dashboard hiển thị:
+
+- Drop zone upload video khi trạng thái `idle`.
+- `LiveFrame` để xem video gốc hoặc frame annotate từ SSE event `frame`.
+- `OcrStatsPanel` để theo dõi số xe nhận dạng, xe bị reject và thông tin OCR.
+- `VehiclePanel` để xem danh sách track đã hoàn tất, biển số, confidence và evidence.
+- Nút `Lịch sử` mở `HistoryModal`.
+- Nút `Đăng xuất` revoke session.
+
+Dashboard truyền `preprocess_mode` và `ocr_backend` xuống backend qua `FormData`. Người dùng có thể chọn các chế độ tiền xử lý `none`, `night`, `low_contrast`, `fog`, `rain`, `glare`; đồng thời chọn backend OCR `default`, `smalllpr_ctc`, `parseq`, `yolov5_char`, `vietnamese_yolov5` để phục vụ demo và so sánh.
+
+#### 4.10.4. Landing page public
+
+Landing page nằm ở `web/src/pages/LandingPage.jsx` và được mount ở route `/`. Đây là trang public, không chạy nhận diện trực tiếp để tránh biến upload video thành thao tác ngoài phiên bảo vệ. Trang này có vai trò giới thiệu ngắn gọn năng lực đã có trong repo:
+
+- Video ALPR từ upload.
+- Tracking đa xe.
+- OCR fusion đa khung hình.
+- Các điều kiện khó như đêm, mưa, sương, lóa, tương phản thấp.
+- Dashboard lịch sử với MongoDB.
+- Triển khai nội bộ bằng FastAPI, React và MongoDB.
+
+CTA của landing page thay đổi theo trạng thái đăng nhập:
+
+- Nếu đang kiểm tra phiên: hiển thị trạng thái chờ.
+- Nếu đã đăng nhập: dẫn vào `/dashboard`.
+- Nếu chưa đăng nhập: dẫn đến `/register`, đồng thời header có link `/login`.
+
+Trang cũng công bố các chỉ số đã có artifact nội bộ như YOLOv8 OBB mAP50, SmallLPR-NAR validation accuracy, PARSeq sequence accuracy, quality router binary accuracy và speedup của async pipeline. Các chỉ số này được trình bày thận trọng như kết quả validation/benchmark nội bộ, không mô tả như benchmark sản phẩm ngoài thực tế.
+
+#### 4.10.5. Dashboard history và phân quyền dữ liệu
+
+Lịch sử nhận dạng được mở từ `HistoryModal.jsx`. Frontend gọi:
+
+- `GET /sessions?limit=50`: lấy các phiên xử lý gần nhất của user hiện tại.
+- `GET /sessions/{session_id}/records`: lấy các record biển số trong một phiên.
+- `GET /records/{job_id}/{track_id}`: lấy chi tiết một track/record cụ thể.
+
+Các route này đều gọi `get_current_user` và truy vấn MongoDB bằng các hàm có hậu tố `_for_user`, ví dụ `list_sessions_for_user`, `get_session_for_user`, `get_records_for_session_for_user`, `get_record_by_track_for_user`. Nhờ đó, user chỉ thấy các session/record có `user_id` của chính mình. Nếu truy cập session của user khác, API trả `404` thay vì lộ sự tồn tại của tài nguyên.
+
+MongoDB có thêm collections và index phục vụ auth/dashboard:
+
+- `users`: unique index theo `email`.
+- `auth_sessions`: unique index theo `session_id`, index theo `user_id` và `expires_at`.
+- `recognition_sessions`: index theo `(user_id, created_at)`.
+- `recognition_records`: index theo `(user_id, session_id)` và unique compound `(session_id, track_id)`.
+
+#### 4.10.6. Monitor và live event
 
 Monitor nằm trong `api/routes_monitor.py` và frontend `web/src/components/monitor`.
 
@@ -643,25 +740,29 @@ Có hai chế độ:
 
 `LiveSession` dùng một decoder thread, lưu frame vào deque theo FPS. Nếu stream mất, có retry 3 lần. Khi mark live, backend snapshot 10 giây buffer và đưa vào `LiveBufferFrameSource`.
 
-Incident analyzer chuyển các event thường thành event có prefix:
+Event analyzer chuyển các event thường thành event có prefix:
 
-- `incident_started`.
-- `incident_progress`.
-- `incident_vehicle`.
-- `incident_rejected_vehicle`.
-- `incident_complete`.
-- `incident_error`.
+- `event_started`.
+- `event_progress`.
+- `event_vehicle`.
+- `event_rejected_vehicle`.
+- `event_complete`.
+- `event_error`.
 
-#### 4.10.3. Frontend
+#### 4.10.7. Frontend
 
 Frontend dùng React/Vite. Các phần chính:
 
-- `App.jsx`: chuyển giữa chế độ xử lý video và monitor.
+- `App.jsx`: định nghĩa routing `/`, `/login`, `/register`, `/dashboard`; bảo vệ dashboard bằng `RequireAuth`; chuyển giữa chế độ xử lý video và monitor.
+- `auth.jsx`: quản lý trạng thái user, login, register, logout và khôi phục phiên qua `/auth/me`.
+- `apiClient.js`: wrapper fetch dùng `credentials: include`, tự lấy CSRF token cho request ghi.
+- `LandingPage.jsx`: trang giới thiệu public và CTA vào đăng ký/dashboard.
 - `DropZone.jsx`: chọn video, chọn preprocessing mode và OCR backend.
 - `LiveFrame.jsx`: hiển thị video/frame annotate.
 - `VehiclePanel.jsx`: danh sách xe đã nhận dạng.
 - `OcrStatsPanel.jsx`: thống kê OCR và rejected vehicles.
-- `MonitorPage.jsx`: chọn nguồn live/upload, mark incident và xem panel sự kiện.
+- `HistoryModal.jsx`: danh sách session và record theo user.
+- `MonitorPage.jsx`: chọn nguồn live/upload, mark event và xem panel sự kiện.
 
 Người dùng có thể chọn preprocessing:
 
@@ -680,16 +781,20 @@ Người dùng cũng có thể chọn OCR backend để so sánh:
 - `yolov5_char`.
 - `vietnamese_yolov5`.
 
-#### 4.10.4. Lưu trữ
+Vite dev server proxy các route backend `/upload`, `/stream`, `/records`, `/auth`, `/sessions`, `/monitor`, `/events` về `http://localhost:8000`, nên khi phát triển local frontend vẫn gọi API bằng path tương đối.
+
+#### 4.10.8. Lưu trữ
 
 MongoDB models gồm:
 
+- `User`: tài khoản ứng dụng, gồm email, tên, password hash, role và trạng thái active.
+- `AuthSession`: session server-side cho HttpOnly auth cookie.
 - `RecognitionSession`: một job xử lý video.
 - `RecognitionRecord`: một xe/track đã nhận dạng.
-- `Incident`: một đoạn sự kiện được mark.
-- `IncidentVehicle`: kết quả xe trong incident.
+- `Event`: một đoạn sự kiện được mark.
+- `EventVehicle`: kết quả xe trong event.
 
-Ảnh crop biển số và thumbnail phương tiện được upload sang object storage, MongoDB lưu metadata và URL thay vì nhét ảnh lớn vào document.
+`RecognitionSession` và `RecognitionRecord` có trường `user_id` để gắn kết quả với chủ tài khoản. Ảnh crop biển số và thumbnail phương tiện được upload sang object storage, MongoDB lưu metadata và URL thay vì nhét ảnh lớn vào document.
 
 ### 4.11. Giai đoạn 11: Pipeline bất đồng bộ và benchmark hiệu năng
 
@@ -978,7 +1083,8 @@ Repo có `41` file test Python, bao phủ các nhóm:
 - OCR hậu xử lý: `test_ocr_ctm.py`, `test_ocr_candidates.py`, `test_ocr_ambiguity.py`, `test_plate_format.py`.
 - Quality router: `test_quality_router.py`, `test_evaluate_quality_router.py`, `test_prepare_lplcv2_quality_dataset.py`.
 - Pipeline: `test_pipeline_async.py`, `test_pipeline_core_parity.py`, `test_pipeline_progress.py`.
-- Monitor/live: `test_monitor_routes.py`, `test_live_session.py`, `test_incident_analyzer.py`, `test_incident_crud.py`, `test_mediamtx_client.py`.
+- Monitor/live: `test_monitor_routes.py`, `test_live_session.py`, `test_event_analyzer.py`, `test_event_crud.py`, `test_mediamtx_client.py`.
+- Auth và dashboard API: `test_auth_and_dashboard_routes.py`, kiểm tra đăng ký, đăng nhập, `/auth/me`, logout, route yêu cầu đăng nhập và việc lọc session/record theo `user_id`.
 - Data scripts: tests cho collect/crop/generate/refresh.
 - Synthetic pipeline: test V3/V4.
 
@@ -988,9 +1094,12 @@ Trong môi trường hiện tại, lệnh `pytest` không có trong PATH và `py
 
 Em đã hoàn thành được một hệ thống ALPR dạng end-to-end:
 
+- Có landing page public giới thiệu năng lực hệ thống và dẫn người dùng vào đăng ký/đăng nhập/dashboard.
+- Có đăng ký, đăng nhập, đăng xuất, khôi phục phiên và CSRF protection cho request ghi.
+- Có dashboard riêng sau đăng nhập, không cho upload/xem stream khi chưa có phiên hợp lệ.
 - Có backend FastAPI nhận video.
 - Có frontend React để upload và xem kết quả.
-- Có live/incident monitor mở rộng cho RTSP hoặc video upload.
+- Có live/event monitor mở rộng cho RTSP hoặc video upload.
 - Có detector phương tiện.
 - Có detector biển số OBB với metric tốt.
 - Có crop phối cảnh biển số.
@@ -1000,7 +1109,7 @@ Em đã hoàn thành được một hệ thống ALPR dạng end-to-end:
 - Có quality router để phân luồng crop tốt/xấu.
 - Có track buffer và CTM fusion để tận dụng nhiều frame.
 - Có cơ chế reject thay vì nhận dạng bừa.
-- Có lưu session/record/incident và ảnh chứng cứ.
+- Có lưu session/record/event và ảnh chứng cứ, đồng thời lọc lịch sử nhận dạng theo tài khoản.
 - Có benchmark hiệu năng sync/async.
 
 Nếu đối chiếu với phiếu giao nhiệm vụ, phần sản phẩm kỳ vọng đã đạt và còn mở rộng thêm live monitor. Phần nghiên cứu mô hình cũng vượt mức "dùng YOLO + OCR" cơ bản vì đã có các biến thể OCR, quality router và CTM fusion.
@@ -1039,6 +1148,12 @@ Nếu đối chiếu với phiếu giao nhiệm vụ, phần sản phẩm kỳ v
    - Chạy unit/integration test.
    - Ghi số test pass/fail vào báo cáo.
 
+7. Hoàn thiện checklist triển khai web:
+   - Cấu hình `AUTH_SECRET_KEY` cố định bằng biến môi trường khi deploy, không dùng secret tạm.
+   - Bật `AUTH_COOKIE_SECURE=true` khi chạy HTTPS.
+   - Chụp screenshot landing page, trang đăng nhập và dashboard để đưa vào báo cáo.
+   - Bổ sung một E2E test ngắn cho luồng landing page -> đăng ký/đăng nhập -> dashboard -> lịch sử.
+
 ## 11. Kết luận theo giọng đồ án
 
 Nhìn lại toàn bộ project, em thấy phần quan trọng nhất của đồ án không chỉ là train một model OCR hay một model YOLO, mà là ghép các model đó thành một hệ thống đủ cẩn thận cho video thực tế. Video có nhiều frame, nhưng cũng có nhiều nhiễu. Nếu tận dụng frame tốt và loại frame xấu, kết quả ổn hơn. Nếu cứ OCR mọi crop và ép ra biển số hợp lệ, hệ thống có thể trông "nhiều kết quả" hơn nhưng độ tin cậy thấp hơn.
@@ -1048,4 +1163,3 @@ Vì vậy, hướng em chọn là pipeline nhiều tầng: phát hiện xe, phá
 Kết quả hiện có cho thấy các khối chính đã đạt mức khả quan: detector biển số OBB đạt mAP50-95 khoảng `95.0%`, OCR tốt nhất trong log đạt khoảng `95.8%` exact/val accuracy với SmallLPR-NAR, PARSeq đạt `95.46%` sequence accuracy và `98.30%` character accuracy, quality router binary đạt `95.6%`. Pipeline async cũng cải thiện tốc độ khoảng `1.43x` đến `1.81x` trên benchmark mẫu.
 
 Phần còn thiếu chủ yếu không phải là code pipeline, mà là đánh giá cuối cùng ở mức hệ thống: vehicle detector, ReID, tracking metrics và end-to-end accuracy trên tập video có ground truth đầy đủ. Đây là phần em nên hoàn thiện tiếp để báo cáo cuối có đủ bằng chứng định lượng, không chỉ mô tả kỹ thuật.
-

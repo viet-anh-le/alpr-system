@@ -12,8 +12,45 @@ def _chars(text: str, conf: float = 0.95) -> list[tuple[str, float]]:
     return [(c, conf) for c in text]
 
 
+def _buffer_text(tracker, tid: int) -> str:
+    from api.core.plate_format import chars_to_display_text
+
+    return chars_to_display_text(tracker._buffers[tid].char_prob_lists[-1])
+
+
 @pytest.mark.unit
-def test_direct_route_accepts_high_confidence_valid_original_ocr() -> None:
+def test_direct_route_uses_best_job_crop_when_rerank_selects_second_candidate() -> None:
+    from api.core.quality_router import PlateQualityRouter
+    from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
+    from api.core.tracker import WebTrackletManager
+
+    tracker = WebTrackletManager()
+    tracker._cls[7] = "motorcycle"
+    router = PlateQualityRouter(classifier=lambda crop: {"good": 0.96})
+    matches = [
+        (7, _crop(77), _crop(10)),
+        (7, _crop(66), _crop(20)),
+    ]
+    jobs, _active_tids = prepare_route_ocr_jobs(matches, tracker, router, 10)
+    events: list[dict] = []
+
+    consume_route_ocr_results(
+        jobs,
+        [(_chars("BADINPUT", conf=0.60), False), (_chars("66B-45851"), True)],
+        tracker,
+        events.append,
+    )
+
+    assert events[0]["plate"] == "66B-45851"
+    assert events[0]["done"] is False
+    assert tracker._done.get(7) is not True
+    assert _buffer_text(tracker, 7) == "66B-45851"
+    assert tracker._buffers[7].crops[0][0, 0, 0] == 66
+    assert tracker._plate_img[7][0, 0, 0] == 66
+
+
+@pytest.mark.unit
+def test_direct_route_previews_high_confidence_valid_original_ocr_without_finalising() -> None:
     from api.core.quality_router import PlateQualityRouter
     from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
     from api.core.tracker import WebTrackletManager
@@ -27,17 +64,31 @@ def test_direct_route_accepts_high_confidence_valid_original_ocr() -> None:
     ocr_results = [(_chars("30G-51827"), True) if job.candidate_method == "original" else (_chars("BAD"), False) for job in jobs]
     events: list[dict] = []
 
-    consume_route_ocr_results(jobs, ocr_results, tracker, events.append)
+    record_calls: list[tuple] = []
+
+    consume_route_ocr_results(
+        jobs,
+        ocr_results,
+        tracker,
+        events.append,
+        session_id="session-1",
+        loop=object(),
+        record_save=lambda *args: record_calls.append(args),
+    )
 
     assert active_tids == {1}
-    assert tracker._done[1] is True
+    assert tracker._done.get(1) is not True
     assert events[0]["type"] == "vehicle"
+    assert events[0]["done"] is False
     assert events[0]["ocr_method"] == "single_frame_direct"
     assert events[0]["route"] == "direct"
+    assert record_calls == []
+    assert tracker._buffers[1].routes == ["direct"]
+    assert _buffer_text(tracker, 1) == "30G-51827"
 
 
 @pytest.mark.unit
-def test_direct_route_accepts_slot_corrected_ambiguous_ocr() -> None:
+def test_direct_route_previews_slot_corrected_ambiguous_ocr_without_finalising() -> None:
     from api.core.quality_router import PlateQualityRouter
     from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
     from api.core.tracker import WebTrackletManager
@@ -59,7 +110,9 @@ def test_direct_route_accepts_slot_corrected_ambiguous_ocr() -> None:
 
     assert tracker.display_text(1) == "30G-51827"
     assert events[0]["plate"] == "30G-51827"
-    assert events[0]["ocr_method"] == "single_frame_direct"
+    assert events[0]["done"] is False
+    assert tracker._done.get(1) is not True
+    assert _buffer_text(tracker, 1) == "30G-51827"
 
 
 @pytest.mark.unit
@@ -98,7 +151,7 @@ def test_illegible_route_buffers_unreadable_evidence_without_ocr_job() -> None:
 
 
 @pytest.mark.unit
-def test_direct_route_finishes_track_and_leaves_existing_poor_illegible_buffer_unread() -> None:
+def test_direct_route_previews_and_leaves_existing_poor_illegible_buffer_unread() -> None:
     from api.core.quality_router import PlateQualityRouter
     from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
     from api.core.tracker import WebTrackletManager
@@ -113,7 +166,9 @@ def test_direct_route_finishes_track_and_leaves_existing_poor_illegible_buffer_u
     events: list[dict] = []
     consume_route_ocr_results(jobs, [(_chars("51G-12345"), True)], tracker, events.append)
 
-    assert tracker._done[4] is True
+    assert tracker._done.get(4) is not True
     assert events[0]["ocr_method"] == "single_frame_direct"
     assert events[0]["plate"] == "51G-12345"
-    assert tracker._buffers[4].routes[:2] == ["tracklet_fusion", "unreadable_wait"]
+    assert events[0]["done"] is False
+    assert tracker._buffers[4].routes == ["tracklet_fusion", "unreadable_wait", "direct"]
+    assert _buffer_text(tracker, 4) == "51G-12345"

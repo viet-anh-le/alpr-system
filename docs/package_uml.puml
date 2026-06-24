@@ -1,0 +1,113 @@
+@startuml
+top to bottom direction
+
+skinparam packageStyle folder
+skinparam shadowing false
+skinparam linetype ortho
+skinparam ArrowColor #333333
+skinparam PackageBorderColor #333333
+skinparam PackageBackgroundColor #FFFFFF
+skinparam PackageFontStyle plain
+
+skinparam defaultFontSize 10
+skinparam PackageFontSize 11
+skinparam StereotypeFontSize 8
+
+skinparam Padding 2
+skinparam nodesep 8
+skinparam ranksep 40
+
+package "Presentation Tier" as PresentationTier {
+
+  package "Authentication" as Authentication {
+    package "Login" as Login
+    package "Register" as Register
+    Login -[hidden]right-> Register
+    package "RouteGuard" as RouteGuard
+    Register -[hidden]right-> RouteGuard
+  }
+
+  package "MainView" as MainView {
+    package "Dashboard" as Dashboard
+    package "VideoUpload" as VideoUpload
+    package "ResultView" as ResultView
+    Dashboard -[hidden]right-> VideoUpload
+    VideoUpload -[hidden]right-> ResultView
+    package "HistoryView" as HistoryView
+    package "MonitorView" as MonitorView
+    ResultView -[hidden]right-> HistoryView
+    HistoryView -[hidden]right-> MonitorView
+  }
+
+  package "APIClient" as APIClient {
+    package "HTTPClient" as HTTPClient
+    package "SSEClient" as SSEClient
+    HTTPClient -[hidden]right-> SSEClient
+  }
+
+  Authentication -[hidden]right-> MainView
+  MainView -[hidden]right-> APIClient
+}
+
+package "Business Logic Tier" as BusinessLogicTier {
+
+  package "WebAPI" as WebAPI {
+    package "AuthRouter" as AuthRouter
+    package "VideoRouter" as VideoRouter
+    package "HistoryRouter" as HistoryRouter
+    package "MonitorAPI" as MonitorAPI
+    package "AuthMiddleware" as AuthMiddleware
+    AuthRouter -[hidden]right-> VideoRouter
+    VideoRouter -[hidden]right-> HistoryRouter
+    HistoryRouter -[hidden]right-> MonitorAPI
+    MonitorAPI -[hidden]right-> AuthMiddleware
+  }
+
+  package "PipelineALPR" as PipelineALPR {
+    package "VehicleDetection" as VehicleDetection
+    package "VehicleTracking" as VehicleTracking
+    package "PlateDetection" as PlateDetection
+    package "QualityControl" as QualityControl
+    package "PlateOCR" as PlateOCR
+    package "ResultAggregation" as ResultAggregation
+    VehicleDetection -[hidden]right-> VehicleTracking
+    VehicleTracking -[hidden]right-> PlateDetection
+    PlateDetection -[hidden]right-> QualityControl
+    QualityControl -[hidden]right-> PlateOCR
+    PlateOCR -[hidden]right-> ResultAggregation
+  }
+
+  WebAPI -[hidden]right-> PipelineALPR
+}
+
+package "Data Tier" as DataTier {
+
+  package "Database" as Database {
+    package "UserStore" as UserStore
+    package "SessionStore" as SessionStore
+    package "RecordStore" as RecordStore
+    package "MonitorEventStore" as MonitorEventStore
+    UserStore -[hidden]right-> SessionStore
+    SessionStore -[hidden]right-> RecordStore
+    RecordStore -[hidden]right-> MonitorEventStore
+  }
+
+  package "ObjectStorage" as ObjectStorage {
+    package "PlateImageStore" as PlateImageStore
+    package "EvidenceImageStore" as EvidenceImageStore
+    PlateImageStore -[hidden]right-> EvidenceImageStore
+  }
+
+  Database -[hidden]right-> ObjectStorage
+}
+
+PresentationTier -[hidden]down-> BusinessLogicTier
+BusinessLogicTier -[hidden]down-> DataTier
+
+APIClient -[dashed]down-> WebAPI : <<use>>
+WebAPI -[dashed]down-> PipelineALPR : <<use>>
+WebAPI -[dashed]down-> Database : <<use>>
+PipelineALPR -[dashed]down-> Database : <<use>>
+PipelineALPR -[dashed]down-> ObjectStorage : <<use>>
+
+@enduml

@@ -14,7 +14,7 @@ GOLDEN = Path("tests/fixtures/golden_run_job_events.json")
 
 def _normalize_event(ev: dict) -> dict:
     """Strip non-deterministic / image-blob fields so we can compare reliably."""
-    drop = {"plate_b64", "vehicle_b64", "detail"}
+    drop = {"plate_b64", "vehicle_b64", "detail", "source_frame"}
     return {k: v for k, v in ev.items() if k not in drop}
 
 
@@ -53,6 +53,10 @@ def _make_prob_lists_for_plate(
     return [[(c, conf) for c in plate] for _ in range(n)]
 
 
+def _compact_plate(text: str) -> str:
+    return "".join(char for char in text if char.isalnum())
+
+
 def _build_tracker_with_buffer(
     tid: int,
     plate: str,
@@ -89,7 +93,7 @@ class TestFinaliseTrackOcrUnit:
 
         assert len(events) == 1
         assert events[0]["type"] == "vehicle"
-        assert events[0]["plate"] == "30G-51827"
+        assert _compact_plate(events[0]["plate"]) == "30G51827"
         assert events[0]["id"] == tid
 
     def test_emits_rejected_vehicle_for_invalid_plate(self):
@@ -131,6 +135,23 @@ class TestFinaliseTrackOcrUnit:
         assert ev["type"] == "vehicle"
         for key in ("id", "cls", "plate", "chars", "done"):
             assert key in ev, f"Missing key '{key}' in vehicle event"
+
+    def test_finalise_emits_done_event_even_when_preview_text_is_unchanged(self):
+        from api.core.pipeline_core import _finalise_track_ocr
+
+        tid = 40
+        tracker = _build_tracker_with_buffer(tid, "51G-12345")
+        tracker._best[tid] = _make_prob_lists_for_plate("51G-12345", n=1)[0]
+        tracker._prev_plate[tid] = "51G-123.45"
+        events: list[dict] = []
+
+        _finalise_track_ocr(tid, tracker, self._models(), events.append, "", None, None)
+
+        assert len(events) == 1
+        assert events[0]["type"] == "vehicle"
+        assert events[0]["plate"] == "51G-123.45"
+        assert events[0]["done"] is True
+        assert tracker._done.get(tid) is True
 
     def test_rejected_vehicle_event_contains_expected_keys(self):
         from api.core.pipeline_core import _finalise_track_ocr
@@ -199,6 +220,81 @@ class TestFinaliseTrackOcrUnit:
 
         assert tracker._done.get(tid) is True
 
+    def test_marks_done_after_rejected_plate(self):
+        from api.core.pipeline_core import _finalise_track_ocr
+
+        tid = 13
+        tracker = _build_tracker_with_buffer(tid, "BADINPUT")
+        events: list[dict] = []
+
+        _finalise_track_ocr(tid, tracker, self._models(), events.append, "", None, None)
+
+        assert events[0]["type"] == "rejected_vehicle"
+        assert tracker._done.get(tid) is not True
+
+    def test_rejected_plate_clears_provisional_preview_best(self):
+        from api.core.pipeline_core import _finalise_track_ocr
+
+        tid = 14
+        tracker = _build_tracker_with_buffer(tid, "BADINPUT")
+        tracker._best[tid] = [(char, 0.95) for char in "30G-51827"]
+        events: list[dict] = []
+
+        _finalise_track_ocr(tid, tracker, self._models(), events.append, "", None, None)
+
+        assert events[0]["type"] == "rejected_vehicle"
+        assert tid not in tracker._best
+
+    def test_record_save_persists_vehicle_track_fallback_identity(self, monkeypatch):
+        import api.core.pipeline as pipeline
+        from api.core.tracker import WebTrackletManager
+        from api.database.models import RecognitionRecord
+
+        tracker = WebTrackletManager()
+        tracker._cls[32] = "motorcycle"
+        tid = 32
+        chars = _make_prob_lists_for_plate("77A-17022", n=1)[0]
+        crop = np.full((20, 94, 3), 77, dtype=np.uint8)
+        vehicle = np.full((60, 120, 3), 32, dtype=np.uint8)
+        tracker.buffer_crop(tid, crop, 0.82, 0.95, chars, 12, route="direct")
+        tracker.update_plate_img(tid, crop, chars)
+        tracker.update_vehicle_img(tid, vehicle, 0.82)
+
+        captured: list[RecognitionRecord] = []
+
+        async def fake_upsert_record(record):
+            captured.append(record)
+
+        class DoneFuture:
+            def result(self, timeout=None):
+                return None
+
+        def fake_run_coroutine_threadsafe(coro, _loop):
+            asyncio.run(coro)
+            return DoneFuture()
+
+        monkeypatch.setattr("api.database.mongodb.is_db_configured", lambda: True)
+        monkeypatch.setattr("api.database.mongodb.upsert_record", fake_upsert_record)
+        monkeypatch.setattr(pipeline, "_storage_upload", lambda *args, **kwargs: None)
+        monkeypatch.setattr(pipeline.asyncio, "run_coroutine_threadsafe", fake_run_coroutine_threadsafe)
+
+        pipeline._record_save(
+            "sess-1",
+            tid,
+            tracker,
+            chars,
+            "single_frame_direct",
+            {"77A-17022": 1},
+            loop=object(),
+            user_id="user-1",
+        )
+
+        assert len(captured) == 1
+        assert captured[0].track_id == tid
+        assert captured[0].vehicle_track_id == 32
+        assert captured[0].plate_track_id is None
+        assert captured[0].track_buffer[0].ocr_confidence == 0.95
+
     def test_finalise_runs_deferred_ocr_for_poor_tracklet(self, monkeypatch):
         import torch
 
@@ -235,12 +331,13 @@ class TestFinaliseTrackOcrUnit:
         models = MagicMock()
         models.device = torch.device("cpu")
         models.ocr = MagicMock()
+        models.ocr_backend = "smalllpr_ctc"
 
         _finalise_track_ocr(tid, tracker, models, events.append, "", None, None)
 
         assert len(events) == 1
         assert events[0]["type"] == "vehicle"
-        assert events[0]["plate"] == "30G-51827"
+        assert _compact_plate(events[0]["plate"]) == "30G51827"
         assert events[0]["candidate_method"] == "original"
 
     def test_finalise_rejects_tracklet_with_only_illegible_evidence(self):
@@ -272,8 +369,8 @@ class TestFinaliseTrackOcrUnit:
         assert events[0]["type"] == "rejected_vehicle"
         assert events[0]["unreadable_reason"] == "no_ocr_evidence"
 
-    def test_second_call_with_same_plate_emits_no_vehicle(self):
-        """plate_changed() prevents duplicate vehicle events for same plate text."""
+    def test_second_call_after_done_emits_no_vehicle(self):
+        """Finalised tracks are idempotent and do not emit duplicate vehicle events."""
         from api.core.pipeline_core import _finalise_track_ocr
 
         tid = 9
@@ -283,9 +380,8 @@ class TestFinaliseTrackOcrUnit:
         _finalise_track_ocr(tid, tracker, self._models(), events.append, "", None, None)
         first_count = len(events)
 
-        # Reset done so second call can proceed
-        tracker._done.pop(tid, None)
-        # Add more crops
+        assert first_count == 1
+
         crop = np.zeros((20, 94, 3), dtype=np.uint8)
         prob_lists = _make_prob_lists_for_plate("30G-51827")
         for i, pl in enumerate(prob_lists):
@@ -295,7 +391,6 @@ class TestFinaliseTrackOcrUnit:
         second_events: list[dict] = []
         _finalise_track_ocr(tid, tracker, self._models(), second_events.append, "", None, None)
         vehicle_events = [e for e in second_events if e["type"] == "vehicle"]
-        # plate_changed returns False for same plate → no vehicle event emitted
         assert len(vehicle_events) == 0
 
 
@@ -564,6 +659,133 @@ class TestProcessFramesUnit:
         # Just ensure no crash — the reset_lost branch is hit if _lost_count has the tid
         result = process_frames(source, emit=events.append, models=models)
         assert result is not None
+
+    def test_active_buffered_track_is_not_finalised_until_source_end(self, monkeypatch):
+        import api.core.pipeline_core as _pc
+        from api.core.config import MIN_FRAMES_FOR_OCR
+        from api.core.pipeline_core import process_frames
+        from api.core.quality_router import PlateQualityRouter
+
+        frames = [_make_frame() for _ in range(MIN_FRAMES_FOR_OCR)]
+        source = _make_mock_source(frames)
+        models = _make_mock_models_no_detections()
+        models.quality_router = PlateQualityRouter(classifier=lambda crop: {"poor": 0.96})
+        models.vehicle_tracker.track.return_value = (
+            np.array([[0, 0, 180, 140]], dtype=np.int32),
+            np.array([32], dtype=np.int64),
+            np.array([5], dtype=np.int32),
+        )
+
+        class FakeAssociator:
+            def __init__(self, *args, **kwargs) -> None:
+                self.vehicle_cache = {32: (0, 0, 180, 140)}
+
+            def process_frame(self, plate_tracks, vehicle_tracks):
+                return [(32, plate) for plate in plate_tracks]
+
+        monkeypatch.setattr(_pc, "FRAME_STRIDE", 1)
+        monkeypatch.setattr(_pc, "TrajectoryAssociator", FakeAssociator)
+        monkeypatch.setattr(
+            _pc,
+            "detect_plate_tracks_cascade",
+            lambda *args, **kwargs: [
+                {
+                    "id": 65,
+                    "crop": np.full((48, 96, 3), 77, dtype=np.uint8),
+                    "box": [10, 10, 70, 30],
+                }
+            ],
+        )
+
+        finalise_calls: list[int] = []
+
+        def fake_finalise(tid, *_args, **_kwargs):
+            finalise_calls.append(tid)
+
+        monkeypatch.setattr(_pc, "_finalise_track_ocr", fake_finalise)
+
+        process_frames(source, emit=lambda event: None, models=models)
+
+        assert finalise_calls == [32]
+
+    def test_process_frames_uses_reduced_association_window(self, monkeypatch):
+        import api.core.pipeline_core as _pc
+        from api.core.config import ASSOCIATION_AGREEMENT_RATIO, ASSOCIATION_MATCH_FRAMES
+        from api.core.pipeline_core import process_frames
+
+        captured: list[tuple[int, float]] = []
+
+        class CapturingAssociator:
+            def __init__(self, match_frames: int, agreement_ratio: float) -> None:
+                captured.append((match_frames, agreement_ratio))
+                self.vehicle_cache = {}
+
+            def process_frame(self, plate_tracks, vehicle_tracks):
+                return []
+
+        monkeypatch.setattr(_pc, "TrajectoryAssociator", CapturingAssociator)
+
+        source = _make_mock_source([])
+        source.iter_frames.return_value = iter([])
+        models = _make_mock_models_no_detections()
+
+        process_frames(source, emit=lambda event: None, models=models)
+
+        assert captured == [(ASSOCIATION_MATCH_FRAMES, ASSOCIATION_AGREEMENT_RATIO)]
+
+    def test_active_invalid_plate_track_waits_until_end_before_rejecting(self, monkeypatch):
+        import torch
+        import api.core.pipeline_core as _pc
+        from api.core.pipeline_core import process_frames
+        from api.core.quality_router import PlateQualityRouter
+
+        frames = [_make_frame() for _ in range(4)]
+        source = _make_mock_source(frames)
+        models = _make_mock_models_no_detections()
+        models.device = torch.device("cpu")
+        models.ocr_backend = "smalllpr_ctc"
+        models.quality_router = PlateQualityRouter(classifier=lambda crop: {"good": 0.96})
+        models.vehicle_tracker.track.return_value = (
+            np.array([[0, 0, 180, 140]], dtype=np.int32),
+            np.array([32], dtype=np.int64),
+            np.array([5], dtype=np.int32),
+        )
+        tracked_lengths: list[int] = []
+
+        class FakeAssociator:
+            def __init__(self, *args, **kwargs) -> None:
+                self.vehicle_cache = {32: (0, 0, 180, 140)}
+
+            def process_frame(self, plate_tracks, vehicle_tracks):
+                return [(32, plate) for plate in plate_tracks]
+
+        def fake_detect(_frame, tracked_for_ocr, *_args, **_kwargs):
+            tracked_lengths.append(len(tracked_for_ocr))
+            if not tracked_for_ocr:
+                return []
+            return [{
+                "id": 65,
+                "crop": np.full((48, 96, 3), 77, dtype=np.uint8),
+                "box": [10, 10, 70, 30],
+            }]
+
+        monkeypatch.setattr(_pc, "FRAME_STRIDE", 1)
+        monkeypatch.setattr(_pc, "TrajectoryAssociator", FakeAssociator)
+        monkeypatch.setattr(_pc, "detect_plate_tracks_cascade", fake_detect)
+        monkeypatch.setattr(_pc, "preprocess_plate_for_model", lambda _model, _crop: torch.zeros((3, 48, 96)))
+        monkeypatch.setattr(
+            _pc,
+            "ocr_batch",
+            lambda _model, images, _device: [(_make_prob_lists_for_plate("BADINPUT", conf=0.6, n=1)[0], False)] * int(images.shape[0]),
+        )
+
+        events: list[dict] = []
+        result = process_frames(source, emit=events.append, models=models)
+        rejected_events = [event for event in events if event.get("type") == "rejected_vehicle"]
+
+        assert tracked_lengths == [1, 1, 1, 1]
+        assert len(rejected_events) == 1
+        assert result["total_vehicles"] == 0
 
 
 class TestProcessFramesWithPlateDetections:

@@ -85,12 +85,12 @@ def test_ocr_batch_dispatches_parseq_wrapper_and_returns_pipeline_contract() -> 
 
 
 @pytest.mark.unit
-def test_normalize_ocr_backend_accepts_small_lpr_nar_aliases() -> None:
+def test_normalize_ocr_backend_rejects_removed_small_lpr_nar_aliases() -> None:
     from api.core.models import normalize_ocr_backend
 
-    assert normalize_ocr_backend("small_lpr_nar") == "smalllpr_nar"
-    assert normalize_ocr_backend("smalllpr_nar") == "smalllpr_nar"
-    assert normalize_ocr_backend("nar") == "smalllpr_nar"
+    for backend in ("small_lpr_nar", "smalllpr_nar", "nar"):
+        with pytest.raises(ValueError):
+            normalize_ocr_backend(backend)
 
 
 @pytest.mark.unit
@@ -103,24 +103,59 @@ def test_normalize_ocr_backend_accepts_small_lpr_ctc_aliases() -> None:
 
 
 @pytest.mark.unit
-def test_ocr_batch_dispatches_small_lpr_nar_wrapper_and_skips_pad_tokens() -> None:
-    from api.core.models import SmallLprNarOcrModel, ocr_batch
+def test_normalize_ocr_backend_accepts_small_lpr_line_ctc_aliases() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    assert normalize_ocr_backend("small_lpr_line_ctc") == "smalllpr_line_ctc"
+    assert normalize_ocr_backend("smalllpr_line_ctc") == "smalllpr_line_ctc"
+    assert normalize_ocr_backend("line_ctc") == "smalllpr_line_ctc"
+
+
+@pytest.mark.unit
+def test_ocr_batch_dispatches_small_lpr_line_ctc_wrapper_with_layout() -> None:
+    from api.core.models import SmallLprLineCtcOcrModel, ocr_batch
 
     chars = ["<pad>", "3", "0", "G", "-", "5", "1", "8", "2", "7", "[SEP]"]
 
-    class FakeNar(torch.nn.Module):
-        def forward(self, images):
-            logits = torch.full((images.shape[0], 12, len(chars)), -10.0)
-            sequences = [
-                [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0],
-                [1, 2, 3, 10, 5, 6, 7, 8, 9, 0, 0, 0],
-            ]
-            for batch_idx, sequence in enumerate(sequences):
-                for pos, token_id in enumerate(sequence):
-                    logits[batch_idx, pos, token_id] = 10.0
-            return logits
+    def logits_from_sequences(sequences: list[list[int]]) -> torch.Tensor:
+        width = max(len(sequence) for sequence in sequences)
+        logits = torch.full((len(sequences), width, len(chars)), -10.0)
+        for batch_idx, sequence in enumerate(sequences):
+            for pos, token_id in enumerate(sequence):
+                logits[batch_idx, pos, token_id] = 10.0
+        return logits
 
-    wrapper = SmallLprNarOcrModel(model=FakeNar(), chars=chars, max_len=12)
+    class FakeLineCtc(torch.nn.Module):
+        def forward(self, images):
+            return {
+                "global_logits": logits_from_sequences(
+                    [
+                        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                        [1, 2, 3, 10, 5, 6, 7, 8, 9],
+                    ]
+                ),
+                "one_line_logits": logits_from_sequences(
+                    [
+                        [0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 0],
+                        [9, 9, 0],
+                    ]
+                ),
+                "top_logits": logits_from_sequences(
+                    [
+                        [1, 2, 0],
+                        [1, 2, 3, 0],
+                    ]
+                ),
+                "bottom_logits": logits_from_sequences(
+                    [
+                        [5, 6, 0],
+                        [5, 6, 7, 8, 9],
+                    ]
+                ),
+                "layout_logits": torch.tensor([[10.0, -10.0], [-10.0, 10.0]]),
+            }
+
+    wrapper = SmallLprLineCtcOcrModel(model=FakeLineCtc(), chars=chars)
     results = ocr_batch(wrapper, torch.zeros((2, 3, 48, 96)), torch.device("cpu"))
 
     assert [[char for char, _ in char_probs] for char_probs, _ in results] == [
@@ -160,10 +195,10 @@ def test_ocr_batch_dispatches_small_lpr_ctc_wrapper_and_collapses_repeats() -> N
 
 @pytest.mark.unit
 def test_ocr_batch_handles_ctc_wrapper_loaded_from_core_namespace(monkeypatch) -> None:
-    """Monitor incidents must not fall back to autoregressive SmallLPR OCR.
+    """Monitor events must not fall back to autoregressive SmallLPR OCR.
 
     The FastAPI entrypoint used to load models through ``core.models`` while
-    incident analysis imported OCR helpers through ``api.core.models``. That
+    event analysis imported OCR helpers through ``api.core.models``. That
     made the CTC wrapper fail the ``isinstance`` dispatch and call ``.encode``.
     """
     import importlib
@@ -191,7 +226,7 @@ def test_ocr_batch_handles_ctc_wrapper_loaded_from_core_namespace(monkeypatch) -
 
 
 @pytest.mark.unit
-def test_load_models_uses_small_lpr_ctc_backend_by_default(monkeypatch) -> None:
+def test_load_models_uses_small_lpr_line_ctc_backend_by_default(monkeypatch) -> None:
     import api.core.models as models
 
     monkeypatch.setattr(models.torch.cuda, "is_available", lambda: False)
@@ -209,19 +244,19 @@ def test_load_models_uses_small_lpr_ctc_backend_by_default(monkeypatch) -> None:
 
     loaded: dict[str, object] = {}
 
-    def fake_load_ctc(path, *, device):
+    def fake_load_line_ctc(path, *, device):
         loaded["path"] = path
         loaded["device"] = device
-        return models.SmallLprCtcOcrModel(model=torch.nn.Identity(), chars=["<blank>", "A"])
+        return models.SmallLprLineCtcOcrModel(model=torch.nn.Identity(), chars=["<blank>", "A"])
 
-    monkeypatch.setattr(models, "load_small_lpr_ctc_model", fake_load_ctc)
+    monkeypatch.setattr(models, "load_small_lpr_line_ctc_model", fake_load_line_ctc)
 
     bundle = models.load_models()
 
-    assert isinstance(bundle.ocr, models.SmallLprCtcOcrModel)
-    assert bundle.ocr_backend == "smalllpr_ctc"
+    assert isinstance(bundle.ocr, models.SmallLprLineCtcOcrModel)
+    assert bundle.ocr_backend == "smalllpr_line_ctc"
     assert str(loaded["path"]).endswith(
-        "weights/ocr/small_lpr_ctc/ctc_20260608_201842/small_lpr_ctc-epoch=050-val_acc=0.9279.ckpt"
+        "weights/ocr/small_lpr_line_ctc/line_ctc_cleaned_20260618_061855/small_lpr_line_ctc-epoch=000-val_acc=0.9506.ckpt"
     )
 
 

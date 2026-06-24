@@ -76,7 +76,6 @@ def _env_int_list(name: str, default: list[int]) -> list[int]:
 YOLOV5_OBJECT_DEFAULT = "references/Character-Time-series-Matching/Vietnamese/object.pt"
 # VEHICLE_MODEL_PATH_DEFAULT = "weights/detection/vehicle_best.pt"
 VEHICLE_MODEL_PATH = ROOT / os.environ.get("VEHICLE_MODEL_PATH", YOLOV5_OBJECT_DEFAULT)
-# VEHICLE_MODEL_PATH = ROOT / os.environ.get("VEHICLE_MODEL_PATH", VEHICLE_MODEL_PATH_DEFAULT)
 # PLATE_MODEL_PATH = ROOT / "weights/detection/best.pt"
 PLATE_MODEL_PATH = ROOT / "runs/obb/experiments/detection/lp_detection_obb_merged/weights/best.pt"
 
@@ -187,9 +186,8 @@ CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops
 CASCADE_VEHICLE_PAD_MIN = 16  # min vehicle crop context padding (px)
 CASCADE_PLATE_TRACK_IOU = 0.30  # IoU threshold for cascade plate track continuity
 CASCADE_PLATE_TRACK_BUFFER = 15  # frames to retain unmatched cascade plate tracks
-MAX_PLATES_PER_VEHICLE = _env_int("MAX_PLATES_PER_VEHICLE", 2)
-RECOGNITION_SLOT_IOU = _env_float("RECOGNITION_SLOT_IOU", 0.20)
-RECOGNITION_SLOT_CENTER_SCALE = _env_float("RECOGNITION_SLOT_CENTER_SCALE", 1.25)
+ASSOCIATION_MATCH_FRAMES = _env_int("ASSOCIATION_MATCH_FRAMES", 2)
+ASSOCIATION_AGREEMENT_RATIO = _env_float("ASSOCIATION_AGREEMENT_RATIO", 0.6)
 
 # ── Anti-hallucination — Layer 1 (Pre-OCR quality gates) ─────────────────────
 PLATE_DET_CONF = 0.50  # min YOLO OBB detection confidence
@@ -203,9 +201,9 @@ MIN_FRAME_VOTES = 2  # OCR frames required before marking a vehicle done
 
 # ── Track buffer & lifecycle ──────────────────────────────────────────────────
 MAX_BUFFER = 10  # max plate crops stored per track
-MIN_FRAMES_FOR_OCR = 3  # min buffered frames before final track-level OCR vote
+MIN_FRAMES_FOR_OCR = 2  # min buffered frames before final track-level OCR vote
 LOST_THRESHOLD = 5  # consecutive missing strides before track is finalised
-TOP_K_FRAMES = 5  # how many top-quality OCR frames to pass to voting
+TOP_K_FRAMES = 10  # how many top-quality OCR frames to pass to voting
 
 # ── UI display labels ─────────────────────────────────────────────────────────
 VN_CLASS = {

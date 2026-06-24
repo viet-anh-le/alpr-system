@@ -50,10 +50,10 @@ Browser
 
 **Code thực thi:**
 - Route: [`api/main.py:64-82`](../api/main.py#L64) — nhận file, tạo temp, gọi `run_job`
-- Job runner: [`api/core/pipeline.py:run_job()`](../api/core/pipeline.py) — wrapper tạo `FileFrameSource` rồi gọi `process_frames`
+- Job runner: [`api/core/pipeline.py:run_job()`](../api/core/pipeline.py) — wrapper tạo `FileFrameSource` rồi gọi `process_frames_async`
 - Frame source: [`api/core/frame_source.py:FileFrameSource`](../api/core/frame_source.py#L29) — mở video bằng `cv2.VideoCapture`, seek đến `t_start`, yield `(file_pos, frame, timestamp)`
 
-### 2.2 Live RTSP Stream (Incident Monitor)
+### 2.2 Live RTSP Stream (Event Monitor)
 
 ```
 Browser
@@ -73,9 +73,9 @@ Browser
   │       │
   │       ▼  api/routes_monitor.py:235
   │  LiveBufferFrameSource(snapshot_window(10s))
-  │   └─ _incident_executor.submit(run_incident) — single GPU worker
+  │   └─ _event_executor.submit(run_event) — single GPU worker
   │
-  └─ GET /monitor/{sid}/incidents/stream  ← SSE events (incident_*)
+  └─ GET /monitor/{sid}/events/stream  ← SSE events (event_*)
 ```
 
 **Code thực thi:**
@@ -524,12 +524,12 @@ Nếu **không** match → emit `rejected_vehicle` (hiển thị trong UI nhưng
 
 | Event | Ánh xạ từ | Payload thêm |
 |-------|-----------|-------------|
-| `incident_started` | — | `incident_id, window_start_sec, frames_count` |
-| `incident_progress` | `progress` | + `incident_id` |
-| `incident_vehicle` | `vehicle` | + `incident_id` |
-| `incident_rejected_vehicle` | `rejected_vehicle` | + `incident_id` |
-| `incident_complete` | — | `total_vehicles, duration_ms` |
-| `incident_error` | — | `message` |
+| `event_started` | — | `event_id, window_start_sec, frames_count` |
+| `event_progress` | `progress` | + `event_id` |
+| `event_vehicle` | `vehicle` | + `event_id` |
+| `event_rejected_vehicle` | `rejected_vehicle` | + `event_id` |
+| `event_complete` | — | `total_vehicles, duration_ms` |
+| `event_error` | — | `message` |
 
 ---
 
@@ -602,7 +602,7 @@ POST /upload
        MongoDB save (nếu MONGODB_URI configured)
 ```
 
-### RTSP Stream (Incident Monitor)
+### RTSP Stream (Event Monitor)
 
 ```
 POST /monitor/live/connect { rtsp_url }
@@ -618,19 +618,19 @@ POST /monitor/{sid}/mark { mode:"live" }
     │
     └─ snapshot_window(10s) → LiveBufferFrameSource(frames_list)
     │
-    └─ _incident_executor.submit(run_incident)   ← single GPU worker
+    └─ _event_executor.submit(run_event)   ← single GPU worker
             │
-            ▼ api/core/incident_analyzer.py
-       run_incident()
+            ▼ api/core/event_analyzer.py
+       run_event()
             │
-            ├─ emit("incident_started")
+            ├─ emit("event_started")
             │
             ▼ api/core/pipeline_core.py:process_frames()
        [Toàn bộ pipeline giống Upload — xem trên]
             │
-            ├─ emit("incident_vehicle" / "incident_rejected_vehicle")
-            ├─ MongoDB: upsert_incident() + upload evidence images
-            └─ emit("incident_complete")
+            ├─ emit("event_vehicle" / "event_rejected_vehicle")
+            ├─ MongoDB: upsert_event() + upload evidence images
+            └─ emit("event_complete")
 ```
 
 ---

@@ -26,6 +26,9 @@ def finalise_track_ocr(
     ocr_backend: str = "default",
     user_id: str | None = None,
 ) -> None:
+    if tracker._done.get(tid, False):
+        return
+
     buf = tracker._buffers.get(tid)
     if buf is None:
         return
@@ -41,13 +44,13 @@ def finalise_track_ocr(
     ocr_method = "ocr_output_ctm"
 
     if not result.char_probs or not result.is_valid:
-        tracker._done[tid] = True
+        tracker._best.pop(tid, None)
         tracker._ocr_count[tid] = max(tracker._ocr_count.get(tid, 0), len(prob_lists))
         _store_best_plate_image(tid, tracker, entries, result.char_probs)
         emit(
             {
                 "type": "rejected_vehicle",
-                **tracker.identity_fields(tid),
+                "id": tid,
                 "cls": tracker._cls.get(tid, ""),
                 "plate": result.text,
                 "chars": [[c, round(p, 3)] for c, p in result.char_probs],
@@ -77,32 +80,32 @@ def finalise_track_ocr(
             )
         return
 
-    tracker.update(tid, result.char_probs, all_confident=True)
+    tracker._best[tid] = result.char_probs
     tracker._ocr_count[tid] = max(tracker._ocr_count.get(tid, 0), len(prob_lists))
     tracker._done[tid] = True
     _store_best_plate_image(tid, tracker, entries, result.char_probs)
+    tracker.plate_changed(tid)
 
-    if tracker.plate_changed(tid):
-        emit(
-            {
-                "type": "vehicle",
-                **tracker.identity_fields(tid),
-                "cls": tracker._cls.get(tid, ""),
-                "plate": tracker.display_text(tid),
-                "chars": tracker.chars_json(tid),
-                "done": True,
-                "plate_b64": tracker.plate_b64(tid),
-                "vehicle_b64": tracker.vehicle_b64(tid),
-                "track_buffer": tracker.track_buffer_json(tid),
-                "ocr_frames": tracker.ocr_frames(tid),
-                "ocr_method": ocr_method,
-                "candidate_method": _candidate_method_summary(entries),
-                "ctm_support": result.ctm_support,
-                "unresolved_slots": result.unresolved_slots,
-                "vote_summary": result.vote_summary,
-                **route_fields,
-            }
-        )
+    emit(
+        {
+            "type": "vehicle",
+            "id": tid,
+            "cls": tracker._cls.get(tid, ""),
+            "plate": tracker.display_text(tid),
+            "chars": tracker.chars_json(tid),
+            "done": True,
+            "plate_b64": tracker.plate_b64(tid),
+            "vehicle_b64": tracker.vehicle_b64(tid),
+            "track_buffer": tracker.track_buffer_json(tid),
+            "ocr_frames": tracker.ocr_frames(tid),
+            "ocr_method": ocr_method,
+            "candidate_method": _candidate_method_summary(entries),
+            "ctm_support": result.ctm_support,
+            "unresolved_slots": result.unresolved_slots,
+            "vote_summary": result.vote_summary,
+            **route_fields,
+        }
+    )
 
     if session_id and loop is not None and record_save is not None:
         record_save(

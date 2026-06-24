@@ -348,6 +348,20 @@ class TestReadyForTrackOcr:
             )
         assert mgr.ready_for_track_ocr(1) is False
 
+    def test_direct_preview_buffer_is_ready_for_finalise_even_with_one_frame(self):
+        mgr = WebTrackletManager()
+        mgr.buffer_crop(
+            1,
+            _crop(),
+            0.96,
+            0.95,
+            _probs("30G-51827"),
+            42,
+            route="direct",
+        )
+
+        assert mgr.ready_for_track_ocr(1) is True
+
 
 # ── Accessors ─────────────────────────────────────────────────────────────────
 

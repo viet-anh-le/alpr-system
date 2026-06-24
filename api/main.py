@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
         await routes_monitor.stop_monitor_cleanup_task()
         routes_monitor.cleanup_all_upload_sessions()
         await close_db()
-        routes_monitor._incident_executor.shutdown(wait=False, cancel_futures=True)
+        routes_monitor._event_executor.shutdown(wait=False, cancel_futures=True)
 
 
 # ── App setup ─────────────────────────────────────────────────────────────────

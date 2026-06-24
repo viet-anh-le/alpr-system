@@ -86,7 +86,7 @@ class FileFrameSource:
 class LiveBufferFrameSource:
     """A FrameSource that wraps an already-decoded list of frames.
 
-    Used by the incident analyzer after snapshotting a LiveSession's rolling
+    Used by the event analyzer after snapshotting a LiveSession's rolling
     buffer. Iteration is a no-op pass-through.
     """
 

@@ -16,7 +16,7 @@ Why threading (not multiprocessing)?
 
 Drop-in replacement:
   ``process_frames_async`` has the same signature as ``pipeline_core.process_frames``
-  so callers (run_benchmark.py, pipeline.py, incident_analyzer.py) only need to
+  so callers (run_benchmark.py, pipeline.py, event_analyzer.py) only need to
   change the import.
 """
 
@@ -37,6 +37,8 @@ from .association import TrajectoryAssociator
 from .cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
 from .config import (
     ALPR_PREVIEW_FPS,
+    ASSOCIATION_AGREEMENT_RATIO,
+    ASSOCIATION_MATCH_FRAMES,
     FRAME_STRIDE,
     VEHICLE_CLASSES,
 )
@@ -44,7 +46,7 @@ from .frame_source import FrameSource
 from .models import ModelBundle, ocr_batch, preprocess_plate_for_model
 from .progress import make_progress_event
 from .quality_router import PlateQualityRouter
-from .route_ocr import PlateMatch, consume_route_ocr_results, prepare_route_ocr_jobs
+from .route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
 from .track_ocr import finalise_track_ocr as _finalise_track_ocr_impl
 from .tracker import WebTrackletManager
 from .video_processor import (
@@ -197,10 +199,12 @@ def _vehicle_worker(
                 tracker._cls[tid] = models.vehicle.names[int(cid)]
                 tracked.append({"id": tid, "box": box.tolist()})
                 currently_tracked.add(tid)
+                if tid in tracker._lost_count:
+                    tracker.reset_lost(tid)
 
             processed_count += 1
 
-            if processed_count % 10 == 0 or (total_frames and processed_count >= total_frames):
+            if processed_count % 10 == 0 and (not total_frames or processed_count < total_frames):
                 emit(
                     make_progress_event(
                         processed_frames=processed_count,
@@ -257,6 +261,7 @@ def _plate_ocr_worker(
         if mjpeg_queue is not None and loop is not None:
             loop.call_soon_threadsafe(_safe_put, mjpeg_queue, jpg)
 
+    previously_tracked: set[int] = set()
     model_router = getattr(models, "quality_router", None)
     quality_router = (
         model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
@@ -278,16 +283,35 @@ def _plate_ocr_worker(
             frame_idx, processed_count, frame, tracked, currently_tracked = item
             frame_count_out[0] = processed_count
 
+            # ── Handle lost tracks (tracks present before but missing now) ────
+            # Only finalise on stride frames to keep timing consistent.
+            if frame_idx % FRAME_STRIDE == 0:
+                for tid in previously_tracked - currently_tracked:
+                    if (
+                        tracker.should_ocr(tid)
+                        and tracker.mark_lost(tid)
+                        and tracker.ready_for_track_ocr(tid)
+                    ):
+                        _finalise_track_ocr(
+                            tid,
+                            tracker,
+                            models,
+                            emit,
+                            session_id,
+                            loop,
+                            record_save,
+                            ocr_backend,
+                            user_id,
+                        )
+
             # Skip plate detection on non-stride frames
             if frame_idx % FRAME_STRIDE != 0:
+                previously_tracked = currently_tracked
                 continue
 
             # ── Cascade plate detection ───────────────────────────────────────
             active_tids: set[int] = set()
-            tracked_for_ocr = [
-                v for v in tracked
-                if tracker.should_process_vehicle_for_ocr(int(v["id"]))
-            ]
+            tracked_for_ocr = [v for v in tracked if tracker.should_ocr(int(v["id"]))]
             plate_tracks = detect_plate_tracks_cascade(
                 frame, tracked_for_ocr, models.plate, plate_tracker, timings=timings
             )
@@ -296,34 +320,12 @@ def _plate_ocr_worker(
             firm_matches = associator.process_frame(plate_tracks, tracked_for_ocr)
             _add_timing("association", stage_start)
 
-            matched: list[PlateMatch] = []
-            matched_recognition_ids: set[int] = set()
+            matched: list[tuple[int, np.ndarray, np.ndarray]] = []
             for v_tid, p in firm_matches:
                 v_box = associator.vehicle_cache.get(v_tid)
                 if v_box is not None:
-                    plate_track_id = int(p["id"]) if p.get("id") is not None else None
-                    recognition_id = tracker.recognition_id_for_plate_detection(
-                        v_tid,
-                        plate_track_id,
-                        p.get("box"),
-                    )
-                    if (
-                        recognition_id is None
-                        or not tracker.should_ocr(recognition_id)
-                        or recognition_id in matched_recognition_ids
-                    ):
-                        continue
-                    matched_recognition_ids.add(recognition_id)
                     vehicle_crop = _crop_vehicle(frame, v_box)
-                    matched.append(
-                        PlateMatch(
-                            recognition_id=recognition_id,
-                            vehicle_track_id=int(v_tid),
-                            plate_track_id=plate_track_id,
-                            plate_crop=p["crop"],
-                            vehicle_crop=vehicle_crop,
-                        )
-                    )
+                    matched.append((v_tid, p["crop"], vehicle_crop))
 
             # ── Batch OCR ─────────────────────────────────────────────────────
             stage_start = time.perf_counter()
@@ -366,36 +368,6 @@ def _plate_ocr_worker(
                     user_id=user_id,
                 )
 
-            for tid in active_tids:
-                tracker.reset_lost(tid)
-                if tracker.should_ocr(tid) and tracker.ready_for_track_ocr(tid):
-                    _finalise_track_ocr(
-                        tid,
-                        tracker,
-                        models,
-                        emit,
-                        session_id,
-                        loop,
-                        record_save,
-                        ocr_backend,
-                        user_id,
-                    )
-            for tid in list(tracker._buffers):
-                if tid in active_tids or not tracker.should_ocr(tid):
-                    continue
-                if tracker.mark_lost(tid) and tracker.ready_for_track_ocr(tid):
-                    _finalise_track_ocr(
-                        tid,
-                        tracker,
-                        models,
-                        emit,
-                        session_id,
-                        loop,
-                        record_save,
-                        ocr_backend,
-                        user_id,
-                    )
-
             # ── MJPEG annotation ──────────────────────────────────────────────
             if mjpeg_queue is not None and preview_stride > 0:
                 preview_seen += 1
@@ -410,16 +382,17 @@ def _plate_ocr_worker(
                         "box": [int(c) for c in v["box"]],
                         "state": (
                             "active"
-                            if tracker.recognition_ids_for_vehicle(v["id"])
-                            and any(rid in active_tids for rid in tracker.recognition_ids_for_vehicle(v["id"]))
-                            else "done" if tracker.vehicle_has_done_recognition(v["id"]) else "tracked"
+                            if v["id"] in active_tids
+                            else "done" if tracker._done.get(v["id"]) else "tracked"
                         ),
-                        "plate": tracker.display_text_for_vehicle(v["id"]) or "",
+                        "plate": tracker.display_text(v["id"]) or "",
                         "cls": tracker._cls.get(v["id"], "vehicle"),
                     }
                     for v in tracked
                 ]
                 emit_frame(_draw_annotated_frame(frame, box_dicts))
+
+            previously_tracked = currently_tracked
 
             if frame_idx % 90 == 0:
                 gc.collect()
@@ -455,7 +428,10 @@ def process_frames_async(
 
     # Shared state
     tracker = WebTrackletManager()
-    associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
+    associator = TrajectoryAssociator(
+        match_frames=ASSOCIATION_MATCH_FRAMES,
+        agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
+    )
     plate_tracker = PlateTrackManager()
     models.vehicle_tracker.reset()
 
@@ -544,7 +520,7 @@ def process_frames_async(
         emit(
             {
                 "type": "vehicle",
-                **tracker.identity_fields(tid),
+                "id": tid,
                 "cls": tracker._cls.get(tid, ""),
                 "plate": tracker.display_text(tid),
                 "chars": tracker.chars_json(tid),
