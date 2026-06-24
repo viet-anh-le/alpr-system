@@ -35,11 +35,13 @@ from .config import (
     PARSEQ_IMAGE_W,
     PARSEQ_OCR_CKPT_PATH,
     PLATE_MODEL_PATH,
+    REID_MODEL_PATH,
     ROOT,
     SMALL_LPR_CTC_CKPT_PATH,
     SMALL_LPR_CKPT_PATH,
     SMALL_LPR_LINE_CTC_CKPT_PATH,
     SOS_IDX,
+    VEHICLE_DETECTOR_BACKEND,
     VEHICLE_MODEL_PATH,
     YOLOV5_CHAR_CKPT_PATH,
     YOLOV5_OBJECT_CKPT_PATH,
@@ -120,7 +122,7 @@ def load_models() -> ModelBundle:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info("Loading models on %s…", device)
 
-    use_yolov5_vehicle = (
+    use_yolov5_vehicle = VEHICLE_DETECTOR_BACKEND == "yolov5" or (
         Path(VEHICLE_MODEL_PATH).resolve() == Path(YOLOV5_OBJECT_CKPT_PATH).resolve()
     )
     if use_yolov5_vehicle:
@@ -144,9 +146,8 @@ def load_models() -> ModelBundle:
         ocr_backend,
     )
 
-    reid_weights = ROOT / "weights" / "tracking" / "vehicle_reid.onnx"
     vehicle_tracker = VehicleTracker(
-        reid_weights=reid_weights,
+        reid_weights=REID_MODEL_PATH,
         device=str(device),
         half=False,
     )

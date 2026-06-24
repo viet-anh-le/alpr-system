@@ -13,6 +13,14 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 # Project root: api/core/ → api/ → ALPR_Vietnamese/
 ROOT = Path(__file__).resolve().parent.parent.parent
 
+
+def _rooted_env_path(name: str, default: str) -> Path:
+    value = os.environ.get(name, default)
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return ROOT / path
+
 # ── MongoDB Atlas ─────────────────────────────────────────────────────────────
 MONGODB_URI: str = os.environ.get("MONGODB_URI", "")
 MONGODB_DB_NAME: str = os.environ.get("MONGODB_DB_NAME", "alpr_vn")
@@ -74,33 +82,38 @@ def _env_int_list(name: str, default: list[int]) -> list[int]:
 
 # ── Model paths ───────────────────────────────────────────────────────────────
 YOLOV5_OBJECT_DEFAULT = "references/Character-Time-series-Matching/Vietnamese/object.pt"
+VEHICLE_DETECTOR_BACKEND = os.environ.get("VEHICLE_DETECTOR_BACKEND", "auto").strip().lower()
 # VEHICLE_MODEL_PATH_DEFAULT = "weights/detection/vehicle_best.pt"
-VEHICLE_MODEL_PATH = ROOT / os.environ.get("VEHICLE_MODEL_PATH", YOLOV5_OBJECT_DEFAULT)
+VEHICLE_MODEL_PATH = _rooted_env_path("VEHICLE_MODEL_PATH", YOLOV5_OBJECT_DEFAULT)
 # PLATE_MODEL_PATH = ROOT / "weights/detection/best.pt"
-PLATE_MODEL_PATH = ROOT / "runs/obb/experiments/detection/lp_detection_obb_merged/weights/best.pt"
+PLATE_MODEL_PATH = _rooted_env_path(
+    "PLATE_MODEL_PATH",
+    "runs/obb/experiments/detection/lp_detection_obb_merged/weights/best.pt",
+)
+REID_MODEL_PATH = _rooted_env_path("REID_MODEL_PATH", "weights/tracking/vehicle_reid.onnx")
 
 OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_line_ctc").strip().lower()
-SMALL_LPR_CKPT_PATH = ROOT / os.environ.get(
+SMALL_LPR_CKPT_PATH = _rooted_env_path(
     "SMALL_LPR_CKPT_PATH",
     "weights/ocr/small_lpr-epoch=136-val_acc=0.914.ckpt",
 )
-SMALL_LPR_CTC_CKPT_PATH = ROOT / os.environ.get(
+SMALL_LPR_CTC_CKPT_PATH = _rooted_env_path(
     "SMALL_LPR_CTC_CKPT_PATH",
     "weights/ocr/small_lpr_ctc/ctc_20260609_155238/small_lpr_ctc-epoch=055-val_acc=0.9358.ckpt",
 )
-SMALL_LPR_LINE_CTC_CKPT_PATH = ROOT / os.environ.get(
+SMALL_LPR_LINE_CTC_CKPT_PATH = _rooted_env_path(
     "SMALL_LPR_LINE_CTC_CKPT_PATH",
     "weights/ocr/small_lpr_line_ctc/line_ctc_cleaned_20260618_061855/small_lpr_line_ctc-epoch=008-val_acc=0.9501.ckpt",
 )
-PARSEQ_OCR_CKPT_PATH = ROOT / os.environ.get(
+PARSEQ_OCR_CKPT_PATH = _rooted_env_path(
     "PARSEQ_OCR_CKPT_PATH",
     "weights/ocr/parseq/parseq_vn_plate_best.pt",
 )
-YOLOV5_CHAR_CKPT_PATH = ROOT / os.environ.get(
+YOLOV5_CHAR_CKPT_PATH = _rooted_env_path(
     "YOLOV5_CHAR_CKPT_PATH",
     "references/Character-Time-series-Matching/Vietnamese/char.pt",
 )
-YOLOV5_OBJECT_CKPT_PATH = ROOT / os.environ.get(
+YOLOV5_OBJECT_CKPT_PATH = _rooted_env_path(
     "YOLOV5_OBJECT_CKPT_PATH",
     YOLOV5_OBJECT_DEFAULT,
 )

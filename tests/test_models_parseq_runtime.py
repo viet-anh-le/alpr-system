@@ -255,9 +255,7 @@ def test_load_models_uses_small_lpr_line_ctc_backend_by_default(monkeypatch) -> 
 
     assert isinstance(bundle.ocr, models.SmallLprLineCtcOcrModel)
     assert bundle.ocr_backend == "smalllpr_line_ctc"
-    assert str(loaded["path"]).endswith(
-        "weights/ocr/small_lpr_line_ctc/line_ctc_cleaned_20260618_061855/small_lpr_line_ctc-epoch=000-val_acc=0.9506.ckpt"
-    )
+    assert loaded["path"] == models.SMALL_LPR_LINE_CTC_CKPT_PATH
 
 
 @pytest.mark.unit

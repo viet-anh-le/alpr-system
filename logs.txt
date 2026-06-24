@@ -1,0 +1,51 @@
+2026-06-24T03:27:11.623481182Z 2026/06/24 03:27:11 INF MediaMTX v1.19.1, linux, amd64
+2026-06-24T03:27:11.623531261Z 2026/06/24 03:27:11 INF configuration loaded from /app/configs/mediamtx.yml
+2026-06-24T03:27:11.623860260Z 2026/06/24 03:27:11 INF [RTSP] started with listeners on :8554 (TCP/RTSP), :8000 (UDP/RTP), :8001 (UDP/RTCP)
+2026-06-24T03:27:11.623943799Z 2026/06/24 03:27:11 INF [WebRTC] started with listeners on :8889 (TCP/HTTP), :8189 (UDP/ICE)
+2026-06-24T03:27:11.624300588Z 2026/06/24 03:27:11 INF [SRT] started with listener on :8890 (UDP/SRT)
+2026-06-24T03:27:11.624365827Z 2026/06/24 03:27:11 WAR [MoQ] certificate auto.key not found, generating it from scratch
+2026-06-24T03:27:11.627341854Z 2026/06/24 03:27:11 INF [MoQ] started with listeners on :8892 (TCP/HTTP2), :8892 (UDP/HTTP3)
+2026-06-24T03:27:11.627589762Z 2026/06/24 03:27:11 INF [API] started with listener on :9997 (TCP/HTTP)
+2026-06-24T03:27:13.814106596Z WARNING ⚠️ user config directory '/root/.config/Ultralytics' is not writable, using '/tmp/Ultralytics'. Set YOLO_CONFIG_DIR to override.
+2026-06-24T03:27:13.817046352Z Creating new Ultralytics Settings v0.0.6 file ✅
+2026-06-24T03:27:13.817094052Z View Ultralytics Settings with 'yolo settings' or at '/tmp/Ultralytics/settings.json'
+2026-06-24T03:27:13.817101662Z Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.
+2026-06-24T03:27:17.915042998Z INFO:     Started server process [493]
+2026-06-24T03:27:17.915096378Z INFO:     Waiting for application startup.
+2026-06-24T03:27:17.986519226Z /app/references/Character-Time-series-Matching/yolov5/utils/general.py:27: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+2026-06-24T03:27:17.986569415Z   import pkg_resources as pkg
+2026-06-24T03:27:18.090323222Z Downloading https://ultralytics.com/assets/Arial.ttf to /tmp/Ultralytics/Arial.ttf...
+2026-06-24T03:27:19.125128676Z Fusing layers...
+2026-06-24T03:27:19.594944369Z Model Summary: 213 layers, 7039792 parameters, 0 gradients, 15.8 GFLOPs
+2026-06-24T03:27:20.357467690Z Single-frame OCR ready (smalllpr_line_ctc); track-level results use cached OCR voting.
+2026-06-24T03:27:20.365514573Z INFO     BoxMOT v18.0.0 🚀 Python-3.11.9 torch-2.4.1+cu121
+2026-06-24T03:27:20.365563063Z          CUDA:0 (NVIDIA GeForce RTX 3090, 24124MiB)
+2026-06-24T03:27:20.368142271Z INFO     /workspace/alpr/models/mobilenetv2_x1_0_vehicle_reid.onnx
+2026-06-24T03:27:20.515362745Z [1;31m2026-06-24 03:27:20.515055977 [E:onnxruntime:Default, provider_bridge_ort.cc:1862 TryGetProviderInfo_CUDA] /onnxruntime_src/onnxruntime/core/session/provider_bridge_ort.cc:1539 onnxruntime::Provider& onnxruntime::ProviderLibrary::Get() [ONNXRuntimeError] : 1 : FAIL : Failed to load library libonnxruntime_providers_cuda.so with error: libcudnn_adv.so.9: cannot open shared object file: No such file or directory
+2026-06-24T03:27:20.515425945Z [m
+2026-06-24T03:27:20.515434055Z [0;93m2026-06-24 03:27:20.515084767 [W:onnxruntime:Default, onnxruntime_pybind_state.cc:993 CreateExecutionProviderInstance] Failed to create CUDAExecutionProvider. Require cuDNN 9.* and CUDA 12.*. Please install all dependencies as mentioned in the GPU requirements page (https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements), make sure they're in the PATH, and that your GPU is supported.[m
+2026-06-24T03:27:20.532493236Z INFO     ONNXRuntime ReID provider=CUDAExecutionProvider input=['batch', 3, 256,
+2026-06-24T03:27:20.532524586Z          128] dtype=float32 buckets=dynamic
+2026-06-24T03:27:20.535452762Z INFO     BotSort: det_thresh=0.3, max_age=30, max_obs=50, min_hits=3,
+2026-06-24T03:27:20.535485522Z          iou_threshold=0.3, per_class=False, asso_func=iou,
+2026-06-24T03:27:20.535488712Z          reid_model=<boxmot.reid.backends.onnx_backend.ONNXBackend object at
+2026-06-24T03:27:20.535506592Z          0x70905854cd50>, track_high_thresh=0.3, track_low_thresh=0.1,
+2026-06-24T03:27:20.535509682Z          new_track_thresh=0.7, track_buffer=30, match_thresh=0.7,
+2026-06-24T03:27:20.535512662Z          proximity_thresh=0.5, appearance_thresh=0.25, cmc_method=ecc,
+2026-06-24T03:27:20.535516412Z          frame_rate=30, fuse_first_associate=False, with_reid=True
+2026-06-24T03:27:20.536022129Z VehicleTracker initialised with ReID weights: /workspace/alpr/models/mobilenetv2_x1_0_vehicle_reid.onnx on device: cuda
+2026-06-24T03:27:20.536030099Z Vehicle tracker (BotSort + custom ReID) ready.
+2026-06-24T03:27:20.536069719Z Plate quality router ready.
+2026-06-24T03:27:20.536074439Z All models ready.
+2026-06-24T03:27:20.578058764Z Fusing layers...
+2026-06-24T03:27:20.711551612Z Model Summary: 181 layers, 1214114 parameters, 0 gradients, 3.5 GFLOPs
+2026-06-24T03:27:20.712692727Z YOLOv5 Character Detection model ready.
+2026-06-24T03:27:20.712721057Z YOLOv5 Object Detection model ready as vehicle detector.
+2026-06-24T03:27:22.346421913Z MongoDB indexes ensured.
+2026-06-24T03:27:22.346549162Z MongoDB connected — db=alpr
+2026-06-24T03:27:22.346752361Z INFO:     Application startup complete.
+2026-06-24T03:27:22.348647813Z INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-06-24T03:27:27.596031799Z INFO:     100.64.1.65:51376 - "GET / HTTP/1.1" 200 OK
+2026-06-24T03:27:32.275827677Z INFO:     100.64.1.65:57334 - "GET / HTTP/1.1" 200 OK
+2026-06-24T03:27:37.881755015Z INFO:     100.64.1.65:57336 - "GET / HTTP/1.1" 200 OK
+2026-06-24T03:27:43.731478408Z INFO:     100.64.1.68:42648 - "GET / HTTP/1.1" 200 OK

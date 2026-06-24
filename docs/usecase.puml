@@ -1,6 +1,4 @@
 @startuml
-title Sơ đồ use case tổng quan - Hệ thống nhận dạng biển số xe Việt Nam
-
 left to right direction
 skinparam actorStyle stickman
 

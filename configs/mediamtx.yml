@@ -28,7 +28,7 @@ authInternalUsers:
 
 webrtc: yes
 webrtcAddress: :8889
-webrtcAllowOrigin: '*'
+webrtcAllowOrigins: ['*']
 
 rtspAddress: :8554
 rtmp: no
