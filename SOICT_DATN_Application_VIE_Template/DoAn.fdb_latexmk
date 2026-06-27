@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex DoAn"] 1782321864.98187 "DoAn.aux" "DoAn.bbl" "DoAn" 1782321870.04091 0
+["bibtex DoAn"] 1782321864.98187 "DoAn.aux" "DoAn.bbl" "DoAn" 1782527516.8634 0
   "./Danh_sach_tai_lieu_tham_khao.bib" 1782317802.49495 5667 dfcab77c445c35e29409e6d6bfe90702 ""
-  "./DoAn-blx.bib" 1782321869.34376 343 27af2fa4d0370999ebe8f3266686c889 ""
+  "./DoAn-blx.bib" 1782527516.46644 343 27af2fa4d0370999ebe8f3266686c889 ""
   "/usr/share/texlive/texmf-dist/bibtex/bst/biblatex/biblatex.bst" 1678141846 65484 b7949c47a88ed6dca66ebc7a04577312 ""
-  "DoAn.aux" 1782321869.33376 34143 59ca90f6b02c27cba9793df58e5892a3 "pdflatex"
+  "DoAn.aux" 1782527516.46044 34143 59ca90f6b02c27cba9793df58e5892a3 "pdflatex"
   (generated)
   "DoAn.bbl"
   "DoAn.blg"
   (rewritten before read)
-["pdflatex"] 1782321865.17078 "/home/vietanh/Documents/DATN/ALPR_Vietnamese/SOICT_DATN_Application_VIE_Template/DoAn.tex" "DoAn.pdf" "DoAn" 1782321870.04123 0
+["pdflatex"] 1782527513.96295 "/home/vietanh/Documents/DATN/ALPR_Vietnamese/SOICT_DATN_Application_VIE_Template/DoAn.tex" "DoAn.pdf" "DoAn" 1782527516.86359 0
   "../runs/classify/runs/classify/legibility_finetuned_vn/confusion_matrix_normalized.png" 1781060998.19215 142475 f7e34d8d6ef873f6814383babced9c2f ""
   "/etc/texmf/web2c/texmf.cnf" 1782297950.3483 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/home/vietanh/Documents/DATN/ALPR_Vietnamese/SOICT_DATN_Application_VIE_Template/DoAn.tex" 1782319608.25152 9951 c5c3be044d7bb92a5e6a218086966672 ""
@@ -308,17 +308,17 @@
   "Chuong/1_Gioi_thieu.tex" 1782314464.61731 10246 e22a7aeb85783a4c777d87e8c3878fd3 ""
   "Chuong/2_Khao_sat.tex" 1782320903.81691 35597 c53d65bed0ccc8b13fd399f239e75a3d ""
   "Chuong/3_Cong_nghe.tex" 1782321381.18654 55834 81b4195390ede053d185bb1d6aad2594 ""
-  "Chuong/4_new.tex" 1782321816.84267 26331 44651aaf55b0f52595baf828dc51edd3 ""
+  "Chuong/4_new.tex" 1782527166.86677 27046 50c5718472d7ffa5e6c45d1a5e10911f ""
   "Chuong/5_Giai_phap_dong_gop.tex" 1782319582.02344 21355 d79029b5341046f945517da8dcd7cae1 ""
   "Chuong/6_Ket_luan.tex" 1782310344.97062 10770 c5139b72a06152f8d570004e96a5b92e ""
-  "DoAn.aux" 1782321869.33376 34143 59ca90f6b02c27cba9793df58e5892a3 "pdflatex"
+  "DoAn.aux" 1782527516.46044 34143 59ca90f6b02c27cba9793df58e5892a3 "pdflatex"
   "DoAn.bbl" 1782321865.16267 21411 446b00d97161ef16395367ca8461bca4 "bibtex DoAn"
-  "DoAn.lof" 1782321869.34626 1499 64be6133531b22725b4c64c487e483af "pdflatex"
-  "DoAn.lot" 1782321869.34626 3398 21d2d1b4cc08225601f2bc18d30d113c "pdflatex"
-  "DoAn.out" 1782321869.33876 11450 3e0b858f24409464bb4f8e0fbe11be1f "pdflatex"
-  "DoAn.run.xml" 1782321869.34626 2637 7cb28f27ccba49a5163ccc5d6e7abd94 "pdflatex"
+  "DoAn.lof" 1782527516.46829 1499 64be6133531b22725b4c64c487e483af "pdflatex"
+  "DoAn.lot" 1782527516.46829 3398 21d2d1b4cc08225601f2bc18d30d113c "pdflatex"
+  "DoAn.out" 1782527516.46344 11450 3e0b858f24409464bb4f8e0fbe11be1f "pdflatex"
+  "DoAn.run.xml" 1782527516.46829 2637 7cb28f27ccba49a5163ccc5d6e7abd94 "pdflatex"
   "DoAn.tex" 1782319608.25152 9951 c5c3be044d7bb92a5e6a218086966672 ""
-  "DoAn.toc" 1782321869.34626 7673 0421a735859be01d79bf219dddcac1d7 "pdflatex"
+  "DoAn.toc" 1782527516.46829 7673 0421a735859be01d79bf219dddcac1d7 "pdflatex"
   "Hinhve/challenges_grid.jpg" 1782315053.74555 65452 0b3f49861c95ef7cbb7533466f9f7826 ""
   "Hinhve/hbb_vs_obb_comparison_final.jpg" 1782317630.48462 598802 e493231b997ec073f3b318fea1bc368c ""
   "Hinhve/package.drawio.pdf" 1782272360 37226 c5e80853b086a05c48f02bf158dd9548 ""

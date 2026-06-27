@@ -40,7 +40,7 @@ def main() -> None:
 
     source = FileFrameSource(video_path, t_start=args.t_start, t_end=args.t_end)
     models = load_models()
-    models.vehicle_tracker.reset()
+    vehicle_tracker = models.create_vehicle_tracker()
 
     counts = Counter()
     per_frame = []
@@ -59,7 +59,7 @@ def main() -> None:
         else:
             dets = np.zeros((0, 6), dtype=np.float32)
 
-        boxes, ids, classes = models.vehicle_tracker.track(dets, frame)
+        boxes, ids, classes = vehicle_tracker.track(dets, frame)
         tracked = []
         for box, tid, cid in zip(boxes, ids, classes):
             tracked.append({"id": int(tid), "box": box.tolist()})

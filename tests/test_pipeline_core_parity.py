@@ -426,12 +426,15 @@ def _make_mock_models_no_detections() -> MagicMock:
     models.vehicle.predict.return_value = [v_pred]
     models.vehicle.names = {0: "car", 1: "bus", 4: "truck", 5: "motorcycle", 15: "motorbike_rider"}
 
-    # vehicle_tracker — returns empty tracks
-    models.vehicle_tracker.track.return_value = (
+    # vehicle_tracker factory — returns a mock tracker with empty tracks
+    mock_tracker = MagicMock()
+    mock_tracker.track.return_value = (
         np.zeros((0, 4), dtype=np.int32),
         np.zeros((0,), dtype=np.int64),
         np.zeros((0,), dtype=np.int32),
     )
+    models.create_vehicle_tracker = MagicMock(return_value=mock_tracker)
+    models._mock_tracker = mock_tracker  # for tests that need to reconfigure
 
     # plate model — returns result with no OBB for cascade crop inference
     p_res = MagicMock()
@@ -506,7 +509,7 @@ class TestProcessFramesUnit:
         for key in ("type", "frame", "total", "pct"):
             assert key in ev
 
-    def test_vehicle_tracker_reset_called(self):
+    def test_vehicle_tracker_created_per_session(self):
         from api.core.pipeline_core import process_frames
 
         source = _make_mock_source([])
@@ -515,7 +518,7 @@ class TestProcessFramesUnit:
 
         process_frames(source, emit=lambda e: None, models=models)
 
-        models.vehicle_tracker.reset.assert_called_once()
+        models.create_vehicle_tracker.assert_called_once()
 
     def test_processed_frames_matches_source_length(self):
         from api.core.pipeline_core import process_frames
@@ -563,7 +566,7 @@ class TestProcessFramesUnit:
         vehicle_box = np.array([[10, 10, 100, 100]], dtype=np.int32)
         vehicle_id = np.array([1], dtype=np.int64)
         vehicle_cls = np.array([0], dtype=np.int32)
-        models.vehicle_tracker.track.return_value = (vehicle_box, vehicle_id, vehicle_cls)
+        models._mock_tracker.track.return_value = (vehicle_box, vehicle_id, vehicle_cls)
 
         events: list[dict] = []
         result = process_frames(source, emit=events.append, models=models)
@@ -608,7 +611,7 @@ class TestProcessFramesUnit:
         models.vehicle.predict.return_value = [v_pred]
 
         # Tracker still returns no tracks so we don't have to mock more
-        models.vehicle_tracker.track.return_value = (
+        models._mock_tracker.track.return_value = (
             np.zeros((0, 4), dtype=np.int32),
             np.zeros((0,), dtype=np.int64),
             np.zeros((0,), dtype=np.int32),
@@ -616,7 +619,7 @@ class TestProcessFramesUnit:
 
         result = process_frames(source, emit=lambda e: None, models=models)
         # vehicle_tracker.track was called with non-empty dets
-        call_args = models.vehicle_tracker.track.call_args
+        call_args = models._mock_tracker.track.call_args
         assert call_args is not None
         dets_arg = call_args[0][0]
         assert dets_arg.shape[1] == 6
@@ -653,7 +656,7 @@ class TestProcessFramesUnit:
         vehicle_box = np.array([[10, 10, 100, 100]], dtype=np.int32)
         vehicle_id = np.array([1], dtype=np.int64)
         vehicle_cls = np.array([0], dtype=np.int32)
-        models.vehicle_tracker.track.return_value = (vehicle_box, vehicle_id, vehicle_cls)
+        models._mock_tracker.track.return_value = (vehicle_box, vehicle_id, vehicle_cls)
 
         events: list[dict] = []
         # Just ensure no crash — the reset_lost branch is hit if _lost_count has the tid
@@ -670,7 +673,7 @@ class TestProcessFramesUnit:
         source = _make_mock_source(frames)
         models = _make_mock_models_no_detections()
         models.quality_router = PlateQualityRouter(classifier=lambda crop: {"poor": 0.96})
-        models.vehicle_tracker.track.return_value = (
+        models._mock_tracker.track.return_value = (
             np.array([[0, 0, 180, 140]], dtype=np.int32),
             np.array([32], dtype=np.int64),
             np.array([5], dtype=np.int32),
@@ -745,7 +748,7 @@ class TestProcessFramesUnit:
         models.device = torch.device("cpu")
         models.ocr_backend = "smalllpr_ctc"
         models.quality_router = PlateQualityRouter(classifier=lambda crop: {"good": 0.96})
-        models.vehicle_tracker.track.return_value = (
+        models._mock_tracker.track.return_value = (
             np.array([[0, 0, 180, 140]], dtype=np.int32),
             np.array([32], dtype=np.int64),
             np.array([5], dtype=np.int32),
@@ -799,7 +802,7 @@ class TestProcessFramesWithPlateDetections:
     ) -> MagicMock:
         """Return mock models where cascade plate inference returns one OBB detection."""
         models = _make_mock_models_no_detections()
-        models.vehicle_tracker.track.return_value = (
+        models._mock_tracker.track.return_value = (
             np.array([[0, 0, 300, 200]], dtype=np.int32),
             np.array([1], dtype=np.int64),
             np.array([0], dtype=np.int32),

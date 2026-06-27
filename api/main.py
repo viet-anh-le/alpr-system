@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
@@ -40,6 +41,12 @@ _job_owners:   dict[str, str] = {}              # job_id → user_id
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".webm", ".mov", ".mkv"}
+
+# ── GPU concurrency limiter ───────────────────────────────────────────────────
+# Each ALPR video job consumes significant VRAM.  Limit concurrent jobs to
+# avoid CUDA OOM on a single GPU (e.g. RunPod RTX 3090 / 24 GB).
+MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", "2"))
+_job_semaphore: asyncio.Semaphore | None = None  # created after event loop exists
 
 
 @asynccontextmanager
@@ -130,12 +137,28 @@ async def upload(
         f.write(file_bytes)
         tmp = f.name
 
+    # ── GPU semaphore: lazy init (needs running event loop) ────────────────
+    global _job_semaphore
+    if _job_semaphore is None:
+        _job_semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
+
+    if _job_semaphore.locked():
+        raise HTTPException(
+            status_code=429,
+            detail=f"Server đang xử lý tối đa {MAX_CONCURRENT_JOBS} video. Vui lòng thử lại sau.",
+        )
+
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(
-        None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
-        file.filename or "video.mp4", mjpeg_queue, normalized_mode, ocr_backend,
-        _user_id(current_user), _job_owners
-    )
+
+    async def _run_with_semaphore() -> None:
+        async with _job_semaphore:
+            await loop.run_in_executor(
+                None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
+                file.filename or "video.mp4", mjpeg_queue, normalized_mode, ocr_backend,
+                _user_id(current_user), _job_owners
+            )
+
+    asyncio.ensure_future(_run_with_semaphore())
     return {"job_id": job_id, "preprocess_mode": normalized_mode, "ocr_backend": ocr_backend}
 
 

@@ -133,6 +133,7 @@ def _vehicle_worker(
     frame_q: queue.Queue,
     crop_q: queue.Queue,
     models: ModelBundle,
+    vehicle_tracker,
     tracker: WebTrackletManager,
     total_frames: int,
     emit: Callable[[dict], None],
@@ -189,7 +190,7 @@ def _vehicle_worker(
 
             # ── Tracking ──────────────────────────────────────────────────────
             stage_start = time.perf_counter()
-            boxes, ids, classes = models.vehicle_tracker.track(dets, frame)
+            boxes, ids, classes = vehicle_tracker.track(dets, frame)
             _add_timing("vehicle_track", stage_start)
 
             tracked: list[dict] = []
@@ -424,7 +425,7 @@ def process_frames_async(
         agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
     )
     plate_tracker = PlateTrackManager()
-    models.vehicle_tracker.reset()
+    vehicle_tracker = models.create_vehicle_tracker()
 
     stop_event = threading.Event()
     frame_q: queue.Queue = queue.Queue(maxsize=_FRAME_Q_SIZE)
@@ -447,6 +448,7 @@ def process_frames_async(
             frame_q,
             crop_q,
             models,
+            vehicle_tracker,
             tracker,
             total_frames,
             emit,

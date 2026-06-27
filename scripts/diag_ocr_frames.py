@@ -84,7 +84,7 @@ def run(video_path: str) -> None:
 
     tracker = WebTrackletManager()
     associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
-    models.vehicle_tracker.reset()
+    vehicle_tracker = models.create_vehicle_tracker()
 
     # per-track diagnostic log
     crop_logs: dict[int, CropLog] = defaultdict(CropLog)
@@ -120,7 +120,7 @@ def run(video_path: str) -> None:
         else:
             dets = np.zeros((0, 6), dtype=np.float32)
 
-        boxes, ids, classes = models.vehicle_tracker.track(dets, frame)
+        boxes, ids, classes = vehicle_tracker.track(dets, frame)
 
         tracked: list[dict] = []
         currently_tracked: set[int] = set()

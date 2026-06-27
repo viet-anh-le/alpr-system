@@ -102,11 +102,26 @@ class ModelBundle:
     vehicle: YOLO | YOLOv5VehicleDetector
     plate: YOLO
     ocr: SmallLPR | ParseqOcrModel | SmallLprCtcOcrModel | SmallLprLineCtcOcrModel
-    vehicle_tracker: VehicleTracker
+    reid_weights: Path
+    tracker_device: str
+    tracker_half: bool = False
     quality_router: PlateQualityRouter | None = None
     ocr_backend: str = OCR_BACKEND
     ocr_yolov5: object | None = None  # YOLOv5CharOcrModel
     yolov5_object: object | None = None  # YOLOv5 object model
+
+    def create_vehicle_tracker(self) -> VehicleTracker:
+        """Create a fresh VehicleTracker instance for a single session.
+
+        Each video processing session MUST use its own tracker because
+        BoT-SORT maintains stateful Kalman filters and track IDs that
+        would conflict if shared across concurrent sessions.
+        """
+        return VehicleTracker(
+            reid_weights=self.reid_weights,
+            device=self.tracker_device,
+            half=self.tracker_half,
+        )
 
 
 def load_yolov5_vehicle_detector(
@@ -147,12 +162,13 @@ def load_models() -> ModelBundle:
         ocr_backend,
     )
 
-    vehicle_tracker = VehicleTracker(
-        reid_weights=REID_MODEL_PATH,
-        device=str(device),
-        half=False,
-    )
-    logger.info("Vehicle tracker (BotSort + custom ReID) ready.")
+    # VehicleTracker config — actual instances are created per-session
+    # via ModelBundle.create_vehicle_tracker() to avoid stateful conflicts
+    # between concurrent video processing jobs.
+    reid_weights = REID_MODEL_PATH
+    tracker_device = str(device)
+    tracker_half = False
+    logger.info("Vehicle tracker config stored (per-session instances will be created on demand).")
     quality_router = PlateQualityRouter.from_env(device=device)
     logger.info("Plate quality router ready.")
 
@@ -180,7 +196,9 @@ def load_models() -> ModelBundle:
         vehicle=vehicle,
         plate=plate,
         ocr=ocr,
-        vehicle_tracker=vehicle_tracker,
+        reid_weights=reid_weights,
+        tracker_device=tracker_device,
+        tracker_half=tracker_half,
         quality_router=quality_router,
         ocr_backend=ocr_backend,
         ocr_yolov5=ocr_yolov5,

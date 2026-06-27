@@ -113,7 +113,7 @@ def process_frames(
     quality_router = (
         model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
     )
-    models.vehicle_tracker.reset()
+    vehicle_tracker = models.create_vehicle_tracker()
 
     total = source.total_frames or 0
     previously_tracked: set[int] = set()
@@ -138,7 +138,7 @@ def process_frames(
             dets = np.zeros((0, 6), dtype=np.float32)
 
         stage_start = time.perf_counter()
-        boxes, ids, classes = models.vehicle_tracker.track(dets, frame)
+        boxes, ids, classes = vehicle_tracker.track(dets, frame)
         _add_timing("vehicle_track", stage_start)
 
         tracked: list[dict] = []

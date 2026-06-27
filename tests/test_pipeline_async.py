@@ -109,7 +109,7 @@ def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
     source.iter_frames.return_value = iter([])
 
     models = MagicMock()
-    models.vehicle_tracker.reset = MagicMock()
+    models.create_vehicle_tracker = MagicMock(return_value=MagicMock())
 
     monkeypatch.setattr(pipeline_async, "WebTrackletManager", FakeTracker)
 
@@ -149,12 +149,13 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
     models = MagicMock()
     models.vehicle.predict.return_value = [v_pred]
     models.vehicle.names = {5: "motorcycle"}
-    models.vehicle_tracker.reset = MagicMock()
-    models.vehicle_tracker.track.return_value = (
+    mock_tracker = MagicMock()
+    mock_tracker.track.return_value = (
         np.array([[0, 0, 180, 140]], dtype=np.int32),
         np.array([32], dtype=np.int64),
         np.array([5], dtype=np.int32),
     )
+    models.create_vehicle_tracker = MagicMock(return_value=mock_tracker)
     models.quality_router = PlateQualityRouter(classifier=lambda crop: {"poor": 0.96})
 
     finalise_calls: list[int] = []

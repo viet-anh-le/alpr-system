@@ -148,7 +148,7 @@ Trong chế độ chọn trích đoạn, người dùng trước hết chọn ng
 
 Backend được xây dựng bằng FastAPI với một điểm khởi động duy nhất chịu trách nhiệm định nghĩa route, kiểm tra đầu vào, quản lý hàng đợi streaming và điều phối các công việc xử lý. Các phần tính toán nặng được tách riêng thành module lõi gồm nạp mô hình, phát hiện phương tiện, phát hiện biển số, theo dõi đối tượng, nhận dạng ký tự, chấm điểm chất lượng và tổng hợp kết quả.
 
-Khi ứng dụng khởi động, các mô hình AI được nạp một lần duy nhất, kết nối cơ sở dữ liệu được khởi tạo và tác vụ dọn dẹp các phiên chọn trích đoạn tạm thời được kích hoạt. Cách tổ chức này giúp tránh việc mỗi yêu cầu xử lý lại phải khởi tạo toàn bộ mô hình từ đầu, đồng thời đảm bảo các file video tạm và phiên không còn sử dụng được giải phóng sau một khoảng thời gian nhất định.
+Khi ứng dụng khởi động, các mô hình học sâu nặng (như YOLO, OCR) được nạp một lần duy nhất dưới dạng không trạng thái (stateless) để dùng chung, kết nối cơ sở dữ liệu được khởi tạo và tác vụ dọn dẹp các phiên chọn trích đoạn tạm thời được kích hoạt. Trong khi đó, các thành phần có trạng thái (stateful) như bộ theo dõi phương tiện (BoT-SORT) sẽ được khởi tạo độc lập cho từng phiên xử lý (per-session). Cách tổ chức này vừa giúp tiết kiệm bộ nhớ VRAM do không phải nhân bản các mô hình lớn, vừa đảm bảo dữ liệu theo dõi (bộ lọc Kalman, định danh track) của các video xử lý đồng thời không bị xung đột, đồng thời giải phóng tài nguyên an toàn khi phiên kết thúc.
 
 \begin{table}[H]
 \centering
@@ -165,7 +165,7 @@ Chọn trích đoạn và sự kiện & Tạo và quản lý phiên chọn tríc
 \label{table:backend_api_groups}
 \end{table}
 
-Luồng xử lý video được thiết kế theo cơ chế bất đồng bộ. Backend kiểm tra định dạng, dung lượng và tính hợp lệ của file đầu vào, sau đó sinh mã định danh công việc, tạo hàng đợi kết quả và khởi chạy pipeline trong một luồng riêng. Trong quá trình xử lý, backend đẩy liên tục các bản tin gồm tiến độ theo frame, khung hình preview, kết quả từng phương tiện và trạng thái hoàn thành theo chuẩn SSE, nhờ đó giao diện có thể cập nhật gần thời gian thực mà không cần hỏi vòng lặp.
+Luồng xử lý video được thiết kế theo cơ chế bất đồng bộ. Backend kiểm tra định dạng, dung lượng và tính hợp lệ của file đầu vào, sau đó sinh mã định danh công việc, tạo hàng đợi kết quả và khởi chạy pipeline trong một luồng riêng. Để đảm bảo tính ổn định trên máy chủ GPU, hệ thống sử dụng cơ chế kiểm soát đồng thời (bằng Semaphore) nhằm giới hạn số lượng tác vụ nhận dạng chạy song song (ví dụ: tối đa 2 video cùng lúc để tránh lỗi tràn bộ nhớ VRAM), và trả về mã lỗi HTTP 429 nếu vượt quá ngưỡng tải. Trong quá trình xử lý, backend đẩy liên tục các bản tin gồm tiến độ theo frame, khung hình preview, kết quả từng phương tiện và trạng thái hoàn thành theo chuẩn SSE, nhờ đó giao diện có thể cập nhật gần thời gian thực mà không cần hỏi vòng lặp.
 
 Về bảo mật, mật khẩu người dùng được băm bằng thuật toán bcrypt, phiên đăng nhập được lưu phía máy chủ và token xác thực được gửi về trình duyệt trong cookie bảo mật chỉ đọc qua HTTP. Các yêu cầu ghi dữ liệu trong luồng xử lý video chính yêu cầu thêm token chống giả mạo yêu cầu trong header. Cách triển khai này tách dữ liệu xác thực khỏi mã nguồn giao diện và tránh lưu token truy cập trong bộ nhớ trình duyệt.
 
