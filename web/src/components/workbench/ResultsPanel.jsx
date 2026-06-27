@@ -85,7 +85,7 @@ export default function ResultsPanel({ vehicles, rejectedVehicles, totalDone, jo
                   vehicle={vehicle}
                   jobId={jobId}
                   rejected={activeTab === 'rejected'}
-                  onInspect={() => setSelected({ vehicle, rejected: activeTab === 'rejected' })}
+                  onInspect={(targetVehicle) => setSelected({ vehicle: targetVehicle, rejected: activeTab === 'rejected' })}
                 />
               ))}
             </div>
@@ -164,7 +164,7 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
         <div className="min-w-0 flex-1">
           <Progress value={conf} tone={tone === 'neutral' ? 'info' : tone} />
         </div>
-        <Button size="sm" variant="secondary" onClick={onInspect}>Inspect</Button>
+        <Button size="sm" variant="secondary" onClick={() => onInspect(vehicle)}>Inspect</Button>
       </div>
 
       {vehicle.clusters && vehicle.clusters.length > 1 && (
@@ -190,6 +190,9 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
                     </p>
                     <div className="mt-1">
                       <PlateDisplay chars={cluster.chars} compact />
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button size="sm" variant="secondary" onClick={() => onInspect({ ...vehicle, ...cluster })}>Inspect</Button>
                     </div>
                   </div>
                 </div>
