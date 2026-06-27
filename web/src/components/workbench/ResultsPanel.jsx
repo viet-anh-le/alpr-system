@@ -136,7 +136,7 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="plate-font truncate text-lg font-bold tracking-widest text-[var(--color-text)]">
-              {plate || 'Đang nhận dạng'}
+              {plate || (rejected || vehicle.done ? 'Không thể đọc' : 'Đang nhận dạng')}
             </p>
             <Badge tone={rejected ? 'warning' : vehicle.done ? 'success' : 'info'}>
               {rejected ? 'Rejected' : vehicle.done ? 'Confirmed' : 'Processing'}
@@ -166,6 +166,38 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
         </div>
         <Button size="sm" variant="secondary" onClick={onInspect}>Inspect</Button>
       </div>
+
+      {vehicle.clusters && vehicle.clusters.length > 1 && (
+        <div className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3">
+          <p className="text-xs font-semibold text-[var(--color-text-muted)]">Multiple plates detected</p>
+          {vehicle.clusters.map((cluster, idx) => {
+            const clusterConf = Math.round((cluster.confidence || 0) * 100)
+            return (
+              <div key={idx} className="rounded-lg border border-[var(--color-border)] bg-black/15 p-2">
+                <div className="flex items-center justify-between">
+                  <Badge tone="neutral">Cluster {idx + 1}</Badge>
+                  <span className="text-[10px] text-[var(--color-text-subtle)]">
+                    {cluster.frame_count} frames · {clusterConf}%
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-[auto_1fr] gap-3">
+                  <div className="w-20">
+                    <EvidenceThumb src={cluster.plate_b64} label="" dark />
+                  </div>
+                  <div className="min-w-0 flex flex-col justify-center">
+                    <p className="plate-font truncate text-sm font-bold tracking-widest text-white">
+                      {cleanPlateText(cluster.plate) || '—'}
+                    </p>
+                    <div className="mt-1">
+                      <PlateDisplay chars={cluster.chars} compact />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </article>
   )
 }

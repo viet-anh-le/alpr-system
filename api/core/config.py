@@ -219,6 +219,10 @@ MIN_FRAMES_FOR_OCR = 2  # min buffered frames before final track-level OCR vote
 LOST_THRESHOLD = 5  # consecutive missing strides before track is finalised
 TOP_K_FRAMES = 10  # how many top-quality OCR frames to pass to voting
 
+# ── Multi-cluster voting ──────────────────────────────────────────────────────
+MAX_CLUSTERS = 3 # max distinct plate clusters within one track buffer
+CLUSTER_SIMILARITY_THRESHOLD = 0.6 # min normalised Levenshtein similarity to merge clusters
+
 # ── UI display labels ─────────────────────────────────────────────────────────
 VN_CLASS = {
     "car": "Ô tô",

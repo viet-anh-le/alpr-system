@@ -25,6 +25,8 @@ VN_PLATE_TEMPLATE_PATTERNS: tuple[str, ...] = (
     "DDL-DDD.DD",
     "DDL-DDDD",
     "DDL-DDDD.DD",
+    "DDL[SEP]DDD.DD",
+    "DDL[SEP]DDDD",
     "DDLD[SEP]DDD.DD",
     "DDLD[SEP]DDDD",
     "DDLL-DDD.DD",

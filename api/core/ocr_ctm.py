@@ -226,9 +226,8 @@ def _template_score(
     template: PlateTemplate,
 ) -> float:
     cost = _template_alignment_cost(tokens, template)
-    slot_count = sum(1 for token, _ in tokens if _is_slot_token(token))
     literal_count = sum(1 for token, _ in tokens if token in LITERAL_TOKENS)
-    score = -cost - 2.0 * abs(slot_count - len(template.slots))
+    score = -cost
     if literal_count == 0:
         score -= 0.2 * len(template.literal_positions)
     return score
@@ -256,8 +255,8 @@ def _align_chars_to_template(
             pattern_token = template.pattern[i - 1]
             align_cost = _align_token_cost(char, pattern_token)
             options = [
-                (dp[i - 1][j - 1] + align_cost, "align"),
                 (dp[i - 1][j] + _missing_template_token_cost(pattern_token), "missing"),
+                (dp[i - 1][j - 1] + align_cost, "align"),
                 (dp[i][j - 1] + _skip_input_token_cost(char), "skip"),
             ]
             dp[i][j], back[i][j] = min(options, key=lambda item: item[0])
@@ -351,6 +350,8 @@ def _missing_template_token_cost(pattern_token: str) -> float:
         return 1.2
     if pattern_token == "[SEP]":
         return 1.0
+    if pattern_token == ".":
+        return 0.2
     return 0.75
 
 

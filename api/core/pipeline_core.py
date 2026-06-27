@@ -282,22 +282,24 @@ def process_frames(
 
     # ── Final snapshot ────────────────────────────────────────────────────────
     for tid in sorted(tracker._best):
-        emit(
-            {
-                "type": "vehicle",
-                "id": tid,
-                "cls": tracker._cls.get(tid, ""),
-                "plate": tracker.display_text(tid),
-                "chars": tracker.chars_json(tid),
-                "done": tracker._done.get(tid, False),
-                "plate_b64": tracker.plate_b64(tid),
-                "vehicle_b64": tracker.vehicle_b64(tid),
-                "track_buffer": tracker.track_buffer_json(tid),
-                "ocr_frames": tracker.ocr_frames(tid),
-                "confidence": float(tracker._plate_img_conf.get(tid, 0)),
-                "final": True,
-            }
-        )
+        event: dict = {
+            "type": "vehicle",
+            "id": tid,
+            "cls": tracker._cls.get(tid, ""),
+            "plate": tracker.display_text(tid),
+            "chars": tracker.chars_json(tid),
+            "done": tracker._done.get(tid, False),
+            "plate_b64": tracker.plate_b64(tid),
+            "vehicle_b64": tracker.vehicle_b64(tid),
+            "track_buffer": tracker.track_buffer_json(tid),
+            "ocr_frames": tracker.ocr_frames(tid),
+            "confidence": float(tracker._plate_img_conf.get(tid, 0)),
+            "final": True,
+        }
+        cluster_data = tracker.cluster_results(tid)
+        if len(cluster_data) > 1:
+            event["clusters"] = cluster_data
+        emit(event)
 
     if timings is not None:
         timings["total"] = time.perf_counter() - total_start

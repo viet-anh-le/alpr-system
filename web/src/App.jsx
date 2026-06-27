@@ -34,6 +34,12 @@ function DashboardPage() {
 
   const handleRejectedVehicle = useCallback((data) => {
     setRejectedVehicles((prev) => ({ ...prev, [data.id]: data }))
+    setVehicles((prev) => {
+      if (!prev[data.id]) return prev
+      const next = { ...prev }
+      delete next[data.id]
+      return next
+    })
   }, [])
 
   const handleProgress = useCallback((data) => {

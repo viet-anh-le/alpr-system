@@ -44,8 +44,7 @@ def prepare_route_ocr_jobs(
         tracker.update_vehicle_img(tid, vehicle_crop, quality.quality_numeric)
         active_tids.add(tid)
 
-        if quality.route != "direct":
-            candidate_method = "unreadable" if quality.route == "unreadable_wait" else "tracklet_fusion"
+        if quality.route == "unreadable_wait":
             tracker.buffer_crop(
                 tid,
                 plate_crop,
@@ -53,7 +52,7 @@ def prepare_route_ocr_jobs(
                 0.10,
                 [],
                 frame_idx,
-                candidate_method=candidate_method,
+                candidate_method="unreadable",
                 route=quality.route,
                 router_result=quality.as_event_fields(),
             )

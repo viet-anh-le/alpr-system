@@ -11,6 +11,7 @@ WebTrackletManager now supports two modes:
 
 Evidence images (best plate crop + best vehicle crop) are stored per track.
 """
+
 from __future__ import annotations
 
 import base64
@@ -22,9 +23,11 @@ import cv2
 import numpy as np
 
 from .config import (
+    CLUSTER_SIMILARITY_THRESHOLD,
     CONF_THRESHOLD,
     LOST_THRESHOLD,
     MAX_BUFFER,
+    MAX_CLUSTERS,
     MIN_FRAME_VOTES,
     MIN_FRAMES_FOR_OCR,
     TOP_K_FRAMES,
@@ -86,6 +89,7 @@ _ParsedFrame = tuple[_PlateSegments, list[tuple[str, float]]]
 
 # ── Track buffer ──────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TrackBufferEntry:
     crop: np.ndarray
@@ -113,15 +117,15 @@ class TrackBuffer:
     correctly-read ones — the root cause of the 30G-51827 mis-read.
     """
 
-    max_size:        int                           = field(default=MAX_BUFFER)
-    crops:           list[np.ndarray]              = field(default_factory=list)
-    quality_scores:  list[float]                   = field(default_factory=list)
-    ocr_confs:       list[float]                   = field(default_factory=list)
+    max_size: int = field(default=MAX_BUFFER)
+    crops: list[np.ndarray] = field(default_factory=list)
+    quality_scores: list[float] = field(default_factory=list)
+    ocr_confs: list[float] = field(default_factory=list)
     char_prob_lists: list[list[tuple[str, float]]] = field(default_factory=list)
-    frame_indices:   list[int]                     = field(default_factory=list)
-    candidate_methods: list[str]                   = field(default_factory=list)
-    routes:            list[str]                   = field(default_factory=list)
-    router_results:    list[dict]                  = field(default_factory=list)
+    frame_indices: list[int] = field(default_factory=list)
+    candidate_methods: list[str] = field(default_factory=list)
+    routes: list[str] = field(default_factory=list)
+    router_results: list[dict] = field(default_factory=list)
 
     @staticmethod
     def _combined(quality: float, ocr_conf: float) -> float:
@@ -166,10 +170,7 @@ class TrackBuffer:
         """Return up to k entries ranked by combined score descending."""
         if not self.crops:
             return [], [], []
-        combined = [
-            self._combined(q, c)
-            for q, c in zip(self.quality_scores, self.ocr_confs)
-        ]
+        combined = [self._combined(q, c) for q, c in zip(self.quality_scores, self.ocr_confs)]
         triples = sorted(
             zip(combined, self.crops, self.char_prob_lists),
             key=lambda x: x[0],
@@ -191,8 +192,7 @@ class TrackBuffer:
                 route=route,
                 router_result=router_result,
             )
-            for crop, q, ocr_conf, char_probs, frame_idx, candidate_method, route, router_result
-            in zip(
+            for crop, q, ocr_conf, char_probs, frame_idx, candidate_method, route, router_result in zip(
                 self.crops,
                 self.quality_scores,
                 self.ocr_confs,
@@ -208,23 +208,29 @@ class TrackBuffer:
 
 # ── Tracklet manager ──────────────────────────────────────────────────────────
 
+
 class WebTrackletManager:
     def __init__(self) -> None:
-        self._done:      dict[int, bool]                    = {}
-        self._best:      dict[int, list[tuple[str, float]]] = {}
-        self._cls:       dict[int, str]                     = {}
-        self._prev_plate: dict[int, str]                    = {}
-        self._ocr_count: dict[int, int]                     = {}
+        self._done: dict[int, bool] = {}
+        self._best: dict[int, list[tuple[str, float]]] = {}
+        self._cls: dict[int, str] = {}
+        self._prev_plate: dict[int, str] = {}
+        self._ocr_count: dict[int, int] = {}
 
         # Evidence images
-        self._plate_img:      dict[int, np.ndarray] = {}
-        self._plate_img_conf: dict[int, float]       = {}
-        self._vehicle_img:      dict[int, np.ndarray] = {}
-        self._vehicle_img_conf: dict[int, float]       = {}
+        self._plate_img: dict[int, np.ndarray] = {}
+        self._plate_img_conf: dict[int, float] = {}
+        self._vehicle_img: dict[int, np.ndarray] = {}
+        self._vehicle_img_conf: dict[int, float] = {}
 
         # Track lifecycle voting path
-        self._buffers:    dict[int, TrackBuffer] = {}
-        self._lost_count: dict[int, int]          = {}
+        self._buffers: dict[int, TrackBuffer] = {}
+        self._lost_count: dict[int, int] = {}
+
+        # Multi-cluster results (populated by finalise_track_ocr when a track
+        # contains OCR evidence for 2+ distinct licence plates).
+        # Each entry: list of {"plate", "chars", "confidence", "plate_b64", "frame_count"}
+        self._cluster_results: dict[int, list[dict]] = {}
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -353,16 +359,25 @@ class WebTrackletManager:
 
         frames: list[dict] = []
         for entry in buf.top_k_entries(k=buf.max_size):
-            frames.append({
-                "frame_index": int(entry.frame_idx),
-                "quality_score": round(float(entry.quality_score), 4),
-                "ocr_confidence": round(float(entry.ocr_conf), 4),
-                "candidate_method": entry.candidate_method,
-                "route": entry.route,
-                "image_b64": self._encode(entry.crop, max_w=None, quality=85),
-                **entry.router_result,
-            })
+            frames.append(
+                {
+                    "frame_index": int(entry.frame_idx),
+                    "quality_score": round(float(entry.quality_score), 4),
+                    "ocr_confidence": round(float(entry.ocr_conf), 4),
+                    "candidate_method": entry.candidate_method,
+                    "route": entry.route,
+                    "image_b64": self._encode(entry.crop, max_w=None, quality=85),
+                    **entry.router_result,
+                }
+            )
         return frames
+
+    def cluster_results(self, tid: int) -> list[dict]:
+        """Return multi-cluster OCR results for this track (if any)."""
+        return self._cluster_results.get(tid, [])
+
+    def set_cluster_results(self, tid: int, results: list[dict]) -> None:
+        self._cluster_results[tid] = results
 
     def display_text(self, tid: int) -> str:
         return chars_to_display_text(self._best.get(tid, []))
@@ -468,21 +483,17 @@ class WebTrackletManager:
         ).most_common(1)[0][0]
 
         pool = [
-            (seg, probs) for seg, probs in parsed
-            if len(seg.serial) == target_serial_len
-            and len(seg.number) == target_number_len
+            (seg, probs)
+            for seg, probs in parsed
+            if len(seg.serial) == target_serial_len and len(seg.number) == target_number_len
         ]
 
-        prov_chars   = WebTrackletManager._prob_vote(
-            [probs[0:2] for _, probs in pool]
-        )
+        prov_chars = WebTrackletManager._prob_vote([probs[0:2] for _, probs in pool])
         serial_chars = WebTrackletManager._prob_vote(
-            [probs[seg.serial_start : seg.serial_start + target_serial_len]
-             for seg, probs in pool]
+            [probs[seg.serial_start : seg.serial_start + target_serial_len] for seg, probs in pool]
         )
         number_chars = WebTrackletManager._prob_vote(
-            [probs[seg.number_start : seg.number_start + target_number_len]
-             for seg, probs in pool]
+            [probs[seg.number_start : seg.number_start + target_number_len] for seg, probs in pool]
         )
 
         use_leading_hyphen = pool[0][0].fmt in (1, 3)
