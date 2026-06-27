@@ -21,6 +21,7 @@ def _rooted_env_path(name: str, default: str) -> Path:
         return path
     return ROOT / path
 
+
 # ── MongoDB Atlas ─────────────────────────────────────────────────────────────
 MONGODB_URI: str = os.environ.get("MONGODB_URI", "")
 MONGODB_DB_NAME: str = os.environ.get("MONGODB_DB_NAME", "alpr_vn")
@@ -205,7 +206,7 @@ ASSOCIATION_AGREEMENT_RATIO = _env_float("ASSOCIATION_AGREEMENT_RATIO", 0.6)
 # ── Anti-hallucination — Layer 1 (Pre-OCR quality gates) ─────────────────────
 PLATE_DET_CONF = 0.50  # min YOLO OBB detection confidence
 MIN_PLATE_W = 30  # min raw plate width  (px, before padding)
-MIN_PLATE_H = 15  # min raw plate height (px, before padding)
+MIN_PLATE_H = 10  # min raw plate height (px, before padding)
 BLUR_THRESHOLD = 80.0  # Laplacian variance; below → too blurry (hard gate)
 LAP_MAX = 500.0  # Laplacian variance ceiling for quality score normalisation
 

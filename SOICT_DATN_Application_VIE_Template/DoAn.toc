@@ -1,0 +1,83 @@
+\ttl@change@i {\@ne }{chapter}{0.0cm}{\bfseries \vspace {0.3cm}}{{\bfseries {\scshape } CHƯƠNG \thecontentslabel .\ }}{}{\titlerule *[0.3pc]{.}\contentspage }\relax 
+\ttl@change@v {chapter}{}{}{}\relax 
+\ttl@change@i {\@ne }{section}{0.0cm}{\vspace {0.3cm}}{\thecontentslabel \ }{}{\titlerule *[0.3pc]{.}\contentspage }\relax 
+\ttl@change@v {section}{}{}{}\relax 
+\ttl@change@i {\@ne }{subsection}{1.0cm}{\vspace {0.3cm}}{\thecontentslabel \ }{}{\titlerule *[0.3pc]{.}\contentspage }\relax 
+\ttl@change@v {subsection}{}{}{}\relax 
+\thispagestyle {empty}
+\contentsline {chapter}{\numberline {1}GIỚI THIỆU ĐỀ TÀI}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Đặt vấn đề}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Các giải pháp hiện tại và hạn chế}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Mục tiêu và định hướng giải pháp}{3}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Đóng góp của đồ án}{3}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Bố cục đồ án}{4}{section.1.5}%
+\contentsline {chapter}{\numberline {2}NỀN TẢNG LÝ THUYẾT}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Ngữ cảnh bài toán}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Các nghiên cứu tương tự}{6}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Các mô hình phát hiện đối tượng}{7}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}YOLOv5}{7}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}YOLOv8 OBB}{8}{subsection.2.3.2}%
+\contentsline {section}{\numberline {2.4}Các thuật toán truy vết đối tượng}{10}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}BoT-SORT}{10}{subsection.2.4.1}%
+\contentsline {section}{\numberline {2.5}Các mô hình nhận diện kí tự quang học (OCR)}{12}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Các phương pháp nhận dạng phân đoạn ký tự}{12}{subsection.2.5.1}%
+\contentsline {paragraph}{Phương pháp học máy truyền thống}{12}{paragraph*.11}%
+\contentsline {paragraph}{Phương pháp phát hiện ký tự bằng mô hình học sâu}{13}{paragraph*.12}%
+\contentsline {subsection}{\numberline {2.5.2}Các phương pháp nhận dạng không phân đoạn ký tự}{14}{subsection.2.5.2}%
+\contentsline {paragraph}{Nhóm mô hình dựa trên hàm mất mát CTC (CTC-based Models)}{14}{paragraph*.13}%
+\contentsline {paragraph}{Nhóm mô hình dựa trên cơ chế Chú ý và Transformer (Attention/Transformer-based Models)}{15}{paragraph*.14}%
+\contentsline {paragraph}{Các framework OCR thực tiễn (Practical OCR Frameworks) }{15}{paragraph*.15}%
+\contentsline {chapter}{\numberline {3}PHƯƠNG PHÁP ĐỀ XUẤT}{17}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Tổng quan giải pháp}{17}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Thu thập và xử lí dữ liệu}{18}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Dữ liệu phát hiện biển số}{18}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Dữ liệu nhận diện biển số}{19}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Dữ liệu đánh giá chất lượng biển số}{20}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Huấn luyện mô hình}{21}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Mô hình nhận diện phương tiện}{21}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Mô hình nhận diện biển số}{21}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Thuật toán tracking}{22}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Mô hình phân loại chất lượng}{23}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Kiến trúc và huấn luyện mô hình OCR (SmallLPR-Line-CTC)}{25}{subsection.3.3.5}%
+\contentsline {section}{\numberline {3.4}Xử lí kết quả sau mô hình}{31}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}Xác thực định dạng biển số}{32}{subsection.3.4.1}%
+\contentsline {paragraph}{Chuẩn hóa và kiểm tra định dạng}{32}{paragraph*.29}%
+\contentsline {paragraph}{Sửa lỗi ký tự mơ hồ theo slot}{32}{paragraph*.30}%
+\contentsline {subsection}{\numberline {3.4.2}Tổng hợp đa khung hình}{33}{subsection.3.4.2}%
+\contentsline {paragraph}{Cơ chế định tuyến theo chất lượng ảnh}{33}{paragraph*.31}%
+\contentsline {paragraph}{Tổng hợp kết quả theo track}{33}{paragraph*.32}%
+\contentsline {chapter}{\numberline {4}XÂY DỰNG VÀ TRIỂN KHAI HỆ THỐNG}{35}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Yêu cầu và kiến trúc tổng quan}{35}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Sơ đồ use case}{35}{subsection.4.1.1}%
+\contentsline {paragraph}{Tác nhân tham gia}{35}{paragraph*.34}%
+\contentsline {paragraph}{Các use case chính}{36}{paragraph*.35}%
+\contentsline {subsection}{\numberline {4.1.2}Thiết kế kiến trúc}{36}{subsection.4.1.2}%
+\contentsline {paragraph}{Lựa chọn kiến trúc phần mềm}{36}{paragraph*.36}%
+\contentsline {paragraph}{Biểu đồ phụ thuộc gói}{37}{paragraph*.37}%
+\contentsline {paragraph}{Tầng trình bày (Presentation Tier)}{37}{paragraph*.39}%
+\contentsline {paragraph}{Tầng nghiệp vụ (Business Logic Tier)}{37}{paragraph*.40}%
+\contentsline {paragraph}{Tầng dữ liệu (Data Tier)}{38}{paragraph*.41}%
+\contentsline {section}{\numberline {4.2}Xây dựng ứng dụng}{38}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Công nghệ sử dụng}{38}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Frontend}{40}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Backend}{41}{subsection.4.2.3}%
+\contentsline {subsection}{\numberline {4.2.4}Thiết kế cơ sở dữ liệu}{43}{subsection.4.2.4}%
+\contentsline {paragraph}{Các collection chính}{43}{paragraph*.44}%
+\contentsline {paragraph}{Thiết kế chỉ mục}{44}{paragraph*.46}%
+\contentsline {section}{\numberline {4.3}Triển khai}{45}{section.4.3}%
+\contentsline {chapter}{\numberline {5}ĐÁNH GIÁ THỰC NGHIỆM}{47}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Môi trường và tiêu chí đánh giá}{47}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Kết quả các mô hình thành phần}{48}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Mô hình phát hiện phương tiện}{48}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Mô hình phát hiện biển số}{48}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Kết quả huấn luyện mô hình Quality Router}{49}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Mô hình OCR}{50}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}Ablation study mô hình OCR}{50}{subsection.5.2.5}%
+\contentsline {section}{\numberline {5.3}Đánh giá pipeline tổng thể}{51}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Các kịch bản thử nghiệm}{52}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Kết quả thực nghiệm}{53}{subsection.5.3.2}%
+\contentsline {chapter}{\numberline {6}KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN}{54}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Kết luận}{54}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Hướng phát triển}{55}{section.6.2}%
+\contentsline {chapter}{TÀI LIỆU THAM KHẢO}{58}{section*.59}%
+\contentsfinish 

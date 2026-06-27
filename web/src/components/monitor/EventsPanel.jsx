@@ -7,7 +7,7 @@ export default function EventsPanel({ events }) {
   )
 
   return (
-    <section className="surface-panel flex min-h-[520px] flex-col overflow-hidden">
+    <section className="surface-panel recognition-panel flex flex-col">
       <div className="panel-header">
         <div>
           <p className="section-label">Event queue</p>
@@ -15,7 +15,7 @@ export default function EventsPanel({ events }) {
         </div>
         <Badge tone="info">{list.length} marks</Badge>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="recognition-panel-body p-3">
         {list.length === 0 ? (
           <EmptyState title="Chưa có sự kiện">
             Mark live stream hoặc chọn interval trong video upload để chạy ALPR trên cửa sổ ngắn.

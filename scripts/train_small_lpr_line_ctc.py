@@ -57,6 +57,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bottom-loss-weight", type=float, default=None, dest="bottom_loss_weight")
     parser.add_argument("--layout-loss-weight", type=float, default=None, dest="layout_loss_weight")
     parser.add_argument("--line-prior-strength", type=float, default=None, dest="line_prior_strength")
+    parser.add_argument("--label-mode", choices=("raw", "alnum"), default=None)
+    parser.add_argument("--line-separator", default=None)
     parser.add_argument("--decode-mode", choices=("global", "layout"), default=None)
     parser.add_argument("--augment", dest="augment", action="store_true", default=None)
     parser.add_argument("--no-augment", dest="augment", action="store_false")
@@ -102,6 +104,8 @@ def load_config(cli: argparse.Namespace) -> Namespace:
         "bottom_loss_weight": cli.bottom_loss_weight,
         "layout_loss_weight": cli.layout_loss_weight,
         "line_prior_strength": cli.line_prior_strength,
+        "label_mode": cli.label_mode,
+        "line_separator": cli.line_separator,
         "decode_mode": cli.decode_mode,
         "augment": cli.augment,
         "use_stn": cli.use_stn,
@@ -188,6 +192,8 @@ def train() -> None:
     print(f"  Augment    : {getattr(args, 'augment', True)}")
     print(f"  Use STN    : {getattr(args, 'use_stn', True)}")
     print(f"  Use 2D PE  : {getattr(args, 'use_pos_enc', True)}")
+    print(f"  Label mode : {getattr(args, 'label_mode', 'raw')}")
+    print(f"  Line sep   : {getattr(args, 'line_separator', '[SEP]')!r}")
     print(f"  Decode mode: {getattr(args, 'decode_mode', 'layout')}")
     print(f"  Global loss: {getattr(args, 'global_loss_weight', 1.0)}")
     print(f"  One-line loss: {getattr(args, 'one_line_loss_weight', 1.0)}")

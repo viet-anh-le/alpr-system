@@ -83,6 +83,13 @@ OCR_DATASET_TEMPLATE_PATTERNS: tuple[str, ...] = VN_PLATE_TEMPLATE_PATTERNS
 TEMPLATES: tuple[PlateTemplate, ...] = tuple(
     PlateTemplate.from_pattern(pattern) for pattern in OCR_DATASET_TEMPLATE_PATTERNS
 )
+ALNUM_TEMPLATES: tuple[PlateTemplate, ...] = tuple(
+    PlateTemplate.from_pattern(pattern)
+    for pattern in dict.fromkeys(
+        pattern.replace("[SEP]", "").replace("-", "").replace(".", "")
+        for pattern in OCR_DATASET_TEMPLATE_PATTERNS
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,7 @@ class CTMFusionResult:
     ctm_support: list[float]
     support_by_slot: list[dict[str, int]]
     template_name: str | None
+    format_mode: str = "raw"
 
     @property
     def text(self) -> str:
@@ -100,7 +108,7 @@ class CTMFusionResult:
 
     @property
     def is_valid(self) -> bool:
-        return not self.unresolved_slots and is_vn_plate_text(self.text)
+        return not self.unresolved_slots and is_vn_plate_text(self.text, format_mode=self.format_mode)
 
 
 def fuse_ocr_outputs_ctm(
@@ -108,23 +116,25 @@ def fuse_ocr_outputs_ctm(
     *,
     min_support_ratio: float = 0.5,
     min_confidence: float = 0.50,
+    format_mode: str = "raw",
 ) -> CTMFusionResult:
+    templates = _templates_for_mode(format_mode)
     vote_summary: dict[str, int] = {}
     frame_choices: list[tuple[PlateTemplate, list[tuple[str, float]], float]] = []
 
     for probs in prob_lists:
-        text = normalize_plate_text(chars_to_text(probs))
+        text = normalize_plate_text(chars_to_text(probs), format_mode=format_mode)
         if text:
             vote_summary[text] = vote_summary.get(text, 0) + 1
-        tokens = _plate_token_probs(probs)
+        tokens = _plate_token_probs(probs, format_mode=format_mode)
         chars = _slot_token_probs(tokens)
         if not chars and not tokens:
             continue
-        template, score = _choose_template(tokens)
+        template, score = _choose_template(tokens, templates)
         frame_choices.append((template, tokens, score))
 
     if not frame_choices:
-        return CTMFusionResult([], vote_summary, [], [], [], None)
+        return CTMFusionResult([], vote_summary, [], [], [], None, format_mode=format_mode)
 
     template = _dominant_template(frame_choices)
     aligned_frames = [_align_chars_to_template(chars, template) for _, chars, _ in frame_choices]
@@ -177,6 +187,7 @@ def fuse_ocr_outputs_ctm(
         ctm_support=ctm_support,
         support_by_slot=support_by_slot,
         template_name=template.name,
+        format_mode=format_mode,
     )
 
 
@@ -195,10 +206,19 @@ def _dominant_template(
 
 def _choose_template(
     tokens: list[tuple[str, float]],
+    templates: tuple[PlateTemplate, ...],
 ) -> tuple[PlateTemplate, float]:
-    scored = [(_template_score(tokens, template), template) for template in TEMPLATES]
+    scored = [(_template_score(tokens, template), template) for template in templates]
     score, template = max(scored, key=lambda item: item[0])
     return template, score
+
+
+def _templates_for_mode(format_mode: str) -> tuple[PlateTemplate, ...]:
+    if format_mode == "alnum":
+        return ALNUM_TEMPLATES
+    if format_mode != "raw":
+        raise ValueError("format_mode must be either 'raw' or 'alnum'")
+    return TEMPLATES
 
 
 def _template_score(
@@ -268,14 +288,18 @@ def _align_chars_to_template(
     return aligned_slots
 
 
-def _plate_token_probs(probs: list[tuple[str, float]]) -> list[tuple[str, float]]:
+def _plate_token_probs(
+    probs: list[tuple[str, float]],
+    *,
+    format_mode: str = "raw",
+) -> list[tuple[str, float]]:
     chars: list[tuple[str, float]] = []
     for char, conf in probs:
         normalized = _normalize_ocr_token(char)
         if not normalized:
             continue
         for token in _tokenize_ocr_text(normalized):
-            if _is_slot_token(token) or token in LITERAL_TOKENS:
+            if _is_slot_token(token) or (format_mode != "alnum" and token in LITERAL_TOKENS):
                 chars.append((token, float(conf)))
     return chars
 

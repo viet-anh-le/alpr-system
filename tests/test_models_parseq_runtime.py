@@ -112,6 +112,14 @@ def test_normalize_ocr_backend_accepts_small_lpr_line_ctc_aliases() -> None:
 
 
 @pytest.mark.unit
+def test_normalize_ocr_backend_rejects_small_lpr_line_ctc_alnum_backend() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    with pytest.raises(ValueError, match="smalllpr_line_ctc"):
+        normalize_ocr_backend("small_lpr_line_ctc_alnum")
+
+
+@pytest.mark.unit
 def test_ocr_batch_dispatches_small_lpr_line_ctc_wrapper_with_layout() -> None:
     from api.core.models import SmallLprLineCtcOcrModel, ocr_batch
 
@@ -242,11 +250,10 @@ def test_load_models_uses_small_lpr_line_ctc_backend_by_default(monkeypatch) -> 
         classmethod(lambda cls, device=None: SimpleNamespace(kind="router", device=device)),
     )
 
-    loaded: dict[str, object] = {}
+    loaded_paths: list[object] = []
 
     def fake_load_line_ctc(path, *, device):
-        loaded["path"] = path
-        loaded["device"] = device
+        loaded_paths.append(path)
         return models.SmallLprLineCtcOcrModel(model=torch.nn.Identity(), chars=["<blank>", "A"])
 
     monkeypatch.setattr(models, "load_small_lpr_line_ctc_model", fake_load_line_ctc)
@@ -255,7 +262,7 @@ def test_load_models_uses_small_lpr_line_ctc_backend_by_default(monkeypatch) -> 
 
     assert isinstance(bundle.ocr, models.SmallLprLineCtcOcrModel)
     assert bundle.ocr_backend == "smalllpr_line_ctc"
-    assert loaded["path"] == models.SMALL_LPR_LINE_CTC_CKPT_PATH
+    assert loaded_paths[0] == models.SMALL_LPR_LINE_CTC_CKPT_PATH
 
 
 @pytest.mark.unit

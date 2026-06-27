@@ -89,6 +89,7 @@ class SmallLprLineCtcOcrModel:
     model: torch.nn.Module
     chars: list[str]
     two_line_threshold: float = 0.5
+    line_separator: str = "[SEP]"
 
     def eval(self) -> "SmallLprLineCtcOcrModel":
         self.model.eval()
@@ -209,6 +210,18 @@ def normalize_ocr_backend(value: str) -> str:
     )
 
 
+def select_ocr_model(
+    models: ModelBundle | object,
+    ocr_backend: str = "default",
+) -> object:
+    resolved_backend = normalize_ocr_backend(
+        ocr_backend if ocr_backend != "default" else getattr(models, "ocr_backend", "smalllpr_ctc")
+    )
+    if resolved_backend == "yolov5_char" and getattr(models, "ocr_yolov5", None):
+        return getattr(models, "ocr_yolov5")
+    return getattr(models, "ocr")
+
+
 def load_small_lpr_model(checkpoint_path: str | Path, *, device: torch.device) -> SmallLPR:
     ocr = (
         SmallLPR(vocab_size=len(CHARS), max_seq_len=14, use_pretrained_decoder=False)
@@ -282,7 +295,12 @@ def load_small_lpr_line_ctc_model(
         .eval()
     )
     model.load_state_dict(sd)
-    return SmallLprLineCtcOcrModel(model=model, chars=chars)
+    return SmallLprLineCtcOcrModel(
+        model=model,
+        chars=chars,
+        two_line_threshold=float(_arg_value(args, "two_line_threshold", 0.5)),
+        line_separator=str(_arg_value(args, "line_separator", "[SEP]")),
+    )
 
 
 def _checkpoint_args(checkpoint: dict) -> object:
@@ -505,11 +523,12 @@ def small_lpr_line_ctc_ocr_batch(
     results: list[tuple[list[tuple[str, float]], bool]] = []
     for idx, layout_prob in enumerate(layout_probs):
         if float(layout_prob[1]) >= wrapper.two_line_threshold:
-            chars = [
-                *top_chars[idx],
-                ("[SEP]", float(layout_prob[1])),
-                *bottom_chars[idx],
-            ]
+            separator = (
+                [(wrapper.line_separator, float(layout_prob[1]))]
+                if wrapper.line_separator
+                else []
+            )
+            chars = [*top_chars[idx], *separator, *bottom_chars[idx]]
         else:
             chars = one_line_chars[idx]
         all_confident = bool(chars) and all(prob >= CONF_THRESHOLD for _, prob in chars)

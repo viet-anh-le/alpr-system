@@ -48,8 +48,9 @@ def line_ctc_greedy_decode(
     chars: List[str],
     *,
     two_line_threshold: float = 0.5,
+    line_separator: str = "[SEP]",
 ) -> List[str]:
-    """Decode with visual layout logits: one-line head or top+SEP+bottom heads."""
+    """Decode with visual layout logits: one-line head or top+separator+bottom heads."""
     batch_size = outputs["global_logits"].size(0)
     one_line_logits = outputs.get("one_line_logits", outputs["global_logits"])
     one_line_texts = ctc_decode_logits(one_line_logits, chars)
@@ -60,7 +61,7 @@ def line_ctc_greedy_decode(
     decoded: List[str] = []
     for idx in range(batch_size):
         if float(layout_probs[idx, 1]) >= two_line_threshold:
-            decoded.append(f"{top_texts[idx]}[SEP]{bottom_texts[idx]}")
+            decoded.append(f"{top_texts[idx]}{line_separator}{bottom_texts[idx]}")
         else:
             decoded.append(one_line_texts[idx])
     return decoded

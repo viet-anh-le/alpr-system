@@ -10,7 +10,6 @@ from .config import TOP_K_FRAMES
 from .ocr_ambiguity import correct_ambiguous_chars
 from .ocr_candidates import OcrCandidateResult, build_candidate_crops, rerank_ocr_candidates
 from .ocr_ctm import CTMFusionResult, fuse_ocr_outputs_ctm
-from .plate_format import is_vn_plate_chars
 from .quality_router import DegradationTags
 from .tracker import TrackBufferEntry, WebTrackletManager
 
@@ -147,11 +146,10 @@ def _entries_with_deferred_ocr(
         return entries
 
     try:
-        from .models import ocr_batch, preprocess_plate_for_model, normalize_ocr_backend
+        from .models import ocr_batch, preprocess_plate_for_model, select_ocr_model
         import torch
-        
-        resolved_backend = normalize_ocr_backend(ocr_backend if ocr_backend != "default" else getattr(models, "ocr_backend", "smalllpr_ctc"))
-        ocr_model = getattr(models, "ocr_yolov5") if resolved_backend == "yolov5_char" and getattr(models, "ocr_yolov5", None) else getattr(models, "ocr")
+
+        ocr_model = select_ocr_model(models, ocr_backend)
         device = getattr(models, "device")
         tensors = torch.stack([
             preprocess_plate_for_model(ocr_model, crop) for _entry_idx, _method, crop in pending
@@ -221,7 +219,7 @@ def _unreadable_reason(
         return "no_ocr_evidence"
     if result.unresolved_slots:
         return "unresolved_slots"
-    if not is_vn_plate_chars(result.char_probs):
+    if not result.is_valid:
         return "invalid_format"
     return "unreadable"
 

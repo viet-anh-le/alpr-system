@@ -1,0 +1,22 @@
+\documentclass[../DoAn.tex]{subfiles}
+\begin{document}
+
+\begin{center}
+    \Large{\textbf{TÓM TẮT NỘI DUNG ĐỒ ÁN}}\\
+\end{center}
+\vspace{1cm}
+Nhận dạng biển số xe tự động (Automatic License Plate Recognition — ALPR) là thành phần cốt lõi trong các hệ thống giao thông thông minh, được ứng dụng rộng rãi trong giám sát an ninh, xử lý vi phạm và thu phí tự động. Phần lớn các giải pháp hiện nay được thiết kế cho môi trường có kiểm soát, nơi camera đặt cố định, phương tiện di chuyển chậm và ánh sáng đồng đều. Khi triển khai vào môi trường thực tế không ràng buộc — chẳng hạn camera giám sát tại ngã tư hay camera hành trình — hiệu năng của các hệ thống này suy giảm đáng kể do biển số liên tục bị mờ nhòe, lóa sáng, thay đổi góc nhìn và độ phân giải thấp. Một hạn chế phổ biến của các giải pháp học sâu hiện hành là tiếp cận bài toán theo hướng nhận dạng đơn khung hình, bỏ qua ngữ cảnh thời gian trong luồng video; điều này dẫn đến kết quả không ổn định khi chất lượng từng khung hình dao động lớn.
+
+Đồ án này lựa chọn hướng tiếp cận xử lý video theo quỹ đạo phương tiện thay vì nhận dạng độc lập từng khung hình, xuất phát từ quan sát rằng dù mỗi khung hình riêng lẻ có thể bị nhiễu, chuỗi video vẫn chứa đủ thông tin dư thừa theo thời gian để suy ra biển số chính xác nếu có cơ chế tổng hợp phù hợp.
+
+Giải pháp đề xuất là một pipeline đa tầng gồm: phát hiện phương tiện bằng YOLOv5, theo dõi đa đối tượng bằng BoT-SORT, phát hiện biển số bằng YOLOv8-OBB với đầu ra hộp bao có hướng, phân loại chất lượng crop biển số bằng một bộ định tuyến (Quality Router) để phân luồng xử lý, nhận dạng ký tự bằng mô hình OCR SmallLPR-Line-CTC được thiết kế riêng cho biển số Việt Nam một và hai dòng, và cuối cùng tổng hợp kết quả từ nhiều khung hình trong cùng một track bằng cơ chế Character Time-series Matching kết hợp bỏ phiếu theo vị trí ký tự.
+
+Các đóng góp chính của đồ án gồm: xây dựng bộ dữ liệu đa nhiệm với hơn 40.000 ảnh nhãn OBB và hơn 33.000 ảnh crop biển số; thiết kế kiến trúc SmallLPR-Line-CTC với STN alignment, MixConv, CBAM và multi-head CTC theo bố cục dòng; và triển khai hệ thống web end-to-end hỗ trợ xử lý video tải lên và luồng RTSP. Kết quả thực nghiệm cho thấy mô hình OCR đạt exact-match accuracy 95,01\%, detector biển số đạt mAP@0.5 bằng 0,983, và pipeline tổng thể nhận dạng đúng 79 trên 88 biển số quan sát được trên ba nhóm kịch bản thử nghiệm thực tế.
+\begin{flushright}
+Sinh viên thực hiện\\
+\begin{tabular}{@{}c@{}}
+\textit{(Ký và ghi rõ họ tên)}
+\end{tabular}
+\end{flushright}
+
+\end{document}

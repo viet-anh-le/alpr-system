@@ -71,6 +71,43 @@ CHARS = [
     "_",
 ]
 
+ALNUM_CHARS = [
+    "<blank>",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "K",
+    "L",
+    "M",
+    "N",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "X",
+    "Y",
+    "Z",
+    "Đ",
+]
+
 
 def _ctc_logits(sequence: list[int], vocab_size: int) -> torch.Tensor:
     logits = torch.full((1, len(sequence), vocab_size), -10.0)
@@ -122,6 +159,33 @@ def test_parse_line_ctc_label_splits_two_line_sep_label() -> None:
     assert parsed.top_text == "51G"
     assert parsed.bottom_text == "123.45"
     assert parsed.global_text == "51G[SEP]123.45"
+
+
+@pytest.mark.unit
+def test_parse_line_ctc_label_can_strip_format_tokens_for_alnum_training() -> None:
+    from lprnet.small_lpr_line_ctc_datamodule import (
+        LAYOUT_ONE_LINE,
+        LAYOUT_TWO_LINE,
+        parse_line_ctc_label,
+    )
+
+    one_line = parse_line_ctc_label("80A-026.51", ALNUM_CHARS, label_mode="alnum")
+    two_line = parse_line_ctc_label("29-B1[SEP]256.62", ALNUM_CHARS, label_mode="alnum")
+
+    assert one_line.layout_label == LAYOUT_ONE_LINE
+    assert one_line.global_text == "80A02651"
+    assert one_line.one_line_text == "80A02651"
+    assert one_line.top_text == ""
+    assert one_line.bottom_text == ""
+    assert one_line.global_label
+
+    assert two_line.layout_label == LAYOUT_TWO_LINE
+    assert two_line.global_text == "29B125662"
+    assert two_line.one_line_text == ""
+    assert two_line.top_text == "29B1"
+    assert two_line.bottom_text == "25662"
+    assert two_line.top_label
+    assert two_line.bottom_label
 
 
 @pytest.mark.unit
@@ -355,6 +419,25 @@ def test_line_ctc_decode_uses_one_line_branch_and_top_bottom_for_two_line() -> N
     outputs["layout_logits"] = torch.tensor([[0.0, 5.0]])
 
     assert line_ctc_greedy_decode(outputs, CHARS) == ["51G[SEP]123.45"]
+
+
+@pytest.mark.unit
+def test_line_ctc_decode_can_join_two_line_output_without_sep_token() -> None:
+    from lprnet.small_lpr_line_ctc import line_ctc_greedy_decode
+
+    ids = {char: idx for idx, char in enumerate(ALNUM_CHARS)}
+    outputs = {
+        "global_logits": _ctc_logits([ids["2"], ids["9"], ids["B"], ids["1"]], len(ALNUM_CHARS)),
+        "one_line_logits": _ctc_logits([ids["8"], ids["0"], ids["A"]], len(ALNUM_CHARS)),
+        "top_logits": _ctc_logits([ids["2"], ids["9"], ids["B"], ids["1"]], len(ALNUM_CHARS)),
+        "bottom_logits": _ctc_logits(
+            [ids["2"], ids["5"], ids["6"], 0, ids["6"], ids["2"]],
+            len(ALNUM_CHARS),
+        ),
+        "layout_logits": torch.tensor([[0.0, 5.0]]),
+    }
+
+    assert line_ctc_greedy_decode(outputs, ALNUM_CHARS, line_separator="") == ["29B125662"]
 
 
 @pytest.mark.unit

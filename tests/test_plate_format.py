@@ -60,6 +60,15 @@ def test_normalize_plate_text_renders_sep_as_space() -> None:
 
 
 @pytest.mark.unit
+def test_alnum_plate_format_ignores_sep_dash_and_dot_template_literals() -> None:
+    from api.core.plate_format import is_vn_plate_text, normalize_plate_text
+
+    assert normalize_plate_text("59-U1[SEP]027.95", format_mode="alnum") == "59U102795"
+    assert is_vn_plate_text("59U102795", format_mode="alnum") is True
+    assert is_vn_plate_text("59U102795") is False
+
+
+@pytest.mark.unit
 def test_ctm_fusion_marks_red_military_template_valid() -> None:
     from api.core.ocr_ctm import fuse_ocr_outputs_ctm
 

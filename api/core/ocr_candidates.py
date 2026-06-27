@@ -15,6 +15,7 @@ class OcrCandidateResult:
     method: str
     char_probs: list[tuple[str, float]]
     risk_penalty: float = 0.0
+    format_mode: str = "raw"
 
     @property
     def text(self) -> str:
@@ -26,7 +27,7 @@ class OcrCandidateResult:
 
     @property
     def is_valid(self) -> bool:
-        return is_vn_plate_chars(self.char_probs)
+        return is_vn_plate_chars(self.char_probs, format_mode=self.format_mode)
 
 
 def rerank_ocr_candidates(

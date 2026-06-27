@@ -1,0 +1,35 @@
+# ============================================================
+# LPRNet config for the current OCR crop dataset.
+# Labels are normalized to alphanumeric text only:
+#   68E[SEP]009.58 -> 68E00958
+#   80A-026.51     -> 80A02651
+#
+# LPRNet keeps the blank token at the last charset index.
+# ============================================================
+
+train_dir: "data/datasets/ocr/train"
+valid_dir: "data/datasets/ocr/valid"
+test_dir:  "data/datasets/ocr/valid"
+saving_ckpt: "weights/ocr/lprnet"
+
+# The original LPRNet STN in this repo has a fixed localization FC shape for
+# 100x50 input images.
+img_size: !!python/tuple [100, 50]
+label_mode: "alnum"
+
+dropout_rate: 0.5
+weight_decay: 0.00002
+lr: 0.001
+batch_size: 64
+max_epochs: 50
+t_length: 19
+gradient_clip_val: 1.0
+num_workers: 4
+
+chars: [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "A", "B", "C", "D", "E", "F", "G", "H", "K", "L",
+    "M", "N", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z",
+    "Đ",
+    "_",
+]

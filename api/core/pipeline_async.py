@@ -43,7 +43,7 @@ from .config import (
     VEHICLE_CLASSES,
 )
 from .frame_source import FrameSource
-from .models import ModelBundle, ocr_batch, preprocess_plate_for_model
+from .models import ModelBundle, ocr_batch, preprocess_plate_for_model, select_ocr_model
 from .progress import make_progress_event
 from .quality_router import PlateQualityRouter
 from .route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
@@ -337,16 +337,7 @@ def _plate_ocr_worker(
             )
             _add_timing("classify", stage_start)
             if ocr_jobs:
-                from .models import normalize_ocr_backend
-
-                resolved_backend = normalize_ocr_backend(
-                    ocr_backend if ocr_backend != "default" else models.ocr_backend
-                )
-                target_ocr_model = (
-                    models.ocr_yolov5
-                    if resolved_backend == "yolov5_char" and models.ocr_yolov5
-                    else models.ocr
-                )
+                target_ocr_model = select_ocr_model(models, ocr_backend)
 
                 _tensors = torch.stack(
                     [

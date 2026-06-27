@@ -49,6 +49,7 @@ class SmallLPRLineCTCLightning(L.LightningModule):
         self.bottom_loss_weight = float(getattr(args, "bottom_loss_weight", 1.0))
         self.layout_loss_weight = float(getattr(args, "layout_loss_weight", 0.2))
         self.two_line_threshold = float(getattr(args, "two_line_threshold", 0.5))
+        self.line_separator = getattr(args, "line_separator", "[SEP]")
         self.decode_mode = getattr(args, "decode_mode", "layout")
         if self.decode_mode not in {"global", "layout"}:
             raise ValueError("decode_mode must be either 'global' or 'layout'")
@@ -287,6 +288,7 @@ class SmallLPRLineCTCLightning(L.LightningModule):
                 outputs,
                 self.args.chars,
                 two_line_threshold=self.two_line_threshold,
+                line_separator=self.line_separator,
             )
         return _exact_match_accuracy(preds, batch["texts"], outputs["global_logits"].device)
 
@@ -303,11 +305,15 @@ class SmallLPRLineCTCLightning(L.LightningModule):
         return (preds[valid] == labels[valid]).float().mean()
 
     def _log_sample(self, outputs: dict[str, torch.Tensor], batch: dict, prefix: str) -> None:
-        pred = line_ctc_greedy_decode(
-            {key: value[0:1] for key, value in outputs.items()},
-            self.args.chars,
-            two_line_threshold=self.two_line_threshold,
-        )[0]
+        if self.decode_mode == "global":
+            pred = ctc_decode_logits(outputs["global_logits"][0:1], self.args.chars)[0]
+        else:
+            pred = line_ctc_greedy_decode(
+                {key: value[0:1] for key, value in outputs.items()},
+                self.args.chars,
+                two_line_threshold=self.two_line_threshold,
+                line_separator=self.line_separator,
+            )[0]
         gt = batch["texts"][0]
         layout_prob = torch.softmax(outputs["layout_logits"][0], dim=-1)[1].detach().cpu().item()
         print(

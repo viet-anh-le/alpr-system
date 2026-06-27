@@ -42,7 +42,7 @@ def collate_fn(batch):
         imgs.append(torch.from_numpy(img))
         labels.extend(label)
         lengths.append(length)
-    labels = np.asarray(labels).flatten().astype(np.float32)
+    labels = np.asarray(labels).flatten().astype(np.int64)
 
     return (torch.stack(imgs, 0), torch.from_numpy(labels), lengths)
 
@@ -89,7 +89,7 @@ class LPRNetDataset(Dataset):
         basename = os.path.basename(filename)
         imgname, suffix = os.path.splitext(basename)
         imgname = imgname.split("#")[0]
-        imgname = imgname.upper()
+        imgname = self._normalize_label_text(imgname)
         label = encode(imgname, self.args.chars)
 
         if label:
@@ -97,6 +97,13 @@ class LPRNetDataset(Dataset):
                 assert 0, f"{imgname} <- Error label ^~^!!!"
 
         return Image, label, len(label)
+
+    def _normalize_label_text(self, text: str) -> str:
+        text = text.upper()
+        if getattr(self.args, "label_mode", "raw") == "alnum":
+            text = text.replace("[SEP]", "")
+            return re.sub(r"[^0-9A-ZĐ]", "", text)
+        return text
 
     def transform(self, img):
         img = img.astype("float32")
@@ -107,8 +114,12 @@ class LPRNetDataset(Dataset):
         return img
 
     def check(self, label):
-        vietnam_plate_pattern = re.compile(r"^[0-9A-Z\-\.Đ]+$")
+        if any(int(token) == len(self.args.chars) - 1 for token in label):
+            return False
         label_str = "".join([self.args.chars[c] for c in label])
+        if getattr(self.args, "label_mode", "raw") == "alnum":
+            return bool(re.fullmatch(r"[0-9A-ZĐ]+", label_str))
+        vietnam_plate_pattern = re.compile(r"^[0-9A-Z\-\.Đ]+$")
         return bool(vietnam_plate_pattern.match(label_str))
 
 

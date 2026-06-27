@@ -22,6 +22,22 @@ def _load_script(name: str):
 
 
 @pytest.mark.unit
+def test_line_ctc_alnum_config_removes_format_tokens() -> None:
+    config_path = ROOT / "LPRNet" / "config" / "small_lpr_line_ctc_alnum_config.yaml"
+
+    config = yaml.load(config_path.read_text(encoding="utf-8"), Loader=yaml.FullLoader)
+
+    assert config["label_mode"] == "alnum"
+    assert config["line_separator"] == ""
+    assert config["decode_mode"] == "layout"
+    assert config["chars"][0] == "<blank>"
+    assert "-" not in config["chars"]
+    assert "." not in config["chars"]
+    assert "[SEP]" not in config["chars"]
+    assert "_" not in config["chars"]
+
+
+@pytest.mark.unit
 def test_ablation_runner_builds_train_command_without_checkpoint_init(tmp_path: Path) -> None:
     module = _load_script("run_small_lpr_line_ctc_ablation")
     matrix = {

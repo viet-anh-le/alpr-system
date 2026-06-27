@@ -114,6 +114,27 @@ def test_ctm_preserves_sep_and_dot_tokens_for_two_line_plates() -> None:
 
 
 @pytest.mark.unit
+def test_ctm_alnum_mode_does_not_render_format_literals() -> None:
+    from api.core.ocr_ctm import fuse_ocr_outputs_ctm
+
+    result = fuse_ocr_outputs_ctm(
+        [
+            _chars("59U102795"),
+            _chars("59U102795"),
+            _chars("59U1O2795"),
+        ],
+        format_mode="alnum",
+    )
+
+    assert result.text == "59U102795"
+    assert "[SEP]" not in result.text
+    assert "-" not in result.text
+    assert "." not in result.text
+    assert result.unresolved_slots == []
+    assert result.is_valid is True
+
+
+@pytest.mark.unit
 def test_ctm_templates_cover_ocr_dataset_label_patterns() -> None:
     from pathlib import Path
 

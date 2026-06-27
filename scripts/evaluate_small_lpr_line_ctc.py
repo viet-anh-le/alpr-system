@@ -95,6 +95,8 @@ def load_model(checkpoint: Path, args: Namespace, device: torch.device) -> Small
         "top_loss_weight",
         "bottom_loss_weight",
         "layout_loss_weight",
+        "label_mode",
+        "line_separator",
     ):
         value = _arg_value(ckpt_args, name, None)
         if value is not None:
@@ -142,7 +144,13 @@ def logits_to_char_probs(logits: torch.Tensor, chars: list[str]) -> list[list[tu
     return decoded
 
 
-def layout_char_probs(outputs: dict[str, torch.Tensor], chars: list[str], threshold: float) -> list[list[tuple[str, float]]]:
+def layout_char_probs(
+    outputs: dict[str, torch.Tensor],
+    chars: list[str],
+    threshold: float,
+    *,
+    line_separator: str = "[SEP]",
+) -> list[list[tuple[str, float]]]:
     one_line = logits_to_char_probs(outputs.get("one_line_logits", outputs["global_logits"]), chars)
     top = logits_to_char_probs(outputs["top_logits"], chars)
     bottom = logits_to_char_probs(outputs["bottom_logits"], chars)
@@ -150,7 +158,8 @@ def layout_char_probs(outputs: dict[str, torch.Tensor], chars: list[str], thresh
     results: list[list[tuple[str, float]]] = []
     for idx, layout_prob in enumerate(layout_probs):
         if float(layout_prob[1]) >= threshold:
-            results.append([*top[idx], ("[SEP]", float(layout_prob[1])), *bottom[idx]])
+            separator = [(line_separator, float(layout_prob[1]))] if line_separator else []
+            results.append([*top[idx], *separator, *bottom[idx]])
         else:
             results.append(one_line[idx])
     return results
@@ -166,6 +175,11 @@ def evaluate(
     batch_size: int,
     format_correction: bool,
 ) -> dict[str, float | int | str]:
+    format_mode = (
+        "alnum"
+        if getattr(args, "label_mode", "raw") == "alnum" or getattr(args, "line_separator", "[SEP]") == ""
+        else "raw"
+    )
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -200,6 +214,7 @@ def evaluate(
             outputs,
             args.chars,
             two_line_threshold=float(getattr(args, "two_line_threshold", 0.5)),
+            line_separator=getattr(args, "line_separator", "[SEP]"),
         )
         char_probs = (
             logits_to_char_probs(outputs["global_logits"], args.chars)
@@ -208,10 +223,14 @@ def evaluate(
                 outputs,
                 args.chars,
                 float(getattr(args, "two_line_threshold", 0.5)),
+                line_separator=getattr(args, "line_separator", "[SEP]"),
             )
         )
         if format_correction:
-            char_probs = [correct_ambiguous_chars(chars).char_probs for chars in char_probs]
+            char_probs = [
+                correct_ambiguous_chars(chars, format_mode=format_mode).char_probs
+                for chars in char_probs
+            ]
         pred_texts = [char_probs_to_text(chars) for chars in char_probs]
 
         labels = batch["layout_labels"].tolist()
@@ -220,7 +239,7 @@ def evaluate(
             totals["samples"] += 1
             totals["global"] += int(global_texts[idx] == gt)
             totals["exact"] += int(pred_texts[idx] == gt)
-            totals["valid_format"] += int(is_vn_plate_chars(char_probs[idx]))
+            totals["valid_format"] += int(is_vn_plate_chars(char_probs[idx], format_mode=format_mode))
             if labels[idx] in (LAYOUT_ONE_LINE, LAYOUT_TWO_LINE):
                 totals["layout_valid"] += 1
                 totals["layout"] += int(layout_preds[idx] == labels[idx])
@@ -243,6 +262,7 @@ def evaluate(
         "val_loss": val_loss_sum / samples,
         "decode_mode": model.decode_mode,
         "format_correction": bool(format_correction),
+        "format_mode": format_mode,
     }
 
 

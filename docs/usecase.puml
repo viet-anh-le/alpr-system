@@ -7,8 +7,8 @@ actor "Người dùng" as User
 rectangle "Hệ thống nhận dạng biển số xe Việt Nam" {
   usecase "Đăng ký" as UC_Register
   usecase "Đăng nhập" as UC_Login
-  usecase "Xử lý video\nnhận dạng biển số" as UC_ProcessVideo
-  usecase "Giám sát và\nđánh dấu sự cố" as UC_Monitor
+  usecase "Xử lý toàn bộ\nvideo tải lên" as UC_ProcessFullVideo
+  usecase "Chọn trích đoạn\nđể xử lý" as UC_SelectSegment
   usecase "Xem kết quả và\nevidence nhận dạng" as UC_Result
   usecase "Xem lịch sử\nnhận dạng" as UC_History
   usecase "Đăng xuất" as UC_Logout
@@ -16,8 +16,8 @@ rectangle "Hệ thống nhận dạng biển số xe Việt Nam" {
 
 User --> UC_Register
 User --> UC_Login
-User --> UC_ProcessVideo
-User --> UC_Monitor
+User --> UC_ProcessFullVideo
+User --> UC_SelectSegment
 User --> UC_Result
 User --> UC_History
 User --> UC_Logout

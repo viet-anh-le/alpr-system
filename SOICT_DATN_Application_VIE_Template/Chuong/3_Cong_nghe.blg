@@ -1,0 +1,65 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: 3_Cong_nghe.aux
+The style file: biblatex.bst
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Database file #1: 3_Cong_nghe-blx.bib
+Database file #2: Danh_sach_tai_lieu_tham_khao.bib
+Biblatex version: 3.19
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+You've used 8 entries,
+            6399 wiz_defined-function locations,
+            1245 strings with 10552 characters,
+and the built_in function-call counts, 69520 in all, are:
+= -- 5846
+> -- 971
+< -- 180
++ -- 2100
+- -- 437
+* -- 5201
+:= -- 8591
+add.period$ -- 0
+call.type$ -- 8
+change.case$ -- 49
+chr.to.int$ -- 42
+cite$ -- 14
+duplicate$ -- 6730
+empty$ -- 5875
+format.name$ -- 592
+if$ -- 13866
+int.to.chr$ -- 0
+int.to.str$ -- 14
+missing$ -- 0
+newline$ -- 264
+num.names$ -- 266
+pop$ -- 2699
+preamble$ -- 1
+purify$ -- 114
+quote$ -- 0
+skip$ -- 1328
+stack$ -- 0
+substring$ -- 11586
+swap$ -- 1006
+text.length$ -- 222
+text.prefix$ -- 0
+top$ -- 1
+type$ -- 260
+warning$ -- 0
+while$ -- 1000
+width$ -- 0
+write$ -- 257

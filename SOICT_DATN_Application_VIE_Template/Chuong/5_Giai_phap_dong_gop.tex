@@ -1,0 +1,227 @@
+\documentclass[../DoAn.tex]{subfiles}
+\begin{document}
+
+\section{Môi trường và tiêu chí đánh giá}
+\label{section:5.1}
+
+Chương này đánh giá các mô hình thành phần được dùng trong pipeline nhận dạng biển số trên video. Các kết quả được lấy từ hai nguồn: kết quả công bố của mô hình phát hiện phương tiện trong công trình của Che et al.~\cite{che2023ctm}, và các artifact huấn luyện, đánh giá hiện có trong mã nguồn đồ án.
+
+\begin{table}[H]
+\centering
+\caption{Môi trường đánh giá}
+\label{tab:experiment-environment}
+\begin{tabular}{|p{4.0cm}|p{10.2cm}|}
+\hline
+\textbf{Thành phần} & \textbf{Môi trường đánh giá} \\
+\hline
+Phát hiện phương tiện & Số liệu lấy từ paper gốc, đánh giá trên GPU RTX A5000. \\
+\hline
+Phát hiện biển số, Quality Router, OCR & Python 3.10, PyTorch 2.6.0, CUDA 12.4, NVIDIA GeForce RTX 4050 \\
+\hline
+\end{tabular}
+\end{table}
+
+Với các mô hình phát hiện đối tượng, đồ án sử dụng bốn chỉ số chính: Precision, Recall, mAP@0.5 và mAP@0.5:0.95. Precision đo tỷ lệ dự đoán đúng trong số các phát hiện được mô hình trả về, còn Recall đo tỷ lệ đối tượng thật được phát hiện:
+
+\[
+Precision = \frac{TP}{TP + FP}, \qquad Recall = \frac{TP}{TP + FN}
+\]
+
+mAP@0.5 là mean Average Precision tại ngưỡng IoU 0.5. mAP@0.5:0.95 là trung bình mAP trên nhiều ngưỡng IoU từ 0.5 đến 0.95, do đó phản ánh chặt hơn chất lượng định vị hộp bao. Đối với mô hình phát hiện biển số OBB, IoU được tính trên hộp bao có hướng, phù hợp với biển số bị nghiêng trong khung hình.
+
+Với mô hình OCR, tiêu chí chính là exact-match accuracy trên toàn chuỗi biển số. Một ảnh chỉ được tính đúng khi toàn bộ chuỗi ký tự sau khi decode trùng hoàn toàn với nhãn, bao gồm cả ký tự phân tách \texttt{[SEP]} đối với biển hai dòng. Ngoài ra, đồ án ghi nhận thêm layout accuracy để đánh giá khả năng phân biệt biển một dòng và hai dòng.
+
+Với mô hình phân loại chất lượng biển số, tiêu chí chính là top-1 accuracy trên tập validation. Ngoài ra, đồ án quan sát thêm ma trận nhầm lẫn chuẩn hóa để đánh giá mức độ an toàn của bộ định tuyến, đặc biệt là khả năng tránh đẩy nhầm các crop còn đọc được sang nhánh không đọc.
+
+\section{Kết quả các mô hình thành phần}
+\label{section:5.2}
+
+\subsection{Mô hình phát hiện phương tiện}
+\label{subsection:5.2.1}
+
+Trong pipeline triển khai, phát hiện phương tiện là bước đầu tiên nhằm giới hạn vùng tìm kiếm cho biển số. Các lớp phương tiện được giữ lại trong hệ thống gồm class ID 1, 6, 7, 8, 9 và 10, tương ứng xe máy, xe con, xe tải, xe tải van, xe buýt và xe ba gác chở hàng.
+
+Paper gốc báo cáo kết quả cho giai đoạn phát hiện phương tiện và biển số với mô hình YOLOv5m, đầu vào \(1280 \times 720\). Bảng~\ref{tab:vehicle-detector-result} trình bày lại các số liệu được dùng làm căn cứ cho mô hình phát hiện phương tiện kế thừa trong đồ án.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả mô hình phát hiện phương tiện kế thừa từ Che et al.~\cite{che2023ctm}}
+\label{tab:vehicle-detector-result}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Kiến trúc} & \textbf{Kích thước đầu vào} & \textbf{Precision} & \textbf{Recall} & \textbf{mAP@0.5} & \textbf{Thời gian suy luận} \\
+\hline
+YOLOv5m & \(1280 \times 720\) & 0.968 & 0.959 & 0.968 & 12.4 ms \\
+\hline
+\end{tabular}
+\end{table}
+
+Các chỉ số trên cho thấy mô hình phát hiện phương tiện có độ bao phủ tốt, Recall đạt 0.959, phù hợp với vai trò tầng đầu của pipeline. Trong bài toán video, lỗi bỏ sót phương tiện ở bước này sẽ làm mất toàn bộ cơ hội phát hiện biển số ở các bước sau, vì vậy Recall cao quan trọng hơn việc chỉ tối ưu Precision. Thời gian suy luận 12.4 ms trên RTX A5000 cũng cho thấy mô hình đủ nhanh để làm detector đầu vào cho luồng xử lý nhiều khung hình.
+
+\subsection{Mô hình phát hiện biển số}
+\label{subsection:5.2.2}
+
+Mô hình phát hiện biển số được huấn luyện theo bài toán OBB với hai lớp trong file \texttt{data.yaml}: \texttt{BSD} và \texttt{BSV}. Việc tách hai lớp này giúp mô hình học riêng biển số dạng dài và dạng vuông/hai dòng. Khác với detector hộp ngang, YOLOv8-OBB trả về vùng biển số có góc xoay, thuận lợi hơn cho bước warp/crop trước OCR.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả validation của mô hình phát hiện biển số YOLOv8-OBB}
+\label{tab:plate-detector-result}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Mô hình} & \textbf{Epoch} & \textbf{Precision} & \textbf{Recall} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} \\
+\hline
+YOLOv8-OBB & 50 & 0.96776 & 0.94489 & 0.98292 & 0.95015 \\
+\hline
+\end{tabular}
+\end{table}
+
+Kết quả cho thấy detector biển số đạt mAP@0.5 bằng 0.98292 và mAP@0.5:0.95 bằng 0.95015 trên tập validation. Khoảng cách nhỏ giữa hai chỉ số này cho thấy mô hình không chỉ phát hiện đúng vị trí tương đối của biển số, mà còn định vị khá sát hình học biển số. Đây là điểm quan trọng đối với OCR, vì crop lệch hoặc chứa nhiều nền thừa thường làm giảm độ chính xác nhận dạng ký tự, đặc biệt với biển số nhỏ trong video.
+
+\subsection{Kết quả huấn luyện mô hình Quality Router}
+\label{subsection:5.2.3}
+
+Mô hình Quality Router được huấn luyện như một bộ phân loại ảnh crop biển số. Giai đoạn đầu sử dụng dữ liệu LPLCv2 để học khái niệm độ đọc được tổng quát của biển số, gồm bốn mức \texttt{perfect}, \texttt{good}, \texttt{poor} và \texttt{illegible}. Bên cạnh bài toán bốn lớp, đồ án cũng huấn luyện một biến thể nhị phân theo hướng phù hợp/không phù hợp với OCR trực tiếp. Sau đó, mô hình được fine-tune trên tập crop biển số Việt Nam để thích nghi với miền dữ liệu của pipeline.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả validation của mô hình Quality Router}
+\label{tab:quality-router-result}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Thiết lập} & \textbf{Epoch tốt nhất} & \textbf{Top-1 accuracy} & \textbf{Val loss} \\
+\hline
+LPLCv2 bốn mức chất lượng & 35 & 85.287\% & 0.34785 \\
+\hline
+LPLCv2 nhị phân phù hợp/không phù hợp & 46 & 95.603\% & 0.10964 \\
+\hline
+Fine-tune trên crop biển số Việt Nam & 35 & 84.705\% & 0.38505 \\
+\hline
+\end{tabular}
+\end{table}
+
+Kết quả cho thấy khi giữ nguyên bốn mức chất lượng, ranh giới giữa các lớp gần nhau như \texttt{perfect}, \texttt{good} và \texttt{poor} vẫn còn gây nhầm lẫn. Tuy nhiên, khi gom về bài toán nhị phân phù hợp/không phù hợp, độ chính xác tăng lên 95.603\%. Điều này phù hợp với vai trò thực tế của Quality Router trong pipeline: thay vì yêu cầu phân biệt thật chi tiết từng mức chất lượng, bộ định tuyến chủ yếu cần quyết định crop nào đủ ổn định để OCR trực tiếp và crop nào nên được giữ lại cho xử lý theo track.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../runs/classify/runs/classify/legibility_finetuned_vn/confusion_matrix_normalized.png}
+\caption{Ma trận nhầm lẫn chuẩn hóa của mô hình Quality Router sau fine-tune}
+\label{fig:quality-router-confusion-normalized}
+\end{figure}
+
+Hình~\ref{fig:quality-router-confusion-normalized} cho thấy số lượng mẫu \texttt{perfect}, \texttt{good} và \texttt{poor} bị nhận nhầm thành \texttt{illegible} là rất nhỏ. Cụ thể, hai lớp \texttt{perfect} và \texttt{good} hầu như không bị đẩy sang \texttt{illegible}, còn lớp \texttt{poor} chỉ có khoảng 2\% bị nhầm theo hướng này. Đây là đặc tính quan trọng đối với hệ thống video, vì lỗi nghiêm trọng nhất của router là loại bỏ nhầm một crop vẫn còn tiềm năng nhận dạng.
+
+\subsection{Mô hình OCR}
+\label{subsection:5.2.4}
+Mô hình nhận ảnh RGB kích thước \(48 \times 96\), sử dụng \texttt{d\_model=256}, \texttt{backbone\_ch=256}, STN, positional encoding hai chiều và các head CTC theo bố cục. Quá trình huấn luyện dùng AdamW với learning rate \(3 \times 10^{-4}\), weight decay \(10^{-4}\), batch size 64 và cosine scheduler. Tập validation sau lọc gồm 5.527 ảnh crop biển số.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả validation của checkpoint \texttt{SmallLPR\_Line\_CTC\_9501}}
+\label{tab:ocr-result}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Epoch} & \textbf{Exact Acc} & \textbf{Global Acc} & \textbf{Layout Acc} & \textbf{Val Loss} & \textbf{Checkpoint} \\
+\hline
+44 & 0.95006 & 0.93233 & 0.99186 & 0.20710 & \texttt{val\_acc=0.9501} \\
+\hline
+\end{tabular}
+\end{table}
+
+Exact-match accuracy đạt 95.01\%, nghĩa là khoảng 95 trên 100 ảnh validation được nhận dạng đúng toàn bộ chuỗi biển số. Đây là tiêu chí nghiêm ngặt hơn so với accuracy theo ký tự, vì chỉ cần sai một ký tự, thiếu dấu gạch, thiếu dấu chấm hoặc sai vị trí \texttt{[SEP]} thì mẫu được tính là sai. Layout accuracy đạt 99.19\%, cho thấy mô hình phân biệt ổn định giữa biển một dòng và hai dòng. Kết quả này phù hợp với yêu cầu của pipeline: OCR một khung hình đã có độ chính xác cao, sau đó kết quả còn được kiểm tra định dạng và tổng hợp thêm qua nhiều khung hình để giảm lỗi do nhòe, rung và che khuất cục bộ.
+
+\subsection{Ablation study mô hình OCR}
+\label{subsection:5.2.5}
+
+Để đánh giá ảnh hưởng của từng thành phần trong mô hình OCR đề xuất, đồ án thực hiện một chuỗi thí nghiệm ablation theo hướng tăng dần các module. Tất cả các mô hình được huấn luyện từ đầu trên cùng tập dữ liệu, cùng seed và cùng cấu hình huấn luyện. Chỉ số đánh giá là exact-match accuracy trên tập validation, tức một mẫu chỉ được tính đúng khi toàn bộ chuỗi ký tự dự đoán trùng hoàn toàn với nhãn.
+
+Cách thiết kế thí nghiệm này tương tự hướng phân tích trong LPRNet, nơi tác giả tách riêng ảnh hưởng của data augmentation, STN alignment, beam search và hậu xử lý \cite{zherzdev2018lprnet}. Trong đồ án này, các thành phần được chọn để ablation bám sát bài toán biển số Việt Nam hơn, gồm tăng cường dữ liệu, căn chỉnh STN, positional encoding hai chiều, các nhánh CTC theo layout và vertical prior cho biển hai dòng.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Kết quả ablation của mô hình OCR}
+\label{tab:ocr-ablation-study}
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+\textbf{Run} & \textbf{Aug.} & \textbf{STN} & \textbf{2D PE} & \textbf{Layout heads} & \textbf{Prior dọc} & \textbf{Exact Acc} \\
+\hline
+A0 &  &  &  &  &  & 87.53\% \\
+\hline
+A1 & \(\checkmark\) &  &  &  &  & 90.12\% \\
+\hline
+A2 & \(\checkmark\) & \(\checkmark\) &  &  &  & 94.59\% \\
+\hline
+A5 & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & 95.01\% \\
+\hline
+\end{tabular}
+\end{table}
+
+Kết quả trong Bảng~\ref{tab:ocr-ablation-study} cho thấy hai bước cải thiện lớn nhất đến từ tăng cường dữ liệu và STN alignment. Khi chỉ thêm data augmentation, accuracy tăng từ 87.53\% lên 90.12\%. Khi bổ sung STN, accuracy tiếp tục tăng mạnh lên 94.59\%, cho thấy việc căn chỉnh hình học có tác động rõ rệt đối với ảnh crop biển số từ video. Mô hình đầy đủ A5 đạt 95.01\%, cao hơn A2 thêm 0.42 điểm phần trăm nhờ giữ đặc trưng hai chiều, tách head theo layout và bổ sung prior dọc cho biển hai dòng. Mức tăng này nhỏ hơn nhưng quan trọng, vì các thành phần này trực tiếp xử lý lỗi bố cục, thứ thường không xuất hiện rõ nếu chỉ đánh giá trên biển một dòng.
+
+Ngoài chuỗi ablation trên tập OCR đầy đủ, đồ án cũng so sánh LPRNet gốc với mô hình \texttt{SmallLPR-Line-CTC} trên bộ dữ liệu chỉ gồm chữ và số. Thiết lập này loại bỏ ảnh hưởng của các ký tự phân tách và token bố cục, qua đó tập trung hơn vào năng lực nhận dạng chuỗi ký tự chính.
+
+\begin{table}[H]
+\centering
+\caption{So sánh OCR trên tập dữ liệu chỉ gồm chữ và số}
+\label{tab:ocr-alnum-comparison}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+\textbf{Mô hình} & \textbf{Checkpoint tốt nhất} & \textbf{Exact Acc} \\
+\hline
+LPRNet & \path{lprnet-epoch=045-val-acc=0.9272.ckpt} & 92.72\% \\
+\hline
+\texttt{SmallLPR-Line-CTC} & \path{small_lpr_line_ctc-epoch=040-val_acc=0.9633.ckpt} & 96.33\% \\
+\hline
+\end{tabularx}
+\end{table}
+
+Kết quả này cho thấy mô hình đề xuất vẫn giữ lợi thế so với LPRNet ngay cả khi bài toán được đơn giản hóa về chuỗi chữ-số, với mức tăng 3.61 điểm phần trăm. Như vậy, cải tiến không chỉ đến từ việc xử lý token bố cục, mà còn từ backbone, cơ chế căn chỉnh và cách giữ thông tin không gian trong quá trình nhận dạng.
+
+
+\section{Đánh giá pipeline tổng thể}
+\label{section:5.3}
+
+Sau khi đánh giá riêng từng mô hình thành phần, đồ án tiếp tục kiểm thử pipeline ALPR hoàn chỉnh trên các video thực tế. Mục tiêu của phần này là đánh giá khả năng phối hợp giữa các bước phát hiện phương tiện, phát hiện biển số, theo dõi đối tượng, OCR và tổng hợp kết quả đa khung hình. Khác với đánh giá từng mô hình độc lập, kết quả pipeline tổng thể phản ánh trực tiếp chất lượng đầu ra mà người dùng nhận được sau khi xử lý video.
+
+Trong phần đánh giá này, một biển số được xem là nhận dạng đúng khi chuỗi ký tự chữ cái và chữ số trong kết quả dự đoán trùng khớp với nhãn thực tế. Các ký tự định dạng như khoảng trắng, dấu chấm và dấu gạch nối không được đưa vào so sánh. Cách đánh giá này phù hợp với mục tiêu nhận dạng định danh phương tiện, vì cùng một biển số có thể được hiển thị theo nhiều cách khác nhau trên giao diện.
+
+\subsection{Các kịch bản thử nghiệm}
+\label{subsection:5.3.1}
+
+Các video thử nghiệm được chia thành ba nhóm kịch bản chính. Nhóm thứ nhất là kịch bản ban đêm, gồm các video có ánh sáng yếu, độ tương phản thấp và biển số thường chỉ rõ trong một số ít khung hình. Nhóm này dùng để kiểm tra khả năng khai thác thông tin đa khung hình của pipeline khi từng ảnh đơn lẻ không phải lúc nào cũng đủ tốt cho OCR.
+
+Nhóm thứ hai là kịch bản ban đêm kết hợp ánh sáng chói. Các video trong nhóm này có nhiều nguồn sáng mạnh như đèn đường, đèn pha hoặc phản xạ từ thân xe. Một số video đồng thời có mật độ phương tiện cao, khiến các xe đi sát nhau và dễ gây nhầm lẫn trong bước liên kết track. Đây là kịch bản khó nhất vì lỗi có thể xuất hiện đồng thời ở nhiều tầng: detector có thể bỏ sót biển số nhỏ, OCR bị ảnh hưởng bởi lóa sáng, còn tracker có thể bị trộn định danh khi các phương tiện quá gần nhau.
+
+Nhóm thứ ba là kịch bản điều kiện lý tưởng. Các video trong nhóm này có ánh sáng ổn định hơn, biển số rõ hơn và ít nhiễu hơn so với hai nhóm còn lại. Kịch bản này được dùng để kiểm tra giới hạn hoạt động của pipeline trong điều kiện thuận lợi, đồng thời quan sát các lỗi còn tồn tại khi chất lượng ảnh đầu vào không còn là nguyên nhân chính.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả đánh giá pipeline tổng thể theo ba kịch bản thử nghiệm}
+\label{tab:pipeline_three_scenario_results}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Kịch bản} & \textbf{Số biển quan sát} & \textbf{Nhận dạng đúng} & \textbf{Trộn track} \\
+\hline
+Ban đêm & 28 & 24 & Có \\
+\hline
+Đêm + ánh sáng chói & 37 & 33 & Có \\
+\hline
+Điều kiện lý tưởng & 23 & 22 & Có \\
+\hline
+\end{tabular}
+\end{table}
+
+Trong bảng trên, \textit{Visible plates} là số biển số có thể quan sát được trong video và được đưa vào đánh giá. \textit{OCR exacts} là số biển số được pipeline nhận dạng đúng hoàn toàn theo chuỗi chữ cái và chữ số. Trường \textit{Trộn track} cho biết trong kịch bản đó có xuất hiện hiện tượng trộn track hoặc nhảy định danh giữa các phương tiện hay không.
+
+\subsection{Kết quả thực nghiệm}
+\label{subsection:5.3.2}
+
+Ở kịch bản ban đêm, pipeline đạt 24/28 biển số đúng. Các lỗi còn lại chủ yếu đến từ OCR nhầm ký tự khi biển số bị tối, mờ hoặc chỉ xuất hiện rõ trong một số ít khung hình. Ví dụ, biển số \texttt{50H-53515} bị nhận dạng thành \texttt{50H-935.15}, cho thấy hệ thống nhầm chữ số ở phần giữa chuỗi. Một trường hợp khác là \texttt{66-LA-02749} bị nhận dạng thành \texttt{66A-027.49}, trong đó ký tự chữ cái bị thiếu hoặc bị gộp sai. Ngoài ra, có trường hợp chuỗi cuối không được nhận dạng đầy đủ, chẳng hạn \texttt{93-L1-34477} chỉ được trả về một phần dưới dạng \texttt{93-L1 344.??}. Nhìn chung, nhóm ban đêm cho thấy pipeline vẫn giữ được độ ổn định tương đối nhờ cơ chế tổng hợp nhiều quan sát của cùng một phương tiện.
+
+Ở kịch bản đêm kết hợp ánh sáng chói, pipeline đạt 33/37 biển số đúng. Đây là nhóm có mức nhiễu phức tạp nhất do biển số vừa chịu ảnh hưởng của ánh sáng yếu, vừa bị lóa bởi đèn đường, đèn pha hoặc phản xạ từ các phương tiện khác. Một số lỗi OCR xuất hiện khi ký tự bị lóa hoặc bị mất nét, ví dụ \texttt{30E-41101} bị nhận dạng thành \texttt{30 110I} và \texttt{29T-8372} bị nhận dạng thành \texttt{29L-8372}. Ngoài lỗi OCR, kịch bản này còn xuất hiện hiện tượng trộn track khi các phương tiện đi quá gần nhau, dẫn đến ảnh đại diện của track và kết quả OCR không còn khớp hoàn toàn. Đây là lỗi ở tầng truy vết, không chỉ riêng ở mô hình nhận dạng ký tự.
+
+Ở kịch bản điều kiện lý tưởng, pipeline đạt 22/23 biển số đúng. Trong điều kiện ánh sáng tốt và biển số rõ hơn, hệ thống hoạt động ổn định hơn; một số dự đoán sai ở khung hình đơn lẻ vẫn có thể được sửa nhờ tổng hợp kết quả đa khung hình. Tuy nhiên, pipeline vẫn còn lỗi trong trường hợp ký tự bị nhầm lẫn có hệ thống. Ví dụ, biển xanh dương \texttt{51B 0493} bị tổng hợp thành \texttt{51F 0493}, mặc dù trong track vẫn có một số khung hình nhận dạng đúng ký tự \texttt{B}. Điều này cho thấy bước bỏ phiếu cuối cùng vẫn có thể nghiêng về chuỗi sai nếu các khung hình sai có điểm tin cậy hoặc điểm chất lượng cao hơn.
+
+Tổng cộng trên ba kịch bản, pipeline nhận dạng đúng 79/88 biển số quan sát được. Kết quả này cho thấy hướng tiếp cận theo track và tổng hợp đa khung hình giúp hệ thống hoạt động ổn định trong nhiều điều kiện video khác nhau, đặc biệt khi từng khung hình riêng lẻ có thể bị mờ, tối hoặc lóa. Tuy nhiên, các lỗi còn lại tập trung vào ba nguyên nhân chính: chất lượng crop biển số suy giảm do ánh sáng, nhầm lẫn ký tự trong OCR và trộn track khi nhiều phương tiện di chuyển quá gần nhau. Đây là các điểm cần tiếp tục cải thiện trong các phiên bản sau của hệ thống, đặc biệt ở bước truy vết phương tiện và cơ chế chọn khung hình đại diện cho mỗi track.
+\end{document}

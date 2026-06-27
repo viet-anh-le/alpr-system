@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Sequence, Tuple
@@ -50,13 +51,31 @@ class LineCtcLabel:
     has_sep: bool
 
 
-def parse_line_ctc_label(label: str, chars: Sequence[str]) -> LineCtcLabel:
-    text = label.upper()
-    has_sep = "[SEP]" in text
+def normalize_line_ctc_label_text(text: str, *, label_mode: str = "raw") -> str:
+    text = text.upper()
+    if label_mode == "alnum":
+        text = text.replace("[SEP]", "")
+        return re.sub(r"[^0-9A-ZĐ]", "", text)
+    if label_mode != "raw":
+        raise ValueError("label_mode must be either 'raw' or 'alnum'")
+    return text
+
+
+def parse_line_ctc_label(
+    label: str,
+    chars: Sequence[str],
+    *,
+    label_mode: str = "raw",
+) -> LineCtcLabel:
+    raw_text = label.upper()
+    has_sep = "[SEP]" in raw_text
+    text = normalize_line_ctc_label_text(raw_text, label_mode=label_mode)
 
     global_label = encode(text, list(chars))
     if has_sep:
-        top_text, bottom_text = text.split("[SEP]", 1)
+        raw_top_text, raw_bottom_text = raw_text.split("[SEP]", 1)
+        top_text = normalize_line_ctc_label_text(raw_top_text, label_mode=label_mode)
+        bottom_text = normalize_line_ctc_label_text(raw_bottom_text, label_mode=label_mode)
         one_line_text = ""
         layout_label = LAYOUT_TWO_LINE
         layout_loss_mask = True
@@ -225,7 +244,11 @@ class SmallLPRLineCTCDataset(Dataset):
 
         basename = os.path.basename(filename)
         label_text = os.path.splitext(basename)[0].split("#")[0].upper()
-        label = parse_line_ctc_label(label_text, self.args.chars)
+        label = parse_line_ctc_label(
+            label_text,
+            self.args.chars,
+            label_mode=getattr(self.args, "label_mode", "raw"),
+        )
         return image, label
 
     def _normalize(self, image: np.ndarray) -> np.ndarray:
@@ -311,5 +334,6 @@ __all__ = [
     "SmallLPRLineCTCDataset",
     "_load_excluded_paths",
     "collate_fn_line_ctc",
+    "normalize_line_ctc_label_text",
     "parse_line_ctc_label",
 ]

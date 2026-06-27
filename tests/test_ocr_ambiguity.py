@@ -63,3 +63,13 @@ def test_slot_aware_correction_handles_sep_two_line_numbers() -> None:
 
     assert _text(result.char_probs) == "59-U1[SEP]027.95"
     assert result.changed_positions
+
+
+@pytest.mark.unit
+def test_slot_aware_correction_uses_alnum_templates_without_format_literals() -> None:
+    from api.core.ocr_ambiguity import correct_ambiguous_chars
+
+    result = correct_ambiguous_chars(_chars("59U10279S"), format_mode="alnum")
+
+    assert _text(result.char_probs) == "59U102795"
+    assert result.changed_positions

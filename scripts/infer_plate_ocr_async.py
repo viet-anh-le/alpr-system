@@ -55,12 +55,12 @@ from api.core.models import (  # noqa: E402
     normalize_ocr_backend,
     ocr_batch,
     preprocess_plate_for_model,
+    select_ocr_model,
 )
 from api.core.plate_format import is_vn_plate_text  # noqa: E402
 from api.core.progress import make_progress_event  # noqa: E402
 from api.core.quality_router import DegradationTags, PlateQualityResult  # noqa: E402
 from api.core.route_ocr import (  # noqa: E402
-    PlateMatch,
     consume_route_ocr_results,
     prepare_route_ocr_jobs,
 )
@@ -178,7 +178,7 @@ def _plate_ocr_worker(
             candidates = _extract_obb_candidates(result, full_crop, frame)
             plate_tracks = plate_tracker.update(candidates)
 
-            matched: list[PlateMatch] = []
+            matched: list[tuple[int, object, object]] = []
             seen: set[int] = set()
             for plate_track in plate_tracks:
                 plate_tid = int(plate_track["id"])
@@ -186,24 +186,21 @@ def _plate_ocr_worker(
                     continue
                 seen.add(plate_tid)
                 tracker._cls[plate_tid] = "plate"
-                matched.append(
-                    PlateMatch(
-                        recognition_id=plate_tid,
-                        vehicle_track_id=plate_tid,
-                        plate_track_id=plate_tid,
-                        plate_crop=plate_track["crop"],
-                        vehicle_crop=frame,
-                    )
-                )
+                matched.append((plate_tid, plate_track["crop"], frame))
 
             jobs, active_tids = prepare_route_ocr_jobs(matched, tracker, router, frame_idx)
             if jobs:
-                target_ocr = models.ocr
+                target_ocr = select_ocr_model(models, ocr_backend)
                 tensors = torch.stack(
                     [preprocess_plate_for_model(target_ocr, job.candidate_crop) for job in jobs]
                 ).to(models.device)
                 ocr_results = ocr_batch(target_ocr, tensors, models.device)
-                consume_route_ocr_results(jobs, ocr_results, tracker, emit)
+                consume_route_ocr_results(
+                    jobs,
+                    ocr_results,
+                    tracker,
+                    emit,
+                )
 
             for tid in active_tids:
                 tracker.reset_lost(tid)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .ocr_ctm import LITERAL_TOKENS, SLOT_CLASSES, TEMPLATES, PlateTemplate
+from .ocr_ctm import ALNUM_TEMPLATES, LITERAL_TOKENS, SLOT_CLASSES, TEMPLATES, PlateTemplate
 
 DIGIT_TO_LETTER = {
     "0": "O",
@@ -31,12 +31,15 @@ class AmbiguousCorrectionResult:
 
 def correct_ambiguous_chars(
     char_probs: list[tuple[str, float]],
+    *,
+    format_mode: str = "raw",
 ) -> AmbiguousCorrectionResult:
-    tokens = _flatten_ocr_tokens(char_probs)
+    templates = _templates_for_mode(format_mode)
+    tokens = _flatten_ocr_tokens(char_probs, format_mode=format_mode)
     if not tokens:
         return AmbiguousCorrectionResult([], [], 0.0, None)
 
-    candidates = [_correct_with_template(tokens, template) for template in TEMPLATES]
+    candidates = [_correct_with_template(tokens, template) for template in templates]
     best = min(
         candidates,
         key=lambda candidate: (
@@ -171,17 +174,29 @@ def _skip_input_token_cost(token: str) -> float:
     return 1.1 if _is_slot_token(token) else 0.7
 
 
-def _flatten_ocr_tokens(char_probs: list[tuple[str, float]]) -> list[tuple[str, float, int]]:
+def _templates_for_mode(format_mode: str) -> tuple[PlateTemplate, ...]:
+    if format_mode == "alnum":
+        return ALNUM_TEMPLATES
+    if format_mode != "raw":
+        raise ValueError("format_mode must be either 'raw' or 'alnum'")
+    return TEMPLATES
+
+
+def _flatten_ocr_tokens(
+    char_probs: list[tuple[str, float]],
+    *,
+    format_mode: str = "raw",
+) -> list[tuple[str, float, int]]:
     tokens: list[tuple[str, float, int]] = []
     for original_pos, (raw_token, conf) in enumerate(char_probs):
         token = raw_token.strip().upper()
         if not token:
             continue
-        if token == "[SEP]":
+        if format_mode != "alnum" and token == "[SEP]":
             tokens.append((token, float(conf), original_pos))
             continue
         for char in token:
-            if _is_slot_token(char) or char in LITERAL_TOKENS:
+            if _is_slot_token(char) or (format_mode != "alnum" and char in LITERAL_TOKENS):
                 tokens.append((char, float(conf), original_pos))
     return tokens
 
