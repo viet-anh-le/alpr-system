@@ -131,14 +131,8 @@ def _record_save(
 
         best_entry = entries[0]
 
-        # Best-plate frame: use the crop stored by update_plate_img, and the
-        # frame id selected by the same combined score used by TrackBuffer.
-        best_img = tracker._plate_img.get(tid)
-
-        best_url: str | None = None
-        if best_img is not None:
-            _, jpg = cv2.imencode(".jpg", best_img, [cv2.IMWRITE_JPEG_QUALITY, 90])
-            best_url = _storage_upload("evidence", f"{session_id}/plate_{tid}.jpg", bytes(jpg))
+        _, jpg = cv2.imencode(".jpg", best_entry.crop, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        best_url = _storage_upload("evidence", f"{session_id}/plate_{tid}.jpg", bytes(jpg))
 
         best_plate_frame = DBFrame(
             frame_index=int(best_entry.frame_idx),

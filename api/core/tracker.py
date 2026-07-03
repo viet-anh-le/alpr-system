@@ -290,6 +290,17 @@ class WebTrackletManager:
             self._plate_img_conf[tid] = conf
             self._plate_img[tid] = crop.copy()
 
+    def set_plate_img(
+        self,
+        tid: int,
+        crop: np.ndarray,
+        confidence: float,
+    ) -> None:
+        if crop.size == 0:
+            return
+        self._plate_img_conf[tid] = confidence
+        self._plate_img[tid] = crop.copy()
+
     def update_vehicle_img(
         self,
         tid: int,

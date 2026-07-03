@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import HistoryModal from './components/HistoryModal'
@@ -25,6 +25,8 @@ function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [preprocessMode, setPreprocessMode] = useState('none')
   const [ocrBackend, setOcrBackend] = useState('default')
+  const [sourcePanelKey, setSourcePanelKey] = useState(0)
+  const activeSessionRef = useRef(0)
 
   const { uploadVideo } = useUpload()
 
@@ -70,6 +72,9 @@ function DashboardPage() {
   })
 
   const handleFileSelect = async (file) => {
+    const sessionId = activeSessionRef.current + 1
+    activeSessionRef.current = sessionId
+
     if (videoUrl) URL.revokeObjectURL(videoUrl)
     setVideoUrl(URL.createObjectURL(file))
     setStatus('uploading')
@@ -82,9 +87,11 @@ function DashboardPage() {
 
     try {
       const id = await uploadVideo(file, preprocessMode, ocrBackend)
+      if (activeSessionRef.current !== sessionId) return
       setJobId(id)
       setStatus('processing')
     } catch (err) {
+      if (activeSessionRef.current !== sessionId) return
       setError(err.message)
       setStatus('error')
     }
@@ -92,6 +99,8 @@ function DashboardPage() {
 
   const handleReset = () => {
     if (videoUrl) URL.revokeObjectURL(videoUrl)
+    activeSessionRef.current += 1
+    setSourcePanelKey((value) => value + 1)
     setStatus('idle')
     setVehicles({})
     setRejectedVehicles({})
@@ -130,6 +139,7 @@ function DashboardPage() {
           <div className="evidence-grid">
             <div className="space-y-4">
               <SourcePanel
+                key={sourcePanelKey}
                 onFileSelect={handleFileSelect}
                 preprocessMode={preprocessMode}
                 onPreprocessModeChange={setPreprocessMode}

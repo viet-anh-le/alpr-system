@@ -360,12 +360,12 @@ def _store_best_plate_image(
 ) -> None:
     if not entries:
         return
-    best_entry = max(entries, key=lambda entry: entry.combined_score)
+    best_entry = entries[0]
     if char_probs:
-        tracker.update_plate_img(tid, best_entry.crop, char_probs)
+        confidence = sum(p for _, p in char_probs) / len(char_probs)
+        tracker.set_plate_img(tid, best_entry.crop, confidence)
     else:
-        tracker._plate_img[tid] = best_entry.crop.copy()
-        tracker._plate_img_conf[tid] = best_entry.combined_score
+        tracker.set_plate_img(tid, best_entry.crop, best_entry.combined_score)
 
 
 def _unreadable_reason(
