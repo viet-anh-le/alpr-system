@@ -21,7 +21,7 @@ function DashboardPage() {
   const [error, setError] = useState(null)
   const [jobId, setJobId] = useState(null)
   const [videoUrl, setVideoUrl] = useState(null)
-  const [frameB64, setFrameB64] = useState(null)
+  const [previewFrame, setPreviewFrame] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [preprocessMode, setPreprocessMode] = useState('none')
   const [ocrBackend, setOcrBackend] = useState('default')
@@ -56,7 +56,9 @@ function DashboardPage() {
     setStatus('error')
   }, [])
 
-  const handleFrame = useCallback((data) => setFrameB64(data.b64), [])
+  const handleFrame = useCallback((data) => {
+    setPreviewFrame(data?.b64 ? data : null)
+  }, [])
 
   useStream(jobId, {
     onVehicle: handleVehicle,
@@ -76,7 +78,7 @@ function DashboardPage() {
     setProgress({ frame: 0, total: 0, pct: 0 })
     setError(null)
     setJobId(null)
-    setFrameB64(null)
+    setPreviewFrame(null)
 
     try {
       const id = await uploadVideo(file, preprocessMode, ocrBackend)
@@ -97,7 +99,7 @@ function DashboardPage() {
     setError(null)
     setJobId(null)
     setVideoUrl(null)
-    setFrameB64(null)
+    setPreviewFrame(null)
   }
 
   const handleLogout = async () => {
@@ -136,7 +138,7 @@ function DashboardPage() {
                 disabled={status === 'uploading' || status === 'processing'}
                 compact={status !== 'idle'}
               />
-              <MediaStage frameB64={frameB64} videoUrl={videoUrl} progress={progress} status={status} />
+              <MediaStage previewFrame={previewFrame} videoUrl={videoUrl} progress={progress} status={status} />
             </div>
             <ResultsPanel
               vehicles={vehicleList}

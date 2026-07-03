@@ -631,11 +631,11 @@ FastAPI entrypoint là `api/main.py`. Luồng upload:
 3. Tạo `job_id`.
 4. Chạy `run_job` trong executor.
 5. Frontend nhận kết quả qua `GET /stream/{job_id}`.
-6. Nếu bật preview, MJPEG frame qua `GET /stream/{job_id}/mjpeg`.
+6. Nếu bật preview, SSE `frame` gửi JPEG preview và bbox qua `GET /stream/{job_id}`.
 
 `run_job` hiện dùng `process_frames_async` làm pipeline mặc định. Nếu `ocr_backend == "vietnamese_yolov5"` thì dùng pipeline riêng.
 
-Route `/upload` hiện không còn là endpoint public. Backend yêu cầu người dùng đã đăng nhập qua dependency `get_current_user_with_csrf`, sau đó gắn `job_id` với `user_id` trong `_job_owners`. Vì vậy, các stream kết quả như `/stream/{job_id}` và `/stream/{job_id}/mjpeg` chỉ trả dữ liệu khi người gọi là chủ của job đó. Đây là thay đổi quan trọng so với demo upload đơn giản, vì nó biến dashboard thành không gian làm việc theo phiên người dùng.
+Route `/upload` hiện không còn là endpoint public. Backend yêu cầu người dùng đã đăng nhập qua dependency `get_current_user_with_csrf`, sau đó gắn `job_id` với `user_id` trong `_job_owners`. Vì vậy, stream kết quả `/stream/{job_id}` chỉ trả dữ liệu khi người gọi là chủ của job đó. Đây là thay đổi quan trọng so với demo upload đơn giản, vì nó biến dashboard thành không gian làm việc theo phiên người dùng.
 
 Backend cũng kiểm tra file upload ở boundary:
 

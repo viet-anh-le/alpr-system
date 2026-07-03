@@ -175,6 +175,7 @@ def run_event(
                 session_id="",
                 loop=None,
                 timings=timings,
+                emit_preview=False,
             )
         else:
             summary = process_frames(
@@ -185,6 +186,7 @@ def run_event(
                 loop=None,
                 timings=timings,
                 ocr_backend=ocr_backend,
+                emit_preview=False,
             )
         dur_ms = int((time.monotonic() - started) * 1000)
         if timings is not None:

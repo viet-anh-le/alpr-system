@@ -193,7 +193,9 @@ PAD_IDX, SOS_IDX, EOS_IDX = 0, 1, 2
 FRAME_STRIDE = 1  # run plate detection every N-th frame
 # 0 disables sampling so vehicle detection/tracking still runs on every frame.
 ALPR_TARGET_PROCESS_FPS = _env_float("ALPR_TARGET_PROCESS_FPS", 0.0)
-ALPR_PREVIEW_FPS = _env_float("ALPR_PREVIEW_FPS", 0.0)
+ALPR_PREVIEW_FPS = _env_float("ALPR_PREVIEW_FPS", 2.0)
+ALPR_PREVIEW_MAX_WIDTH = _env_int("ALPR_PREVIEW_MAX_WIDTH", 960)
+ALPR_PREVIEW_JPEG_QUALITY = _env_int("ALPR_PREVIEW_JPEG_QUALITY", 70)
 ALPR_DEBUG_TIMINGS = _env_bool("ALPR_DEBUG_TIMINGS", False)
 PLATE_PAD = 8  # context padding around plate crop (px)
 CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops

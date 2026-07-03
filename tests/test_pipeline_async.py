@@ -181,3 +181,44 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
     pipeline_async.process_frames_async(source, emit=lambda event: None, models=models)
 
     assert finalise_calls == [32]
+
+
+@pytest.mark.unit
+def test_process_frames_async_emits_preview_frame_with_tracked_boxes(monkeypatch):
+    from api.core import pipeline_async
+
+    frames = [_frame()]
+    source = MagicMock()
+    source.total_frames = len(frames)
+    source.fps = 30.0
+    source.iter_frames.return_value = iter(
+        [(idx, frame, idx / 30.0) for idx, frame in enumerate(frames)]
+    )
+
+    v_pred = MagicMock()
+    v_pred.boxes = MagicMock()
+    v_pred.boxes.__len__ = lambda self: 0
+
+    models = MagicMock()
+    models.device = torch.device("cpu")
+    models.vehicle.predict.return_value = [v_pred]
+    models.vehicle.names = {5: "motorcycle"}
+    mock_tracker = MagicMock()
+    mock_tracker.track.return_value = (
+        np.array([[5, 10, 105, 110]], dtype=np.int32),
+        np.array([32], dtype=np.int64),
+        np.array([5], dtype=np.int32),
+    )
+    models.create_vehicle_tracker = MagicMock(return_value=mock_tracker)
+
+    monkeypatch.setattr(pipeline_async, "ALPR_PREVIEW_FPS", 30.0)
+    monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
+    monkeypatch.setattr(pipeline_async, "detect_plate_tracks_cascade", lambda *args, **kwargs: [])
+
+    events: list[dict] = []
+    pipeline_async.process_frames_async(source, emit=events.append, models=models)
+
+    frame_events = [event for event in events if event["type"] == "frame"]
+    assert len(frame_events) == 1
+    assert frame_events[0]["boxes"][0]["box"] == [5, 10, 105, 110]
+    assert frame_events[0]["boxes"][0]["label"] == "motorcycle #32"

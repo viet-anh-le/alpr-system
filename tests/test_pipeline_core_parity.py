@@ -574,6 +574,48 @@ class TestProcessFramesUnit:
         # Vehicle detected but no plates — total_vehicles should be 0
         assert result["total_vehicles"] == 0
 
+    def test_preview_frame_event_emitted_with_tracked_boxes(self, monkeypatch):
+        import api.core.pipeline_core as pipeline_core
+
+        frames = [_make_frame() for _ in range(2)]
+        source = _make_mock_source(frames)
+        models = _make_mock_models_no_detections()
+        models._mock_tracker.track.return_value = (
+            np.array([[10, 20, 110, 120]], dtype=np.int32),
+            np.array([5], dtype=np.int64),
+            np.array([0], dtype=np.int32),
+        )
+
+        monkeypatch.setattr(pipeline_core, "ALPR_PREVIEW_FPS", 30.0)
+
+        events: list[dict] = []
+        result = pipeline_core.process_frames(source, emit=events.append, models=models)
+
+        frame_events = [event for event in events if event["type"] == "frame"]
+        assert result["total_vehicles"] == 0
+        assert len(frame_events) >= 1
+        assert frame_events[0]["boxes"][0]["box"] == [10, 20, 110, 120]
+        assert frame_events[0]["boxes"][0]["label"] == "car #5"
+
+    def test_preview_frame_event_not_emitted_when_preview_disabled(self, monkeypatch):
+        import api.core.pipeline_core as pipeline_core
+
+        frames = [_make_frame() for _ in range(2)]
+        source = _make_mock_source(frames)
+        models = _make_mock_models_no_detections()
+        models._mock_tracker.track.return_value = (
+            np.array([[10, 20, 110, 120]], dtype=np.int32),
+            np.array([5], dtype=np.int64),
+            np.array([0], dtype=np.int32),
+        )
+
+        monkeypatch.setattr(pipeline_core, "ALPR_PREVIEW_FPS", 0.0)
+
+        events: list[dict] = []
+        pipeline_core.process_frames(source, emit=events.append, models=models)
+
+        assert [event for event in events if event["type"] == "frame"] == []
+
     def test_finalise_buffered_tracks_after_all_frames(self):
         """process_frames finalises buffered tracks at the end of the source."""
         from api.core.pipeline_core import process_frames

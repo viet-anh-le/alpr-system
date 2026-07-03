@@ -29,14 +29,12 @@ from .config import (
 from .frame_source import FrameSource
 from .models import ModelBundle, ocr_batch, preprocess_plate_for_model, select_ocr_model
 from .progress import make_progress_event
+from .preview_frame import make_preview_frame_event
 from .quality_router import PlateQualityRouter
 from .route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
 from .track_ocr import finalise_track_ocr as _finalise_track_ocr_impl
 from .tracker import WebTrackletManager
-from .video_processor import (
-    crop_vehicle as _crop_vehicle,
-    draw_annotated_frame as _draw_annotated_frame,
-)
+from .video_processor import crop_vehicle as _crop_vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +86,7 @@ def process_frames(
     timings: dict[str, float] | None = None,
     ocr_backend: str = "default",
     user_id: str | None = None,
+    emit_preview: bool = True,
 ) -> dict:
     """Run the full ALPR pipeline on a FrameSource.
 
@@ -98,10 +97,6 @@ def process_frames(
     def _add_timing(name: str, started_at: float) -> None:
         if timings is not None:
             timings[name] = timings.get(name, 0.0) + time.perf_counter() - started_at
-
-    def emit_frame(jpg: bytes) -> None:
-        if mjpeg_queue is not None and loop is not None:
-            loop.call_soon_threadsafe(_safe_put, mjpeg_queue, jpg)
 
     tracker = WebTrackletManager()
     associator = TrajectoryAssociator(
@@ -120,7 +115,7 @@ def process_frames(
     frame_idx = 0
     processed_seen = 0
     preview_seen = 0
-    preview_stride = _fps_stride(source.fps, ALPR_PREVIEW_FPS)
+    preview_stride = _fps_stride(source.fps, ALPR_PREVIEW_FPS) if emit_preview else 0
 
     for src_idx, frame, _ts in source.iter_frames():
         frame_idx = src_idx + 1  # 1-based to match legacy run_job
@@ -231,12 +226,13 @@ def process_frames(
                 user_id=user_id,
             )
 
-        if mjpeg_queue is not None and preview_stride > 0:
+        if preview_stride > 0:
             preview_seen += 1
-        if mjpeg_queue is not None and preview_stride > 0 and preview_seen % preview_stride == 0:
+        if preview_stride > 0 and preview_seen % preview_stride == 0:
             box_dicts = [
                 {
                     "id": v["id"],
+                    "kind": "vehicle",
                     "box": [int(c) for c in v["box"]],
                     "state": (
                         "active"
@@ -248,7 +244,8 @@ def process_frames(
                 }
                 for v in tracked
             ]
-            emit_frame(_draw_annotated_frame(frame, box_dicts))
+            if box_dicts:
+                emit(make_preview_frame_event(frame, box_dicts, frame_index=frame_idx))
 
         previously_tracked = currently_tracked
 

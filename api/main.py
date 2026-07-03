@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.auth import get_current_user, get_current_user_with_csrf, router as auth_router
-from api.core.config import ALPR_PREVIEW_FPS, MAX_UPLOAD_MB, MONGODB_DB_NAME, MONGODB_URI, WEB_ORIGIN
+from api.core.config import MAX_UPLOAD_MB, MONGODB_DB_NAME, MONGODB_URI, WEB_ORIGIN
 from api.core.models import ModelBundle, load_models
 from api.core.pipeline import run_job
 from api.core.preprocessing import normalize_preprocess_mode
@@ -125,7 +125,7 @@ async def upload(
 
     job_id      = uuid.uuid4().hex[:8]
     queue       = asyncio.Queue()
-    mjpeg_queue = asyncio.Queue(maxsize=60) if ALPR_PREVIEW_FPS > 0 else None
+    mjpeg_queue = None
     _jobs[job_id]         = queue
     _job_owners[job_id]   = _user_id(current_user)
     if mjpeg_queue is not None:

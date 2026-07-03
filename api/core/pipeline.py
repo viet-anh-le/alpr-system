@@ -3,7 +3,7 @@ core/pipeline.py — Video processing job (runs in thread-pool).
 
 SSE event types emitted:
   "progress"  — frame index / total / pct
-  "frame"     — JSON bounding boxes for canvas overlay (frame_idx, fps, orig_w, orig_h, boxes)
+  "frame"     — preview JPEG + bounding boxes for frontend overlay
   "vehicle"   — per-vehicle OCR update (plate_b64 + vehicle_b64)
                 Emitted AFTER track loss (not per-frame) in the new flow.
   "complete"  — final summary

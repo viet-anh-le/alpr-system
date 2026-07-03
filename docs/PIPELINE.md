@@ -44,8 +44,8 @@ Browser
   │       ▼  api/main.py:64
   │  Lưu file tạm → asyncio.Queue → run_in_executor(run_job)
   │
-  ├─ GET /stream/{job_id}         ← SSE events (progress/vehicle/complete)
-  └─ GET /stream/{job_id}/mjpeg   ← MJPEG annotated frames (realtime)
+  ├─ GET /stream/{job_id}         ← SSE events (progress/frame/vehicle/complete)
+  └─ GET /stream/{job_id}/mjpeg   ← legacy MJPEG fallback endpoint
 ```
 
 **Code thực thi:**
@@ -514,7 +514,7 @@ Nếu **không** match → emit `rejected_vehicle` (hiển thị trong UI nhưng
 | Event | Khi nào | Payload chính |
 |-------|---------|---------------|
 | `progress` | Mỗi 10 frame | `frame, total, pct` |
-| `frame` | Mỗi frame (tùy config) | `base64 JPEG annotated` |
+| `frame` | Theo `ALPR_PREVIEW_FPS` | `base64 JPEG preview, image_width, image_height, boxes` |
 | `vehicle` | Khi có kết quả OCR | `id, cls, plate, chars, plate_b64, vehicle_b64` |
 | `rejected_vehicle` | OCR không pass validation | `id, plate, chars, vote_summary` |
 | `complete` | Pipeline xong | `total_vehicles, processed_frames` |
@@ -587,7 +587,7 @@ POST /upload
        │   5. associator.process_frame()            │
        │      → firm (vehicle_id, plate_crop) pairs │
        │   6. quality_score() → buffer_crop()       │
-       │   7. draw_annotated_frame() → mjpeg_queue  │
+       │   7. make_preview_frame_event() → SSE frame │
        │                                            │
        │ on track lost (≥5 missing strides):        │
        │   8. top_k(5) crops from TrackBuffer       │

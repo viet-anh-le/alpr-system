@@ -14,8 +14,8 @@ import torch
 from .config import ALPR_PREVIEW_FPS, ROOT
 from .frame_source import FrameSource
 from .models import ModelBundle
+from .preview_frame import make_preview_frame_event
 from .progress import make_progress_event
-from .video_processor import draw_annotated_frame
 
 if str(ROOT / "references" / "Character-Time-series-Matching") not in sys.path:
     sys.path.insert(0, str(ROOT / "references" / "Character-Time-series-Matching"))
@@ -240,6 +240,7 @@ def process_frames_yolov5_vietnamese(
     record_save: Callable | None = None,
     timings: dict[str, float] | None = None,
     user_id: str | None = None,
+    emit_preview: bool = True,
 ) -> dict:
     del record_save, user_id
     total_start = time.perf_counter()
@@ -247,11 +248,6 @@ def process_frames_yolov5_vietnamese(
     def _add_timing(name: str, started_at: float) -> None:
         if timings is not None:
             timings[name] = timings.get(name, 0.0) + time.perf_counter() - started_at
-
-    def emit_frame(jpg: bytes) -> None:
-        if mjpeg_queue is not None and loop is not None:
-            if not mjpeg_queue.full():
-                loop.call_soon_threadsafe(mjpeg_queue.put_nowait, jpg)
 
     plate_tracker = ByteTrack(
         min_conf=0.1,
@@ -265,7 +261,11 @@ def process_frames_yolov5_vietnamese(
     frame_idx = 0
     processed_seen = 0
     preview_seen = 0
-    preview_stride = max(1, int(round(source.fps / ALPR_PREVIEW_FPS))) if ALPR_PREVIEW_FPS > 0 else 0
+    preview_stride = (
+        max(1, int(round(source.fps / ALPR_PREVIEW_FPS)))
+        if emit_preview and ALPR_PREVIEW_FPS > 0
+        else 0
+    )
 
     if getattr(models, "yolov5_object", None) is None or getattr(models, "ocr_yolov5", None) is None:
         logger.error("YOLOv5 models (object.pt or char.pt) are not loaded. Cannot run YOLOv5 Vietnamese pipeline.")
@@ -418,12 +418,13 @@ def process_frames_yolov5_vietnamese(
                 )
             )
 
-        if mjpeg_queue is not None and preview_stride > 0:
+        if preview_stride > 0:
             preview_seen += 1
             if preview_seen % preview_stride == 0:
                 box_dicts = [
                     {
                         "id": v["id"],
+                        "kind": "plate",
                         "box": v["box"],
                         "state": "active",
                         "plate": best_results.get(v["id"], ""),
@@ -431,7 +432,8 @@ def process_frames_yolov5_vietnamese(
                     }
                     for v in active_plate_boxes
                 ]
-                emit_frame(draw_annotated_frame(frame, box_dicts))
+                if box_dicts:
+                    emit(make_preview_frame_event(frame, box_dicts, frame_index=frame_idx))
 
         previously_tracked = currently_tracked
 
