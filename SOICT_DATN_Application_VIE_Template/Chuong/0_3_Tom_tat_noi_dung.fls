@@ -272,6 +272,10 @@ INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.m
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryquotes.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryquotes.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/shapes/pgflibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/shapes/pgflibraryshapes.geometric.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/latex/glossaries/base/glossaries.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/glossaries/base/glossaries.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/xkeyval/xkeyval.sty
@@ -362,9 +366,6 @@ INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-dm.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
@@ -477,7 +478,7 @@ INPUT /usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
 INPUT /usr/share/texlive/texmf-dist/tex/latex/caption/ltcaption.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/caption/ltcaption.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/lbx/english.lbx
-OUTPUT Chuong/0_3_Tom_tat_noi_dung-blx.bib
+OUTPUT Chuong/0_3_Tom_tat_noi_dung.bcf
 INPUT Chuong/0_3_Tom_tat_noi_dung.bbl
 INPUT Chuong/0_3_Tom_tat_noi_dung.bbl
 INPUT Chuong/0_3_Tom_tat_noi_dung.bbl

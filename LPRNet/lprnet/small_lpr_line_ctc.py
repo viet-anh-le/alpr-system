@@ -51,8 +51,10 @@ def line_ctc_greedy_decode(
     line_separator: str = "[SEP]",
 ) -> List[str]:
     """Decode with visual layout logits: one-line head or top+separator+bottom heads."""
-    batch_size = outputs["global_logits"].size(0)
-    one_line_logits = outputs.get("one_line_logits", outputs["global_logits"])
+    batch_size = outputs["layout_logits"].size(0)
+    one_line_logits = outputs.get("one_line_logits")
+    if one_line_logits is None:
+        one_line_logits = outputs["global_logits"]
     one_line_texts = ctc_decode_logits(one_line_logits, chars)
     top_texts = ctc_decode_logits(outputs["top_logits"], chars)
     bottom_texts = ctc_decode_logits(outputs["bottom_logits"], chars)
@@ -68,7 +70,7 @@ def line_ctc_greedy_decode(
 
 
 class SmallLPRLineCTC(nn.Module):
-    """SmallLPR encoder with global CTC, two soft line CTC heads, and layout head."""
+    """SmallLPR encoder with optional global CTC plus layout-aware line heads."""
 
     def __init__(
         self,
@@ -78,6 +80,7 @@ class SmallLPRLineCTC(nn.Module):
         line_prior_strength: float = 1.0,
         use_stn: bool = True,
         use_pos_enc: bool = True,
+        use_global_head: bool = True,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -85,6 +88,7 @@ class SmallLPRLineCTC(nn.Module):
         self.line_prior_strength = float(line_prior_strength)
         self.use_stn = bool(use_stn)
         self.use_pos_enc = bool(use_pos_enc)
+        self.use_global_head = bool(use_global_head)
 
         self.stn = _STNet()
         self.backbone = SmallLPRBackbone(out_channels=backbone_ch)
@@ -92,7 +96,9 @@ class SmallLPRLineCTC(nn.Module):
         self.pos_enc_2d = LearnablePositional2D(max_h=8, max_w=16, d_model=d_model)
         self.enc_norm = nn.LayerNorm(d_model)
 
-        self.global_head = nn.Linear(d_model, vocab_size)
+        self.global_head = (
+            nn.Linear(d_model, vocab_size) if self.use_global_head else None
+        )
         self.one_line_head = nn.Linear(d_model, vocab_size)
         self.top_head = nn.Linear(d_model, vocab_size)
         self.bottom_head = nn.Linear(d_model, vocab_size)
@@ -107,7 +113,8 @@ class SmallLPRLineCTC(nn.Module):
         self._init_heads()
 
     def _init_heads(self) -> None:
-        for head in (self.global_head, self.one_line_head, self.top_head, self.bottom_head):
+        heads = (self.global_head, self.one_line_head, self.top_head, self.bottom_head)
+        for head in (head for head in heads if head is not None):
             nn.init.trunc_normal_(head.weight, std=0.02)
             nn.init.zeros_(head.bias)
         nn.init.zeros_(self.one_line_attention.weight)
@@ -160,10 +167,6 @@ class SmallLPRLineCTC(nn.Module):
 
     def forward(self, images: torch.Tensor) -> Dict[str, torch.Tensor]:
         feat = self.encode_2d(images)
-        batch, height, width, dim = feat.shape
-
-        global_seq = feat.reshape(batch, height * width, dim)
-        global_logits = self.global_head(global_seq)
 
         pooled = feat.mean(dim=(1, 2))
         layout_logits = self.layout_head(pooled)
@@ -175,8 +178,7 @@ class SmallLPRLineCTC(nn.Module):
         top_logits = self.top_head(line_feat[:, 0])
         bottom_logits = self.bottom_head(line_feat[:, 1])
 
-        return {
-            "global_logits": global_logits,
+        outputs = {
             "one_line_logits": one_line_logits,
             "top_logits": top_logits,
             "bottom_logits": bottom_logits,
@@ -185,6 +187,11 @@ class SmallLPRLineCTC(nn.Module):
             "top_attention": attention[:, 0],
             "bottom_attention": attention[:, 1],
         }
+        if self.global_head is not None:
+            batch, height, width, dim = feat.shape
+            global_seq = feat.reshape(batch, height * width, dim)
+            outputs["global_logits"] = self.global_head(global_seq)
+        return outputs
 
     @torch.no_grad()
     def greedy_decode(self, images: torch.Tensor, chars: List[str]) -> List[str]:

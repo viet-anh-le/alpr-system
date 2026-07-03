@@ -1,0 +1,15 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'Chuong/2_Khao_sat.blg'
+[74] biber:340> INFO - === Mon Jun 29, 2026, 11:50:53
+[91] Biber.pm:419> INFO - Reading 'Chuong/2_Khao_sat.bcf'
+[157] Biber.pm:979> INFO - Found 19 citekeys in bib section 0
+[172] Biber.pm:4419> INFO - Processing section 0
+[190] Biber.pm:4610> INFO - Looking for bibtex file 'Danh_sach_tai_lieu_tham_khao.bib' for section 0
+[193] bibtex.pm:1713> INFO - LaTeX decoding ...
+[226] bibtex.pm:1519> INFO - Found BibTeX data source 'Danh_sach_tai_lieu_tham_khao.bib'
+[441] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[441] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[441] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[441] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[457] bbl.pm:660> INFO - Writing 'Chuong/2_Khao_sat.bbl' with encoding 'UTF-8'
+[466] bbl.pm:763> INFO - Output to Chuong/2_Khao_sat.bbl

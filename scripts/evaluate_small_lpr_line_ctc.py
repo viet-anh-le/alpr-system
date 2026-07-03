@@ -89,6 +89,7 @@ def load_model(checkpoint: Path, args: Namespace, device: torch.device) -> Small
         "line_prior_strength",
         "use_stn",
         "use_pos_enc",
+        "use_global_head",
         "two_line_threshold",
         "global_loss_weight",
         "one_line_loss_weight",
@@ -151,7 +152,10 @@ def layout_char_probs(
     *,
     line_separator: str = "[SEP]",
 ) -> list[list[tuple[str, float]]]:
-    one_line = logits_to_char_probs(outputs.get("one_line_logits", outputs["global_logits"]), chars)
+    one_line_logits = outputs.get("one_line_logits")
+    if one_line_logits is None:
+        one_line_logits = outputs["global_logits"]
+    one_line = logits_to_char_probs(one_line_logits, chars)
     top = logits_to_char_probs(outputs["top_logits"], chars)
     bottom = logits_to_char_probs(outputs["bottom_logits"], chars)
     layout_probs = torch.softmax(outputs["layout_logits"], dim=-1)
@@ -174,7 +178,7 @@ def evaluate(
     device: torch.device,
     batch_size: int,
     format_correction: bool,
-) -> dict[str, float | int | str]:
+) -> dict[str, float | int | str | bool | None]:
     format_mode = (
         "alnum"
         if getattr(args, "label_mode", "raw") == "alnum" or getattr(args, "line_separator", "[SEP]") == ""
@@ -209,7 +213,12 @@ def evaluate(
         batch_size_actual = images.size(0)
         val_loss_sum += float(losses["loss"].detach().cpu()) * batch_size_actual
 
-        global_texts = ctc_decode_logits(outputs["global_logits"], args.chars)
+        global_logits = outputs.get("global_logits")
+        global_texts = (
+            ctc_decode_logits(global_logits, args.chars)
+            if global_logits is not None
+            else None
+        )
         layout_texts = line_ctc_greedy_decode(
             outputs,
             args.chars,
@@ -217,8 +226,8 @@ def evaluate(
             line_separator=getattr(args, "line_separator", "[SEP]"),
         )
         char_probs = (
-            logits_to_char_probs(outputs["global_logits"], args.chars)
-            if model.decode_mode == "global"
+            logits_to_char_probs(global_logits, args.chars)
+            if model.decode_mode == "global" and global_logits is not None
             else layout_char_probs(
                 outputs,
                 args.chars,
@@ -237,7 +246,8 @@ def evaluate(
         layout_preds = outputs["layout_logits"].argmax(dim=-1).detach().cpu().tolist()
         for idx, gt in enumerate(batch["texts"]):
             totals["samples"] += 1
-            totals["global"] += int(global_texts[idx] == gt)
+            if global_texts is not None:
+                totals["global"] += int(global_texts[idx] == gt)
             totals["exact"] += int(pred_texts[idx] == gt)
             totals["valid_format"] += int(is_vn_plate_chars(char_probs[idx], format_mode=format_mode))
             if labels[idx] in (LAYOUT_ONE_LINE, LAYOUT_TWO_LINE):
@@ -254,7 +264,8 @@ def evaluate(
     return {
         "samples": totals["samples"],
         "exact_acc": totals["exact"] / samples,
-        "global_acc": totals["global"] / samples,
+        "global_acc": totals["global"] / samples if model.use_global_head else None,
+        "global_head_enabled": model.use_global_head,
         "layout_acc": totals["layout"] / max(1, totals["layout_valid"]),
         "one_line_acc": totals["one_line"] / max(1, totals["one_line_total"]),
         "two_line_acc": totals["two_line"] / max(1, totals["two_line_total"]),

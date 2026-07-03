@@ -1,16 +1,22 @@
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {1.1}{\ignorespaces Một số thách thức thường gặp đối với ảnh cắt biển số trong thực tế (từ trái qua phải, từ trên xuống dưới: mờ nhòe do chuyển động, lóa sáng do đèn pha và thiếu sáng/nhiễu hạt)}}{2}{figure.caption.8}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {2.1}{\ignorespaces Kiến trúc tổng quát của mô hình YOLOv5}}{8}{figure.caption.9}%
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Kiến trúc tổng quát của mô hình YOLOv5 \blx@tocontentsinit {0}\cite {nagvekar2023yolov5}}}{8}{figure.caption.9}%
 \contentsline {figure}{\numberline {2.2}{\ignorespaces So sánh trực quan giữa khả năng định vị của hộp bao ngang (HBB) và hộp bao có hướng (OBB) trên biển số xe}}{9}{figure.caption.10}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces Flow chart tổng quan pipeline xử lí nhận dạng biển số trên video}}{18}{figure.caption.16}%
-\contentsline {figure}{\numberline {3.2}{\ignorespaces Kiến trúc tổng quát của mô hình OCR biển số}}{26}{figure.caption.24}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Sơ đồ tổng quan pipeline xử lí nhận dạng biển số chuyên dùng trên video}}{16}{figure.caption.16}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Lưu đồ thuật toán phân loại chất lượng và định tuyến xử lý}}{21}{figure.caption.20}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Kiến trúc mô hình OCR \texttt {SmallLPR-Line-CTC}}}{22}{figure.caption.23}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Cơ chế tổng hợp đa khung hình CTM}}{29}{figure.caption.33}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1}{\ignorespaces Sơ đồ use case tổng quan}}{35}{figure.caption.33}%
-\contentsline {figure}{\numberline {4.2}{\ignorespaces Biểu đồ phụ thuộc gói}}{37}{figure.caption.38}%
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Kiến trúc gói của hệ thống Web App theo mô hình ba tầng}}{39}{figure.caption.42}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Giao diện tổng quan của hệ thống phần mềm}}{41}{figure.caption.47}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces Bảng điều khiển chi tiết truy xuất kết quả nhận dạng phương tiện và chuỗi bằng chứng OCR}}{42}{figure.caption.48}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces Giao diện ghi vết các trường hợp khung hình biển số bị từ chối}}{42}{figure.caption.49}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Giao diện phân tích bộ đệm bằng chứng để gỡ lỗi hiện tượng ID Switch}}{43}{figure.caption.50}%
+\contentsline {figure}{\numberline {4.6}{\ignorespaces Giao diện thao tác đánh dấu sự kiện và trích xuất phân đoạn luồng trực tiếp}}{44}{figure.caption.51}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {5.1}{\ignorespaces Ma trận nhầm lẫn chuẩn hóa của mô hình Quality Router sau fine-tune}}{49}{figure.caption.53}%
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Ma trận nhầm lẫn chuẩn hóa của mô hình Quality Router sau fine-tune}}{48}{figure.caption.57}%
 \addvspace {10\p@ }
 \contentsfinish 
 \contentsfinish 

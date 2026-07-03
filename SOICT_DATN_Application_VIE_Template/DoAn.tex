@@ -25,6 +25,7 @@
 \usepackage{capt-of} % Cho phép sử dụng caption lớn đối với landscape page
 \usepackage{multirow} % Merge cells
 \usepackage{fancyhdr} % Cho phép tùy biến header và footer
+\setlength{\headheight}{18pt}
 % \usepackage[natbib,backend=biber,style=ieee]{biblatex} % Giúp chèn tài liệu tham khảo
 \usepackage{appendix}
 \usepackage{rotating}
@@ -37,11 +38,14 @@
 \usepackage[font=small,labelfont=bf]{caption}
 
 \usepackage{listings}
+
+\raggedbottom
+
 \usepackage{float}
 \usepackage{subcaption}
 \usepackage{xurl}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,quotes}
+\usetikzlibrary{positioning,arrows.meta,quotes,shapes.geometric}
 
 \usepackage[nonumberlist, nopostdot, nogroupskip, acronym]{glossaries}
 \usepackage{glossary-superragged}
@@ -58,7 +62,7 @@
 % ===================================================
 
 \renewcommand{\bibname}{Danh_sach_tai_lieu_tham_khao} 
-\usepackage[backend=bibtex,style=ieee]{biblatex}  %backend=biber is 'better'
+\usepackage[backend=biber,style=ieee]{biblatex}  %backend=biber is 'better'
 
 \renewcommand\appendixname{PHỤ LỤC}
 \renewcommand\appendixpagename{PHỤ LỤC}
@@ -83,7 +87,7 @@
 \setlength{\headheight}{10pt}
 
 \def \TITLE{ĐỒ ÁN TỐT NGHIỆP}
-\def \AUTHOR{NGUYỄN VĂN ABC}
+\def \AUTHOR{Lê Việt Anh}
 
 % ===================================================
 \titleformat{\chapter}[hang]{\centering\bfseries}{CHƯƠNG \thechapter.\ }{0pt}{}[]

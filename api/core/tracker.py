@@ -153,7 +153,10 @@ class TrackBuffer:
         if len(self.crops) > self.max_size:
             worst = min(
                 range(len(self.crops)),
-                key=lambda i: self._combined(self.quality_scores[i], self.ocr_confs[i]),
+                key=lambda i: (
+                    1 if self.router_results[i].get("legibility") in ("perfect", "good") else 0,
+                    self._combined(self.quality_scores[i], self.ocr_confs[i]),
+                ),
             )
             del self.crops[worst]
             del self.quality_scores[worst]
@@ -171,12 +174,16 @@ class TrackBuffer:
         if not self.crops:
             return [], [], []
         combined = [self._combined(q, c) for q, c in zip(self.quality_scores, self.ocr_confs)]
+        is_prioritized = [
+            1 if res.get("legibility") in ("perfect", "good") else 0
+            for res in self.router_results
+        ]
         triples = sorted(
-            zip(combined, self.crops, self.char_prob_lists),
-            key=lambda x: x[0],
+            zip(is_prioritized, combined, self.crops, self.char_prob_lists),
+            key=lambda x: (x[0], x[1]),
             reverse=True,
         )[:k]
-        scores, crops, prob_lists = zip(*triples)
+        _, scores, crops, prob_lists = zip(*triples)
         return list(crops), list(scores), list(prob_lists)
 
     def top_k_entries(self, k: int = TOP_K_FRAMES) -> list[TrackBufferEntry]:
@@ -203,7 +210,14 @@ class TrackBuffer:
                 self.router_results,
             )
         ]
-        return sorted(entries, key=lambda entry: entry.combined_score, reverse=True)[:k]
+        return sorted(
+            entries,
+            key=lambda entry: (
+                1 if entry.router_result.get("legibility") in ("perfect", "good") else 0,
+                entry.combined_score,
+            ),
+            reverse=True,
+        )[:k]
 
 
 # ── Tracklet manager ──────────────────────────────────────────────────────────
@@ -441,8 +455,9 @@ class WebTrackletManager:
                     votes.setdefault(char, []).append(conf)
             if not votes:
                 continue
-            # Vote by total confidence mass (incorporates both frequency and confidence)
-            best_char = max(votes, key=lambda c: sum(votes[c]))
+            # Bầu chọn theo số lượng vote trước (frequency).
+            # Nếu số lượng vote bằng nhau (ví dụ 50/50), lấy kí tự có độ tự tin cao nhất làm tie-breaker.
+            best_char = max(votes, key=lambda c: (len(votes[c]), max(votes[c])))
             # Ensemble confidence: total confidence divided by total frames
             best_conf = sum(votes[best_char]) / len(prob_lists)
             result.append((best_char, best_conf))

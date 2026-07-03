@@ -1,0 +1,68 @@
+@startuml ch3_ocr_architecture
+!theme plain
+skinparam backgroundColor white
+skinparam defaultTextAlignment center
+
+skinparam rectangle {
+  BackgroundColor #F5F5DC
+  BorderColor #333333
+  RoundCorner 5
+}
+
+skinparam component {
+  BackgroundColor #E8E8E8
+  BorderColor #333333
+  RoundCorner 3
+}
+
+skinparam database {
+  BackgroundColor #D0E8FF
+  BorderColor #333333
+  RoundCorner 3
+}
+
+skinparam arrow {
+  Color #333333
+  Thickness 1.5
+}
+
+title Kiến trúc mô hình OCR SmallLPR-Line-CTC
+
+' ── INPUT ──────────────────────────────────────────────
+rectangle "Input Images\n1×H×W" as input #E8FFE8
+
+' ── AFFINE BRANCH ──────────────────────────────────────
+component "Affine\nTransformation" as affine #F5DEB3
+component "CNN\nBackbone\n(Feature Extraction)" as cnn #E8E8E8
+component "Feature Map\nC×H_f×W_f" as featmap #D0E8FF
+
+' ── ATTENTION BRANCH ───────────────────────────────────
+component "Attention\nMechanism\n(Channel + Spatial)" as attn #FFE4C4
+component "Attention Map\nC×H_f×W_f" as attnmap #FFDAB9
+
+' ── FUSION ─────────────────────────────────────────────
+component "Feature Fusion\n(+ Attention)" as fusion #E0E0FF
+
+' ── SEQUENCE MODELING ──────────────────────────────────
+component "GRU\n×4 layers" as gru #E8E8E8
+component "Classification" as cls #E8E8E8
+
+' ── OUTPUT ─────────────────────────────────────────────
+rectangle "Output\n辽JE6230" as output #E8FFE8
+
+' ── ARROWS ─────────────────────────────────────────────
+input --> affine
+affine --> cnn
+cnn --> featmap
+
+input -[hidden]--> attn
+attn --> attnmap
+
+featmap --> fusion
+attnmap --> fusion
+
+fusion --> gru
+gru --> cls
+cls --> output
+
+@enduml

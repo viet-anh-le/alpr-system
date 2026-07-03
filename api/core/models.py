@@ -308,6 +308,7 @@ def load_small_lpr_line_ctc_model(
             line_prior_strength=float(_arg_value(args, "line_prior_strength", 1.0)),
             use_stn=bool(_arg_value(args, "use_stn", True)),
             use_pos_enc=bool(_arg_value(args, "use_pos_enc", True)),
+            use_global_head=bool(_arg_value(args, "use_global_head", True)),
         )
         .to(device)
         .eval()
@@ -532,7 +533,9 @@ def small_lpr_line_ctc_ocr_batch(
     model = wrapper.model.to(device).eval()
     outputs = model(images.to(device, non_blocking=True))
     layout_probs = torch.softmax(outputs["layout_logits"], dim=-1)
-    one_line_logits = outputs.get("one_line_logits", outputs["global_logits"])
+    one_line_logits = outputs.get("one_line_logits")
+    if one_line_logits is None:
+        one_line_logits = outputs["global_logits"]
 
     one_line_chars = _ctc_logits_to_char_probs(one_line_logits, wrapper.chars)
     top_chars = _ctc_logits_to_char_probs(outputs["top_logits"], wrapper.chars)

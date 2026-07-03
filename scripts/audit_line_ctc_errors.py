@@ -248,7 +248,12 @@ def audit_dataset(
                 args.chars,
                 two_line_threshold=float(getattr(args, "two_line_threshold", 0.5)),
             )
-            global_preds = ctc_decode_logits(outputs["global_logits"], args.chars)
+            global_logits = outputs.get("global_logits")
+            global_preds = (
+                ctc_decode_logits(global_logits, args.chars)
+                if global_logits is not None
+                else ["" for _ in line_preds]
+            )
             layout_probs = torch.softmax(outputs["layout_logits"], dim=-1).detach().cpu()
             layout_preds = layout_probs.argmax(dim=-1).tolist()
 

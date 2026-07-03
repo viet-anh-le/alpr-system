@@ -1,33 +1,31 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {3.1}{\ignorespaces Thống kê dữ liệu phát hiện biển số}}{18}{table.caption.17}%
-\contentsline {table}{\numberline {3.2}{\ignorespaces Thống kê tập dữ liệu OCR}}{19}{table.caption.18}%
-\contentsline {table}{\numberline {3.3}{\ignorespaces Thống kê bố cục}}{19}{table.caption.19}%
-\contentsline {table}{\numberline {3.4}{\ignorespaces Thống kê màu nền biển số}}{20}{table.caption.20}%
-\contentsline {table}{\numberline {3.5}{\ignorespaces Thống kê dữ liệu đánh giá chất lượng biển số}}{20}{table.caption.21}%
-\contentsline {table}{\numberline {3.6}{\ignorespaces Phân bố nhãn trong dữ liệu chất lượng}}{21}{table.caption.22}%
-\contentsline {table}{\numberline {3.7}{\ignorespaces Cấu hình huấn luyện mô hình phát hiện biển số dạng OBB}}{22}{table.caption.23}%
-\contentsline {table}{\numberline {3.8}{\ignorespaces Kiến trúc STN alignment network}}{26}{table.caption.25}%
-\contentsline {table}{\numberline {3.9}{\ignorespaces Khối cơ bản \texttt {SmallBasicBlockCBAM}}}{27}{table.caption.26}%
-\contentsline {table}{\numberline {3.10}{\ignorespaces Backbone CNN của \texttt {SmallLPR-Line-CTC}}}{28}{table.caption.27}%
-\contentsline {table}{\numberline {3.11}{\ignorespaces Các head nhận dạng và bố cục}}{29}{table.caption.28}%
+\contentsline {table}{\numberline {3.1}{\ignorespaces Kiến trúc STN alignment network}}{23}{table.caption.24}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Khối cơ bản \texttt {SmallBasicBlockCBAM}}}{23}{table.caption.25}%
+\contentsline {table}{\numberline {3.3}{\ignorespaces Backbone CNN của \texttt {SmallLPR-Line-CTC}}}{24}{table.caption.26}%
+\contentsline {table}{\numberline {3.4}{\ignorespaces Các head nhận dạng và bố cục}}{24}{table.caption.27}%
+\contentsline {table}{\numberline {3.5}{\ignorespaces Chi phí căn một token OCR vào một vị trí của mẫu}}{26}{table.caption.30}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1}{\ignorespaces Danh sách thư viện và công cụ sử dụng}}{38}{table.4.1}%
-\contentsline {table}{\numberline {4.2}{\ignorespaces Các thành phần giao diện chính}}{41}{table.caption.42}%
-\contentsline {table}{\numberline {4.3}{\ignorespaces Các nhóm API chính của backend}}{42}{table.caption.43}%
-\contentsline {table}{\numberline {4.4}{\ignorespaces Các collection và document trong MongoDB}}{44}{table.caption.45}%
-\contentsline {table}{\numberline {4.5}{\ignorespaces Các chỉ mục MongoDB chính}}{45}{table.caption.47}%
-\contentsline {table}{\numberline {4.6}{\ignorespaces Cấu hình triển khai ứng dụng}}{45}{table.caption.48}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces Thống kê dữ liệu phát hiện biển số}}{32}{table.caption.34}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Thống kê tập dữ liệu OCR}}{33}{table.caption.35}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Thống kê bố cục}}{33}{table.caption.36}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Thống kê dữ liệu đánh giá chất lượng biển số}}{34}{table.caption.37}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces Phân bố nhãn trong dữ liệu chất lượng}}{34}{table.caption.38}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces Cấu hình huấn luyện mô hình phát hiện biển số dạng OBB}}{36}{table.caption.39}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Cấu hình huấn luyện mô hình Quality Router (YOLOv8n-cls)}}{37}{table.caption.40}%
+\contentsline {table}{\numberline {4.8}{\ignorespaces Cấu hình huấn luyện SmallLPR-Line-CTC}}{38}{table.caption.41}%
+\contentsline {table}{\numberline {4.9}{\ignorespaces Cấu hình triển khai ứng dụng}}{44}{table.caption.52}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1}{\ignorespaces Môi trường đánh giá}}{47}{table.caption.49}%
-\contentsline {table}{\numberline {5.2}{\ignorespaces Kết quả mô hình phát hiện phương tiện kế thừa từ Che et al.~\blx@tocontentsinit {0}\cite {che2023ctm}}}{48}{table.caption.50}%
-\contentsline {table}{\numberline {5.3}{\ignorespaces Kết quả validation của mô hình phát hiện biển số YOLOv8-OBB}}{48}{table.caption.51}%
-\contentsline {table}{\numberline {5.4}{\ignorespaces Kết quả validation của mô hình Quality Router}}{49}{table.caption.52}%
-\contentsline {table}{\numberline {5.5}{\ignorespaces Kết quả validation của checkpoint \texttt {SmallLPR\_Line\_CTC\_9501}}}{50}{table.caption.54}%
-\contentsline {table}{\numberline {5.6}{\ignorespaces Kết quả ablation của mô hình OCR}}{51}{table.caption.55}%
-\contentsline {table}{\numberline {5.7}{\ignorespaces So sánh OCR trên tập dữ liệu chỉ gồm chữ và số}}{51}{table.caption.56}%
-\contentsline {table}{\numberline {5.8}{\ignorespaces Kết quả đánh giá pipeline tổng thể theo ba kịch bản thử nghiệm}}{52}{table.caption.57}%
+\contentsline {table}{\numberline {5.1}{\ignorespaces Môi trường đánh giá}}{46}{table.caption.53}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Kết quả mô hình phát hiện phương tiện kế thừa từ Che et al.~\blx@tocontentsinit {0}\cite {che2023ctm}}}{47}{table.caption.54}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces Kết quả validation của mô hình phát hiện biển số YOLOv8-OBB}}{47}{table.caption.55}%
+\contentsline {table}{\numberline {5.4}{\ignorespaces Kết quả validation của mô hình Quality Router}}{48}{table.caption.56}%
+\contentsline {table}{\numberline {5.5}{\ignorespaces Kết quả validation của \texttt {SmallLPR\_Line\_CTC}}}{49}{table.caption.58}%
+\contentsline {table}{\numberline {5.6}{\ignorespaces Kết quả ablation của mô hình OCR}}{50}{table.caption.59}%
+\contentsline {table}{\numberline {5.7}{\ignorespaces So sánh OCR trên tập dữ liệu chỉ gồm chữ và số}}{50}{table.caption.60}%
+\contentsline {table}{\numberline {5.8}{\ignorespaces So sánh số lượng nhận dạng đúng và ảo giác giữa Best Single-frame và CTM}}{51}{table.caption.61}%
+\contentsline {table}{\numberline {5.9}{\ignorespaces So sánh độ chính xác Exact-match giữa Best Single-frame và CTM}}{51}{table.caption.62}%
 \addvspace {10\p@ }
 \contentsfinish 
 \contentsfinish 

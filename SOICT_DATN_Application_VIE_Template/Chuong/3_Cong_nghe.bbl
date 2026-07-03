@@ -3,8 +3,8 @@
 % Do not modify the above lines!
 %
 % This is an auxiliary file used by the 'biblatex' package.
-% This file may safely be deleted. It will be recreated as
-% required.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
 %
 \begingroup
 \makeatletter
@@ -16,249 +16,157 @@
   {}
 \endgroup
 
-\datalist[entry]{none/global//global/global}
-  \entry{wojcik2026lplcv2}{article}{}
-    \name{author}{5}{}{%
-      {{hash=WL}{%
-         family={Wojcik},
-         familyi={W\bibinitperiod},
-         given={Lucas},
-         giveni={L\bibinitperiod},
-      }}%
-      {{hash=MEAF}{%
-         family={Machoski},
-         familyi={M\bibinitperiod},
-         given={Eduardo A.\bibnamedelima F.},
-         giveni={E\bibinitperiod\bibinitdelim A\bibinitperiod\bibinitdelim F\bibinitperiod},
-      }}%
-      {{hash=NEJ}{%
-         family={Nascimento},
-         familyi={N\bibinitperiod},
-         given={Eduil\bibnamedelima Jr.},
-         giveni={E\bibinitperiod\bibinitdelim J\bibinitperiod},
-      }}%
-      {{hash=LR}{%
-         family={Laroca},
-         familyi={L\bibinitperiod},
-         given={Rayson},
-         giveni={R\bibinitperiod},
-      }}%
-      {{hash=MD}{%
-         family={Menotti},
-         familyi={M\bibinitperiod},
-         given={David},
-         giveni={D\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{WLMEAFNEJ+1}
-    \strng{fullhash}{WLMEAFNEJLRMD1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{title}{{LPLCv2}: An Expanded Dataset for Fine-Grained License Plate Legibility Classification}
-    \verb{url}
-    \verb https://arxiv.org/abs/2604.08741
-    \endverb
-    \field{journaltitle}{arXiv preprint arXiv:2604.08741}
-    \field{year}{2026}
-  \endentry
 
-  \entry{che2023ctm}{inproceedings}{}
-    \name{author}{3}{}{%
-      {{hash=CQH}{%
-         family={Che},
-         familyi={C\bibinitperiod},
-         given={Quang\bibnamedelima Huy},
-         giveni={Q\bibinitperiod\bibinitdelim H\bibinitperiod},
-      }}%
-      {{hash=DTT}{%
-         family={Do\bibnamedelima Thanh},
-         familyi={D\bibinitperiod\bibinitdelim T\bibinitperiod},
-         given={Tung},
-         giveni={T\bibinitperiod},
-      }}%
-      {{hash=TVC}{%
-         family={Truong\bibnamedelima Van},
-         familyi={T\bibinitperiod\bibinitdelim V\bibinitperiod},
-         given={Cuong},
-         giveni={C\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{CQHDTTTVC1}
-    \strng{fullhash}{CQHDTTTVC1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{booktitle}{2022 International Conference on Multimedia Analysis and Pattern Recognition (MAPR)}
-    \verb{doi}
-    \verb 10.1109/MAPR56351.2022.9924897
-    \endverb
-    \field{pages}{1\bibrangedash 6}
-    \field{title}{Character Time-series Matching for Robust License Plate Recognition}
-    \verb{url}
-    \verb https://arxiv.org/abs/2307.11336
-    \endverb
-    \field{year}{2022}
-  \endentry
-
-  \entry{aharon2022bot}{article}{}
-    \name{author}{3}{}{%
-      {{hash=AN}{%
-         family={Aharon},
-         familyi={A\bibinitperiod},
-         given={Nir},
-         giveni={N\bibinitperiod},
-      }}%
-      {{hash=OR}{%
-         family={Orfaig},
-         familyi={O\bibinitperiod},
-         given={Roy},
-         giveni={R\bibinitperiod},
-      }}%
-      {{hash=BBZ}{%
-         family={Bobrovsky},
-         familyi={B\bibinitperiod},
-         given={Ben-Zion},
-         giveni={B\bibinithyphendelim Z\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{ANORBBZ1}
-    \strng{fullhash}{ANORBBZ1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{title}{BoT-SORT: Robust associations multi-pedestrian tracking}
-    \field{journaltitle}{arXiv preprint arXiv:2206.14651}
-    \field{year}{2022}
-  \endentry
-
-  \entry{zherzdev2018lprnet}{article}{}
-    \name{author}{2}{}{%
-      {{hash=ZS}{%
-         family={Zherzdev},
-         familyi={Z\bibinitperiod},
-         given={Sergey},
-         giveni={S\bibinitperiod},
-      }}%
-      {{hash=GA}{%
-         family={Gruzdev},
-         familyi={G\bibinitperiod},
-         given={Alexey},
-         giveni={A\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{ZSGA1}
-    \strng{fullhash}{ZSGA1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{title}{LPRNet: License Plate Recognition via Deep Neural Networks}
-    \field{journaltitle}{arXiv preprint arXiv:1806.10447}
-    \field{year}{2018}
-  \endentry
-
-  \entry{jaderberg2015spatial}{inproceedings}{}
-    \name{author}{4}{}{%
-      {{hash=JM}{%
-         family={Jaderberg},
-         familyi={J\bibinitperiod},
-         given={Max},
-         giveni={M\bibinitperiod},
-      }}%
-      {{hash=SK}{%
-         family={Simonyan},
-         familyi={S\bibinitperiod},
-         given={Karen},
-         giveni={K\bibinitperiod},
-      }}%
-      {{hash=ZA}{%
-         family={Zisserman},
-         familyi={Z\bibinitperiod},
-         given={Andrew},
-         giveni={A\bibinitperiod},
-      }}%
-      {{hash=KK}{%
-         family={Kavukcuoglu},
-         familyi={K\bibinitperiod},
-         given={Koray},
-         giveni={K\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{JMSKZA+1}
-    \strng{fullhash}{JMSKZAKK1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{booktitle}{Advances in Neural Information Processing Systems}
-    \field{title}{Spatial Transformer Networks}
-    \verb{url}
-    \verb https://arxiv.org/abs/1506.02025
-    \endverb
-    \field{volume}{28}
-    \field{year}{2015}
-  \endentry
-
-  \entry{tan2019mixconv}{inproceedings}{}
-    \name{author}{2}{}{%
-      {{hash=TM}{%
-         family={Tan},
-         familyi={T\bibinitperiod},
-         given={Mingxing},
-         giveni={M\bibinitperiod},
-      }}%
-      {{hash=LQV}{%
-         family={Le},
-         familyi={L\bibinitperiod},
-         given={Quoc\bibnamedelima V.},
-         giveni={Q\bibinitperiod\bibinitdelim V\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{TMLQV1}
-    \strng{fullhash}{TMLQV1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{booktitle}{British Machine Vision Conference (BMVC)}
-    \field{title}{MixConv: Mixed Depthwise Convolutional Kernels}
-    \verb{url}
-    \verb https://arxiv.org/abs/1907.09595
-    \endverb
-    \field{year}{2019}
-  \endentry
-
-  \entry{woo2018cbam}{inproceedings}{}
-    \name{author}{4}{}{%
-      {{hash=WS}{%
-         family={Woo},
-         familyi={W\bibinitperiod},
-         given={Sanghyun},
-         giveni={S\bibinitperiod},
-      }}%
-      {{hash=PJ}{%
-         family={Park},
-         familyi={P\bibinitperiod},
-         given={Jongchan},
-         giveni={J\bibinitperiod},
-      }}%
-      {{hash=LJY}{%
-         family={Lee},
-         familyi={L\bibinitperiod},
-         given={Joon-Young},
-         giveni={J\bibinithyphendelim Y\bibinitperiod},
-      }}%
-      {{hash=KIS}{%
-         family={Kweon},
-         familyi={K\bibinitperiod},
-         given={In\bibnamedelima So},
-         giveni={I\bibinitperiod\bibinitdelim S\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{WSPJLJY+1}
-    \strng{fullhash}{WSPJLJYKIS1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{booktitle}{Proceedings of the European Conference on Computer Vision (ECCV)}
-    \field{pages}{3\bibrangedash 19}
-    \field{title}{CBAM: Convolutional Block Attention Module}
-    \verb{url}
-    \verb https://openaccess.thecvf.com/content_ECCV_2018/html/Sanghyun_Woo_Con
-    \verb volutional_Block_Attention_ECCV_2018_paper.html
-    \endverb
-    \field{year}{2018}
-  \endentry
-\enddatalist
+\refsection{0}
+  \datalist[entry]{none/global//global/global}
+    \entry{che2023ctm}{inproceedings}{}
+      \name{author}{3}{}{%
+        {{hash=666f7b8994ebe8643da69003f7e7b4c3}{%
+           family={Che},
+           familyi={C\bibinitperiod},
+           given={Quang\bibnamedelima Huy},
+           giveni={Q\bibinitperiod\bibinitdelim H\bibinitperiod}}}%
+        {{hash=a4327918a9a55fdbeb68dc0bd51df4b6}{%
+           family={Do\bibnamedelima Thanh},
+           familyi={D\bibinitperiod\bibinitdelim T\bibinitperiod},
+           given={Tung},
+           giveni={T\bibinitperiod}}}%
+        {{hash=578f47e573c29c50afa7de94a63be8f0}{%
+           family={Truong\bibnamedelima Van},
+           familyi={T\bibinitperiod\bibinitdelim V\bibinitperiod},
+           given={Cuong},
+           giveni={C\bibinitperiod}}}%
+      }
+      \strng{namehash}{f08dffb9404976c7e83d418e0fe488f7}
+      \strng{fullhash}{f08dffb9404976c7e83d418e0fe488f7}
+      \strng{bibnamehash}{f08dffb9404976c7e83d418e0fe488f7}
+      \strng{authorbibnamehash}{f08dffb9404976c7e83d418e0fe488f7}
+      \strng{authornamehash}{f08dffb9404976c7e83d418e0fe488f7}
+      \strng{authorfullhash}{f08dffb9404976c7e83d418e0fe488f7}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{2022 International Conference on Multimedia Analysis and Pattern Recognition (MAPR)}
+      \field{title}{Character Time-series Matching for Robust License Plate Recognition}
+      \field{year}{2022}
+      \field{pages}{1\bibrangedash 6}
+      \range{pages}{6}
+      \verb{doi}
+      \verb 10.1109/MAPR56351.2022.9924897
+      \endverb
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/2307.11336
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/2307.11336
+      \endverb
+    \endentry
+    \entry{aharon2022bot}{article}{}
+      \name{author}{3}{}{%
+        {{hash=a30cb5d4a7ccee60bc9581847cb26613}{%
+           family={Aharon},
+           familyi={A\bibinitperiod},
+           given={Nir},
+           giveni={N\bibinitperiod}}}%
+        {{hash=e32f1d857ac5a579d3b3ca47845bf860}{%
+           family={Orfaig},
+           familyi={O\bibinitperiod},
+           given={Roy},
+           giveni={R\bibinitperiod}}}%
+        {{hash=c1743cbf25c65a33eea6c5adad587105}{%
+           family={Bobrovsky},
+           familyi={B\bibinitperiod},
+           given={Ben-Zion},
+           giveni={B\bibinithyphendelim Z\bibinitperiod}}}%
+      }
+      \strng{namehash}{f451a756a0ca7f8b535b87d554bfe289}
+      \strng{fullhash}{f451a756a0ca7f8b535b87d554bfe289}
+      \strng{bibnamehash}{f451a756a0ca7f8b535b87d554bfe289}
+      \strng{authorbibnamehash}{f451a756a0ca7f8b535b87d554bfe289}
+      \strng{authornamehash}{f451a756a0ca7f8b535b87d554bfe289}
+      \strng{authorfullhash}{f451a756a0ca7f8b535b87d554bfe289}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:2206.14651}
+      \field{title}{BoT-SORT: Robust associations multi-pedestrian tracking}
+      \field{year}{2022}
+    \endentry
+    \entry{zherzdev2018lprnet}{article}{}
+      \name{author}{2}{}{%
+        {{hash=74c9c9337b6060f11079ce3d473fea26}{%
+           family={Zherzdev},
+           familyi={Z\bibinitperiod},
+           given={Sergey},
+           giveni={S\bibinitperiod}}}%
+        {{hash=c069b93942cc3666c4269462582bbce4}{%
+           family={Gruzdev},
+           familyi={G\bibinitperiod},
+           given={Alexey},
+           giveni={A\bibinitperiod}}}%
+      }
+      \strng{namehash}{241b3af9f6479eefb5f6821dd21f3298}
+      \strng{fullhash}{241b3af9f6479eefb5f6821dd21f3298}
+      \strng{bibnamehash}{241b3af9f6479eefb5f6821dd21f3298}
+      \strng{authorbibnamehash}{241b3af9f6479eefb5f6821dd21f3298}
+      \strng{authornamehash}{241b3af9f6479eefb5f6821dd21f3298}
+      \strng{authorfullhash}{241b3af9f6479eefb5f6821dd21f3298}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:1806.10447}
+      \field{title}{LPRNet: License Plate Recognition via Deep Neural Networks}
+      \field{year}{2018}
+    \endentry
+    \entry{woo2018cbam}{inproceedings}{}
+      \name{author}{4}{}{%
+        {{hash=d2a3537691dc8a58afa60ad3349cc936}{%
+           family={Woo},
+           familyi={W\bibinitperiod},
+           given={Sanghyun},
+           giveni={S\bibinitperiod}}}%
+        {{hash=3ae800a0c99ee6a4f5220a4ec7273a9a}{%
+           family={Park},
+           familyi={P\bibinitperiod},
+           given={Jongchan},
+           giveni={J\bibinitperiod}}}%
+        {{hash=796bd34af473b19f8c8038aa58262eb9}{%
+           family={Lee},
+           familyi={L\bibinitperiod},
+           given={Joon-Young},
+           giveni={J\bibinithyphendelim Y\bibinitperiod}}}%
+        {{hash=6d1ab3d0c6ded61b91ff3b155878558f}{%
+           family={Kweon},
+           familyi={K\bibinitperiod},
+           given={In\bibnamedelima So},
+           giveni={I\bibinitperiod\bibinitdelim S\bibinitperiod}}}%
+      }
+      \strng{namehash}{d214d7b5c081787633455cf134077150}
+      \strng{fullhash}{f2845c6d6bdba109b1276302b426eccd}
+      \strng{bibnamehash}{f2845c6d6bdba109b1276302b426eccd}
+      \strng{authorbibnamehash}{f2845c6d6bdba109b1276302b426eccd}
+      \strng{authornamehash}{d214d7b5c081787633455cf134077150}
+      \strng{authorfullhash}{f2845c6d6bdba109b1276302b426eccd}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the European Conference on Computer Vision (ECCV)}
+      \field{title}{CBAM: Convolutional Block Attention Module}
+      \field{year}{2018}
+      \field{pages}{3\bibrangedash 19}
+      \range{pages}{17}
+      \verb{urlraw}
+      \verb https://openaccess.thecvf.com/content_ECCV_2018/html/Sanghyun_Woo_Convolutional_Block_Attention_ECCV_2018_paper.html
+      \endverb
+      \verb{url}
+      \verb https://openaccess.thecvf.com/content_ECCV_2018/html/Sanghyun_Woo_Convolutional_Block_Attention_ECCV_2018_paper.html
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
 \endinput
+

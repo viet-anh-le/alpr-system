@@ -1,0 +1,248 @@
+<mxfile>
+<diagram name="Trang-1" id="DgsZ4WbhCuL54vg_WEFy">
+<mxGraphModel dx="1335" dy="793" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+<root>
+<mxCell id="0"/>
+<mxCell id="1" parent="0"/>
+
+<!-- ===================== PRESENTATION TIER ===================== -->
+<mxCell id="tier-presentation" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;Presentation Tier&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="280" width="1200" x="60" y="40" as="geometry"/>
+</mxCell>
+
+<!-- Authentication -->
+<mxCell id="pkg-auth" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;Authentication&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="130" width="270" x="80" y="100" as="geometry"/>
+</mxCell>
+<mxCell id="comp-login" parent="pkg-auth"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="Login" vertex="1">
+  <mxGeometry height="55" width="110" x="15" y="60" as="geometry"/>
+</mxCell>
+<mxCell id="comp-routeguard" parent="pkg-auth"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="RouteGuard" vertex="1">
+  <mxGeometry height="55" width="110" x="145" y="60" as="geometry"/>
+</mxCell>
+
+<!-- APIClient -->
+<mxCell id="pkg-apiclient" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;APIClient&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="130" width="270" x="390" y="100" as="geometry"/>
+</mxCell>
+<mxCell id="comp-httpclient" parent="pkg-apiclient"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="HTTPClient" vertex="1">
+  <mxGeometry height="55" width="110" x="15" y="60" as="geometry"/>
+</mxCell>
+<mxCell id="comp-sseclient" parent="pkg-apiclient"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="SSEClient" vertex="1">
+  <mxGeometry height="55" width="110" x="145" y="60" as="geometry"/>
+</mxCell>
+
+<!-- MainView -->
+<mxCell id="pkg-mainview" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;MainView&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="215" width="570" x="700" y="100" as="geometry"/>
+</mxCell>
+<mxCell id="comp-dashboard" parent="pkg-mainview"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="Dashboard" vertex="1">
+  <mxGeometry height="55" width="120" x="15" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-videoupload" parent="pkg-mainview"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="VideoUpload" vertex="1">
+  <mxGeometry height="55" width="120" x="155" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-resultview" parent="pkg-mainview"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="ResultView" vertex="1">
+  <mxGeometry height="55" width="120" x="295" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-historyview" parent="pkg-mainview"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="HistoryView" vertex="1">
+  <mxGeometry height="55" width="120" x="15" y="140" as="geometry"/>
+</mxCell>
+<mxCell id="comp-monitorview" parent="pkg-mainview"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="MonitorView" vertex="1">
+  <mxGeometry height="55" width="120" x="155" y="140" as="geometry"/>
+</mxCell>
+
+<!-- ===================== BUSINESS LOGIC TIER ===================== -->
+<mxCell id="tier-business" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=15;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;Business Logic Tier&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="340" width="1200" x="60" y="370" as="geometry"/>
+</mxCell>
+
+<!-- WebAPI -->
+<mxCell id="pkg-webapi" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#d5e8d4;strokeColor=#82b366;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;WebAPI&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="270" width="360" x="80" y="420" as="geometry"/>
+</mxCell>
+<mxCell id="comp-authapi" parent="pkg-webapi"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="AuthAPI" vertex="1">
+  <mxGeometry height="55" width="140" x="15" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-monitorapi" parent="pkg-webapi"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="MonitorAPI" vertex="1">
+  <mxGeometry height="55" width="140" x="195" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-recognitionapi" parent="pkg-webapi"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="RecognitionAPI" vertex="1">
+  <mxGeometry height="55" width="140" x="15" y="145" as="geometry"/>
+</mxCell>
+<mxCell id="comp-historyapi" parent="pkg-webapi"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="HistoryAPI" vertex="1">
+  <mxGeometry height="55" width="140" x="195" y="145" as="geometry"/>
+</mxCell>
+
+<!-- PipelineALPR — HIGHLIGHTED -->
+<mxCell id="pkg-pipeline" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#ffe6cc;strokeColor=#d6b656;fontStyle=1;strokeWidth=3;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;⭐ PipelineALPR&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="270" width="750" x="490" y="420" as="geometry"/>
+</mxCell>
+<mxCell id="comp-frameprocessing" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="FrameProcessing" vertex="1">
+  <mxGeometry height="55" width="155" x="15" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-vehicledetection" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="VehicleDetection" vertex="1">
+  <mxGeometry height="55" width="155" x="195" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-vehicletracking" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="VehicleTracking" vertex="1">
+  <mxGeometry height="55" width="155" x="375" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-platedetection" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="PlateDetection" vertex="1">
+  <mxGeometry height="55" width="155" x="555" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-qualityrouter" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="QualityRouter" vertex="1">
+  <mxGeometry height="55" width="155" x="15" y="150" as="geometry"/>
+</mxCell>
+<mxCell id="comp-plateocr" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="PlateOCR" vertex="1">
+  <mxGeometry height="55" width="155" x="195" y="150" as="geometry"/>
+</mxCell>
+<mxCell id="comp-resultaggregation" parent="pkg-pipeline"
+  style="strokeColor=inherit;fillColor=#fff2cc;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="ResultAggregation" vertex="1">
+  <mxGeometry height="55" width="155" x="375" y="150" as="geometry"/>
+</mxCell>
+
+<!-- ===================== DATA TIER ===================== -->
+<mxCell id="tier-data" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=15;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;Data Tier&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="200" width="1200" x="60" y="760" as="geometry"/>
+</mxCell>
+
+<!-- Database -->
+<mxCell id="pkg-database" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#e1d5e7;strokeColor=#9673a6;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;Database&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="130" width="720" x="80" y="810" as="geometry"/>
+</mxCell>
+<mxCell id="comp-userstore" parent="pkg-database"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="UserStore" vertex="1">
+  <mxGeometry height="55" width="175" x="15" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-recognitionstore" parent="pkg-database"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="RecognitionStore" vertex="1">
+  <mxGeometry height="55" width="175" x="210" y="55" as="geometry"/>
+</mxCell>
+<mxCell id="comp-monitoreventstore" parent="pkg-database"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="MonitorEventStore" vertex="1">
+  <mxGeometry height="55" width="175" x="405" y="55" as="geometry"/>
+</mxCell>
+
+<!-- ObjectStorage -->
+<mxCell id="pkg-objectstorage" parent="1"
+  style="html=1;shape=mxgraph.sysml.package;xSize=90;align=left;spacingLeft=10;overflow=fill;recursiveResize=0;fontSize=14;fillColor=#e1d5e7;strokeColor=#9673a6;"
+  value="&lt;p style=&quot;margin:0px;margin-top:4px;margin-left:10px;text-align:left;&quot;&gt;&lt;b&gt;ObjectStorage&lt;/b&gt;&lt;/p&gt;"
+  vertex="1">
+  <mxGeometry height="130" width="350" x="850" y="810" as="geometry"/>
+</mxCell>
+<mxCell id="comp-evidenceimagestore" parent="pkg-objectstorage"
+  style="strokeColor=inherit;fillColor=#ffffff;gradientColor=inherit;shape=folder;spacingLeft=10;tabWidth=40;tabHeight=14;tabPosition=left;fontSize=14;html=1;whiteSpace=wrap;"
+  value="EvidenceImageStore" vertex="1">
+  <mxGeometry height="55" width="200" x="60" y="55" as="geometry"/>
+</mxCell>
+
+<!-- ===================== EDGES ===================== -->
+<!-- Auth → APIClient -->
+<mxCell id="edge-auth-api" edge="1" parent="1" source="pkg-auth" target="pkg-apiclient"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+<!-- APIClient → MainView -->
+<mxCell id="edge-apiclient-mainview" edge="1" parent="1" source="pkg-apiclient" target="pkg-mainview"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+<!-- APIClient → WebAPI -->
+<mxCell id="edge-apiclient-webapi" edge="1" parent="1" source="pkg-apiclient" target="pkg-webapi"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+<!-- WebAPI → PipelineALPR -->
+<mxCell id="edge-webapi-pipeline" edge="1" parent="1" source="pkg-webapi" target="pkg-pipeline"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+<!-- WebAPI → Database -->
+<mxCell id="edge-webapi-db" edge="1" parent="1" source="pkg-webapi" target="pkg-database"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+<!-- PipelineALPR → ObjectStorage -->
+<mxCell id="edge-pipeline-objstore" edge="1" parent="1" source="pkg-pipeline" target="pkg-objectstorage"
+  style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endSize=12;dashed=1;rounded=0;fontSize=13;">
+  <mxGeometry relative="1" as="geometry"/>
+</mxCell>
+
+</root>
+</mxGraphModel>
+</diagram>
+</mxfile>

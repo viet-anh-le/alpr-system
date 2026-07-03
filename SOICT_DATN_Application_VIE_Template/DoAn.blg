@@ -1,65 +1,15 @@
-This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
-Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
-The top-level auxiliary file: DoAn.aux
-The style file: biblatex.bst
-Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
-Reallocated global_strs (elt_size=200001) to 20 items from 10.
-Reallocated glb_str_end (elt_size=4) to 20 items from 10.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Database file #1: DoAn-blx.bib
-Database file #2: Danh_sach_tai_lieu_tham_khao.bib
-Biblatex version: 3.19
-Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-You've used 20 entries,
-            6399 wiz_defined-function locations,
-            1310 strings with 13099 characters,
-and the built_in function-call counts, 200728 in all, are:
-= -- 17351
-> -- 2497
-< -- 459
-+ -- 6552
-- -- 1108
-* -- 14647
-:= -- 25174
-add.period$ -- 0
-call.type$ -- 20
-change.case$ -- 152
-chr.to.int$ -- 42
-cite$ -- 38
-duplicate$ -- 20787
-empty$ -- 16591
-format.name$ -- 1700
-if$ -- 39338
-int.to.chr$ -- 0
-int.to.str$ -- 41
-missing$ -- 0
-newline$ -- 757
-num.names$ -- 747
-pop$ -- 7510
-preamble$ -- 1
-purify$ -- 350
-quote$ -- 0
-skip$ -- 3464
-stack$ -- 0
-substring$ -- 33546
-swap$ -- 2871
-text.length$ -- 538
-text.prefix$ -- 0
-top$ -- 1
-type$ -- 668
-warning$ -- 0
-while$ -- 3040
-width$ -- 0
-write$ -- 738
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'DoAn.blg'
+[43] biber:340> INFO - === Mon Jun 29, 2026, 22:46:28
+[53] Biber.pm:419> INFO - Reading 'DoAn.bcf'
+[88] Biber.pm:979> INFO - Found 22 citekeys in bib section 0
+[95] Biber.pm:4419> INFO - Processing section 0
+[102] Biber.pm:4610> INFO - Looking for bibtex file 'Danh_sach_tai_lieu_tham_khao.bib' for section 0
+[104] bibtex.pm:1713> INFO - LaTeX decoding ...
+[122] bibtex.pm:1519> INFO - Found BibTeX data source 'Danh_sach_tai_lieu_tham_khao.bib'
+[239] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[240] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[240] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[240] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[250] bbl.pm:660> INFO - Writing 'DoAn.bbl' with encoding 'UTF-8'
+[255] bbl.pm:763> INFO - Output to DoAn.bbl

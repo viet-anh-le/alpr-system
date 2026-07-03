@@ -5,6 +5,7 @@ Examples:
     python scripts/train_small_lpr_line_ctc.py
     python scripts/train_small_lpr_line_ctc.py --epochs 100 --batch-size 64
     python scripts/train_small_lpr_line_ctc.py --data-root data/datasets/ocr --devices 1
+    python scripts/train_small_lpr_line_ctc.py --config LPRNet/config/small_lpr_line_ctc_no_global_config.yaml
 """
 
 from __future__ import annotations
@@ -38,7 +39,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", default=None, help="Root containing train/ and valid/ splits.")
     parser.add_argument("--train-split", default="train")
     parser.add_argument("--valid-split", default="valid")
-    parser.add_argument("--out-dir", default="weights/ocr/small_lpr_line_ctc")
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="Checkpoint root. Defaults to saving_ckpt from the selected config.",
+    )
     parser.add_argument("--run-name", default=None)
     parser.add_argument("--resume", default=None, help="Resume from a Lightning checkpoint.")
     parser.add_argument(
@@ -66,6 +71,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-use-stn", dest="use_stn", action="store_false")
     parser.add_argument("--use-pos-enc", dest="use_pos_enc", action="store_true", default=None)
     parser.add_argument("--no-use-pos-enc", dest="use_pos_enc", action="store_false")
+    parser.add_argument("--use-global-head", dest="use_global_head", action="store_true", default=None)
+    parser.add_argument("--no-use-global-head", dest="use_global_head", action="store_false")
     parser.add_argument("--precision", default="32")
     parser.add_argument("--devices", default="1")
     parser.add_argument("--seed", type=int, default=42)
@@ -110,13 +117,15 @@ def load_config(cli: argparse.Namespace) -> Namespace:
         "augment": cli.augment,
         "use_stn": cli.use_stn,
         "use_pos_enc": cli.use_pos_enc,
+        "use_global_head": cli.use_global_head,
     }
     for key, value in overrides.items():
         if value is not None:
             data[key] = value
 
     run_name = cli.run_name or datetime.now().strftime("line_ctc_%Y%m%d_%H%M%S")
-    ckpt_dir = _abs(cli.out_dir) / run_name
+    output_root = cli.out_dir or data.get("saving_ckpt", "weights/ocr/small_lpr_line_ctc")
+    ckpt_dir = _abs(output_root) / run_name
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     data["saving_ckpt"] = str(ckpt_dir)
     return Namespace(**data)
@@ -147,6 +156,9 @@ def _with_legacy_one_line_weights(
         compatible["model.one_line_attention.weight"] = current["model.one_line_attention.weight"].clone()
         compatible["model.one_line_attention.bias"] = current["model.one_line_attention.bias"].clone()
         print("  Legacy init: copied global_head -> one_line_head and kept fresh one_line_attention.")
+    if not model.use_global_head:
+        compatible.pop("model.global_head.weight", None)
+        compatible.pop("model.global_head.bias", None)
     return compatible
 
 
@@ -192,6 +204,7 @@ def train() -> None:
     print(f"  Augment    : {getattr(args, 'augment', True)}")
     print(f"  Use STN    : {getattr(args, 'use_stn', True)}")
     print(f"  Use 2D PE  : {getattr(args, 'use_pos_enc', True)}")
+    print(f"  Global head: {getattr(args, 'use_global_head', True)}")
     print(f"  Label mode : {getattr(args, 'label_mode', 'raw')}")
     print(f"  Line sep   : {getattr(args, 'line_separator', '[SEP]')!r}")
     print(f"  Decode mode: {getattr(args, 'decode_mode', 'layout')}")

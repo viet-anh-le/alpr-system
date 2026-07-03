@@ -38,6 +38,67 @@ def test_line_ctc_alnum_config_removes_format_tokens() -> None:
 
 
 @pytest.mark.unit
+def test_line_ctc_no_global_config_disables_global_branch() -> None:
+    config_path = ROOT / "LPRNet" / "config" / "small_lpr_line_ctc_no_global_config.yaml"
+
+    config = yaml.load(config_path.read_text(encoding="utf-8"), Loader=yaml.FullLoader)
+
+    assert config["use_global_head"] is False
+    assert config["global_loss_weight"] == pytest.approx(0.0)
+    assert config["decode_mode"] == "layout"
+    assert config["saving_ckpt"] == "weights/ocr/small_lpr_line_ctc_no_global"
+
+
+@pytest.mark.unit
+def test_training_uses_checkpoint_root_from_selected_config(tmp_path: Path) -> None:
+    module = _load_script("train_small_lpr_line_ctc")
+    output_root = tmp_path / "no_global_weights"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "train_dir": str(tmp_path / "train"),
+                "valid_dir": str(tmp_path / "valid"),
+                "test_dir": str(tmp_path / "valid"),
+                "saving_ckpt": str(output_root),
+                "chars": ["<blank>", "A"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    cli = Namespace(
+        config=str(config_path),
+        data_root=None,
+        train_split="train",
+        valid_split="valid",
+        out_dir=None,
+        run_name="unit_run",
+        epochs=None,
+        batch_size=None,
+        lr=None,
+        d_model=None,
+        exclude_paths_file=None,
+        global_loss_weight=None,
+        one_line_loss_weight=None,
+        top_loss_weight=None,
+        bottom_loss_weight=None,
+        layout_loss_weight=None,
+        line_prior_strength=None,
+        label_mode=None,
+        line_separator=None,
+        decode_mode=None,
+        augment=None,
+        use_stn=None,
+        use_pos_enc=None,
+        use_global_head=None,
+    )
+
+    args = module.load_config(cli)
+
+    assert Path(args.saving_ckpt) == output_root / "unit_run"
+
+
+@pytest.mark.unit
 def test_ablation_runner_builds_train_command_without_checkpoint_init(tmp_path: Path) -> None:
     module = _load_script("run_small_lpr_line_ctc_ablation")
     matrix = {

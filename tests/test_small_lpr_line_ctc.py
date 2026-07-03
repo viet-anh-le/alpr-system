@@ -335,6 +335,76 @@ def test_lightning_losses_include_one_line_ctc_branch() -> None:
 
 
 @pytest.mark.unit
+def test_lightning_losses_can_disable_global_head() -> None:
+    from lprnet.small_lpr_line_ctc_lightning import SmallLPRLineCTCLightning
+
+    args = SimpleNamespace(
+        chars=CHARS,
+        d_model=16,
+        backbone_ch=16,
+        line_prior_strength=1.0,
+        use_global_head=False,
+        global_loss_weight=0.0,
+        one_line_loss_weight=2.0,
+        top_loss_weight=3.0,
+        bottom_loss_weight=5.0,
+        layout_loss_weight=11.0,
+        two_line_threshold=0.5,
+        decode_mode="layout",
+        lr=1e-3,
+        weight_decay=1e-4,
+        scheduler="constant",
+        max_epochs=1,
+    )
+    module = SmallLPRLineCTCLightning(args)
+    vocab_size = len(CHARS)
+    outputs = {
+        "one_line_logits": torch.randn((2, 4, vocab_size), dtype=torch.float32),
+        "top_logits": torch.randn((2, 4, vocab_size), dtype=torch.float32),
+        "bottom_logits": torch.randn((2, 4, vocab_size), dtype=torch.float32),
+        "layout_logits": torch.randn((2, 2), dtype=torch.float32),
+    }
+    batch = {
+        "one_line_targets": torch.tensor([1, 2, 3], dtype=torch.long),
+        "one_line_lengths": torch.tensor([3, 0], dtype=torch.long),
+        "one_line_loss_mask": torch.tensor([True, False], dtype=torch.bool),
+        "top_targets": torch.tensor([1], dtype=torch.long),
+        "top_lengths": torch.tensor([0, 1], dtype=torch.long),
+        "top_loss_mask": torch.tensor([False, True], dtype=torch.bool),
+        "bottom_targets": torch.tensor([2], dtype=torch.long),
+        "bottom_lengths": torch.tensor([0, 1], dtype=torch.long),
+        "bottom_loss_mask": torch.tensor([False, True], dtype=torch.bool),
+        "layout_labels": torch.tensor([0, 1], dtype=torch.long),
+    }
+
+    losses = module._losses(outputs, batch)
+
+    expected = (
+        args.one_line_loss_weight * losses["one_line_ctc_loss"]
+        + args.top_loss_weight * losses["top_ctc_loss"]
+        + args.bottom_loss_weight * losses["bottom_ctc_loss"]
+        + args.layout_loss_weight * losses["layout_loss"]
+    )
+    assert losses["global_ctc_loss"] == pytest.approx(0.0)
+    assert torch.allclose(losses["loss"], expected)
+
+
+@pytest.mark.unit
+def test_lightning_without_global_head_rejects_global_decode_mode() -> None:
+    from lprnet.small_lpr_line_ctc_lightning import SmallLPRLineCTCLightning
+
+    args = SimpleNamespace(
+        chars=CHARS,
+        use_global_head=False,
+        global_loss_weight=0.0,
+        decode_mode="global",
+    )
+
+    with pytest.raises(ValueError, match="global head"):
+        SmallLPRLineCTCLightning(args)
+
+
+@pytest.mark.unit
 def test_lightning_decode_mode_can_use_global_branch() -> None:
     from lprnet.small_lpr_line_ctc_lightning import SmallLPRLineCTCLightning
 
@@ -441,6 +511,21 @@ def test_line_ctc_decode_can_join_two_line_output_without_sep_token() -> None:
 
 
 @pytest.mark.unit
+def test_line_ctc_decode_does_not_require_global_logits() -> None:
+    from lprnet.small_lpr_line_ctc import line_ctc_greedy_decode
+
+    ids = {char: idx for idx, char in enumerate(CHARS)}
+    outputs = {
+        "one_line_logits": _ctc_logits([ids["3"], ids["0"], ids["G"]], len(CHARS)),
+        "top_logits": _ctc_logits([ids["3"], ids["0"], ids["G"]], len(CHARS)),
+        "bottom_logits": _ctc_logits([ids["1"], ids["2"], ids["3"]], len(CHARS)),
+        "layout_logits": torch.tensor([[5.0, 0.0]]),
+    }
+
+    assert line_ctc_greedy_decode(outputs, CHARS) == ["30G"]
+
+
+@pytest.mark.unit
 def test_small_lpr_line_ctc_forward_shapes() -> None:
     from lprnet.small_lpr_line_ctc import SmallLPRLineCTC
 
@@ -458,6 +543,30 @@ def test_small_lpr_line_ctc_forward_shapes() -> None:
     assert tuple(outputs["one_line_attention"].shape) == (2, 6, 12)
     assert tuple(outputs["top_attention"].shape) == (2, 6, 12)
     assert tuple(outputs["bottom_attention"].shape) == (2, 6, 12)
+
+
+@pytest.mark.unit
+def test_small_lpr_line_ctc_forward_without_global_head() -> None:
+    from lprnet.small_lpr_line_ctc import SmallLPRLineCTC
+
+    model = SmallLPRLineCTC(
+        vocab_size=len(CHARS),
+        d_model=32,
+        backbone_ch=32,
+        use_global_head=False,
+    )
+    model.eval()
+
+    with torch.no_grad():
+        outputs = model(torch.zeros((2, 3, 48, 96), dtype=torch.float32))
+
+    assert model.global_head is None
+    assert not any(name.startswith("global_head.") for name in model.state_dict())
+    assert "global_logits" not in outputs
+    assert tuple(outputs["one_line_logits"].shape) == (2, 16, len(CHARS))
+    assert tuple(outputs["top_logits"].shape) == (2, 12, len(CHARS))
+    assert tuple(outputs["bottom_logits"].shape) == (2, 12, len(CHARS))
+    assert tuple(outputs["layout_logits"].shape) == (2, 2)
 
 
 @pytest.mark.unit

@@ -21,7 +21,7 @@ export default function SourceSelector({
       <div className="panel-header">
         <div>
           <p className="section-label">Event source</p>
-          <h2 className="mt-1 text-lg font-bold">Giám sát sự kiện theo cửa sổ ngắn</h2>
+          <h2 className="mt-1 text-lg font-bold">Phân tích trích đoạn</h2>
         </div>
         <SegmentedControl
           value={tab}

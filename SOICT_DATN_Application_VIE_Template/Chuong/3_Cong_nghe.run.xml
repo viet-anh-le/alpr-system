@@ -41,11 +41,10 @@
   >
 ]>
 <requests version="1.0">
-  <internal package="biblatex" priority="9" active="1">
+  <internal package="biblatex" priority="9" active="0">
     <generic>latex</generic>
     <provides type="dynamic">
-      <file>3_Cong_nghe.aux</file>
-      <file>3_Cong_nghe-blx.bib</file>
+      <file>3_Cong_nghe.bcf</file>
     </provides>
     <requires type="dynamic">
       <file>3_Cong_nghe.bbl</file>
@@ -53,7 +52,6 @@
     <requires type="static">
       <file>blx-dm.def</file>
       <file>blx-compat.def</file>
-      <file>blx-bibtex.def</file>
       <file>biblatex.def</file>
       <file>standard.bbx</file>
       <file>numeric.bbx</file>
@@ -65,15 +63,14 @@
       <file>english.lbx</file>
     </requires>
   </internal>
-  <external package="biblatex" priority="5" active="1">
-    <generic>bibtex</generic>
+  <external package="biblatex" priority="5" active="0">
+    <generic>biber</generic>
     <cmdline>
-      <binary>bibtex</binary>
-      <option>-min-crossrefs 2</option>
+      <binary>biber</binary>
       <infile>3_Cong_nghe</infile>
     </cmdline>
     <input>
-      <file>3_Cong_nghe.aux</file>
+      <file>3_Cong_nghe.bcf</file>
     </input>
     <output>
       <file>3_Cong_nghe.bbl</file>
@@ -82,14 +79,10 @@
       <file>3_Cong_nghe.bbl</file>
     </provides>
     <requires type="dynamic">
-      <file>3_Cong_nghe.aux</file>
-      <file>3_Cong_nghe-blx.bib</file>
+      <file>3_Cong_nghe.bcf</file>
     </requires>
     <requires type="editable">
       <file>Danh_sach_tai_lieu_tham_khao.bib</file>
-    </requires>
-    <requires type="static">
-      <file>biblatex.bst</file>
     </requires>
   </external>
 </requests>

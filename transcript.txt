@@ -1,0 +1,1315 @@
+ Thứ hai là em chỉ gọi nó qua một cái hàm API rồi em sắp xếp nó theo một cái thứ tự trình bày đó cũng được.
+ Và thứ hai nữa là tại sao em lại phải đi em làm cái hệ thống thiết kế mà nếu nói về hệ thống gọi là cái app thì của em lại quá đơn giản.
+ Tôi chỉ ngại nếu em không cẩn thận người ta sẽ đi sâu vào cái đấy thì công cụ của em cũng bỏ đi.
+ Em thấy tên đề tài của em là hệ thống.
+ Hệ thống có phải hệ thống nào cũng phải là hệ thống ứng dụng thì em vẫn có thể làm được.
+ Em phải nói thế nào? Ví dụ tôi hỏi đơn giản nhé.
+ Nếu em đọc cái hệ thống của em nó đơn giản quá.
+ Vậy thì tất cả những phần của em làm ấy nó ở chỗ nào trong hệ thống đấy?
+ Nó nói thành cái back-end của hệ thống hả?
+ Đúng. Thì em cứ nói thôi.
+ Cái back-end của em chỉ là vài cái quản lý chăm nghĩ thôi.
+ Nếu em định nói thì em phải nói thế nào?
+ Đấy. Em nói nó cứ rõ thôi.
+ Và trong lúc đó nhé, thật ra em muốn làm cái kiểu gọi là back-end cái đấy để em minh họa vào cái khả năng thôi.
+ Còn nếu thực sự em muốn làm được thì em phải khảo sát.
+ Tức là cái back-end của em, em dùng cho ai dùng.
+ Và cái người dùng đấy người ta sẽ đưa ra phiêu cầu thì em đảm cái hệ thống được.
+ Còn em không phải hệ thống theo nhu cầu đâu, không khảo sát đâu.
+ Và mình chỉ dùng cái mang tính là em vẫn làm tôi không phản đối nhưng em nói là cách trình bày của em ấy.
+ Cách trình bày của em nó bị thiên như thế thì người ta sẽ...
+ Tại vì nhìn đây nhé, em có nhìn bố cục này xét.
+ Cô sẽ chỉ ngay cho em trong bố cục. Đấy đây nhé.
+ Thì trong bố cục của em, thì đây người ta hiểu là vấn đề.
+ Vấn đề là nền tảng lý thuyết là em tìm hiểu, em đọc đâu thì thoải mái.
+ Em muốn đọc đâu thì đọc như hoặc sao cả.
+ Cái này tôi chỉ chỉ có một vật toán thôi, không quan trọng đâu.
+ Thế còn đây chính là gì? Đây là phương pháp.
+ Nó mang tính lý thuyết, không phải sơ đồ.
+ Còn cái phương pháp này có được thực thi hay không? Ai thực thi?
+ Thì câu trả lời thì chẳng nằm ở đây.
+ Vấn đề chính là phương pháp.
+ Tức là nó là luật luận, nó là phương pháp lý thuyết.
+ Thậm chí là nó là cái sơ đồ nhưng mà có thực thi hay không?
+ Có thực thi như thế nào? Có ai làm?
+ Thì trong đây tôi chả thấy kỷ niệm gì cả.
+ Vấn đề rất đơn giản, nếu người ta chỉ xóa ra đây thì sơ đồ có ai xóa ra đây?
+ Có ai phó quản ra đây?
+ Những người dùng không yêu cầu gì đâu.
+ Ông ấy không quản lý bằng em muốn làm cái này, muốn làm cái này này.
+ Cái triển khai này thì em phải thảo sát.
+ Tức là ai sẽ dùng cái này?
+ Ví dụ như ông Thanh tra giao thông, ông công an hay gì.
+ Thì lúc đấy ông sẽ có yêu cầu để thống dứt phức tạp.
+ Thế thì em phải làm sao để chỉ ra được rằng
+ cái bếp E này này nó chứa quan trọng nhất là cái này và em đã làm thế nào.
+ Tôi nghĩ là cái phần này em phải sẻ nó ra.
+ Phần nào lý thích của người ta, phần này em đưa vào đây.
+ Đấy, em phải ít lại đấy.
+ Chứ không là như thế này, như thế này.
+ Và bây giờ tại sao nó luôn luôn trong người ta.
+ Tại vì tôi cũng thấy rất nhiều cái môn rất đơn giản.
+ Chẳng phải làm gì cả, chỉ gọi thôi.
+ Và bây giờ cái gì nó cũng đưa vào hàm API hết rồi.
+ Tức là nó hói hết rồi.
+ Ngay cả cái thiết bị.
+ Bây giờ em có medium file như thế đấy.
+ Tức là trước khi em nói cái thông cho em để hiểu,
+ thì mình không dễ đâu.
+ Bây giờ nó hói ra như là một cái file ấy.
+ Một cái lời gọi hệ thống thôi.
+ Thế nó rất đơn giản.
+ Thế cái vấn đề thế.
+ Khi tôi đọc của em, tôi thấy hơi giật mình.
+ Và một cái điều nữa là tôi thấy em rất rất thích sơ đồ.
+ Em thích quá bằng chữ.
+ Cái đấy là cái dạng cho em.
+ Em thích chiều chiều nhiều quá.
+ Mà em rất thích sơ đồ.
+ Và chính cái sơ đồ với cái mạch nạp
+ mà người ta nhìn ngay là bản chất vấn đề của em.
+ Cứ thích la la la la.
+ Tức là giống như em kể, em làm thôi em kể.
+ Thì tôi nghĩ là tôi thích em rất nhiều.
+ Nhưng mà cách em diễn tả thế này là hướng dẫn.
+ Đây là cái nội dung của em.
+ Một đợi chú ý cho em thích lên.
+ Thích nhiều chỗ.
+ Nói chẳng là cái này này.
+ Cái này cái sơ đồ này em thích rất dại.
+ Mình rất dại là khác.
+ Nhưng mà thật chứ là không đưa vào được cái chính.
+ Nó bị lan lan.
+ Xong rồi ta có biết chính là gì.
+ Đâu là chính, đâu là phụ.
+ Đâu là cái mình làm.
+ Đâu là cái mình sử dụng có sẵn.
+ Và bây giờ trong môi trường hiện nay,
+ tất cả năm nay này,
+ những cái hàm có sẵn những cái API nó lại càng nhiều.
+ Có những cái sản phẩm nó lại càng nhiều.
+ Thế chúng ta làm ra một phân biệt.
+ Thực sự là bạn có làm hay là bạn chỉ dùng
+ gọi là gọi cái API.
+ Hay là gọi một cái gì đó thôi.
+ Xong rồi nhét cái API này cho nó coi đi.
+ Cái code của bạn sẽ thấy nó chỉ là
+ quy trình liên tiếp với cái API cạnh nhau.
+ Đó là điều này.
+ Ta vẫn làm được mà.
+ Đúng không?
+ Tiếp tục của em nó bị tình trạng khí.
+ Các đầu tư thôi.
+ Đấy.
+ Thế nên bây giờ em phải nghĩ cách nhé.
+ Thế nên em cứ suy nghĩ như thế.
+ Nếu tôi cứ gọi đến sớm thì em đọc.
+ Còn bây giờ tôi cứ xem như thế nào.
+ Đấy.
+ Và em phải xác định là cái chương này
+ chứ chưa em tạo được phương pháp
+ làm cái lần chuyển phương pháp đến sớm.
+ Chứ chưa phải là chuyển file hay là cài đặt
+ cái phương pháp đấy.
+ Em phải làm sao để nhận được
+ em chuyển file nó tới thế nào.
+ Em cài đặt thế nào.
+ Đấy.
+ Cái gì em gọi là cài đặt thế nào.
+ Đấy.
+ Em xử lý.
+ Chứ không thì người ta sẽ hỏi cái gì.
+ Chả có chuyển file này là gì cả.
+ Chứ là người ta tưởng tượng là mỗi một cái này này
+ là một cái khối của em.
+ Giống như một cái mô đun ấy.
+ Hay là một cái gì đấy.
+ Nó là API.
+ Em chỉ sắp xếp theo chữ tự
+ rồi mình có thể đoán là sao.
+ Có những gì đấy.
+ Cứ mỗi một cái khối
+ em làm một cái gì đấy.
+ Xong nó có một cái API.
+ Nó có một cái gì đấy.
+ Rồi mình cứ sắp xếp lại
+ trở thành một cái
+ một cái
+ một cái
+ một cái các cái dòng lệnh
+ của Python
+ của Microsoft
+ thì là nó chạy với nhau.
+ Nhưng mà đúng hả?
+ Các mô đun thật à?
+ Ờ thì nó là mô đun thật.
+ Thế thì em làm gì?
+ Thế thì là thật em đấy.
+ Vậy thì các thích em làm gì?
+ Thế nó là mô đun thật.
+ Nhưng mô đun đấy
+ em đã có can thiện
+ em đã có Python
+ em đã có làm gì không?
+ Em không thấy rõ.
+ Còn ngay ở trong này nhé.
+ Cái này đã phải đến mệnh.
+ Trong này
+ cái tư
+ cái đoán góp ít của em
+ là em đã biết kết hợp
+ các mô hình.
+ Và kết hợp các mô hình
+ đồng thời
+ gợi cả những thuật toán mẫu
+ đi làm thuật toán ấy
+ nhưng thuật toán
+ với mô hình
+ nó hơi khác nhau.
+ Mô hình nó phức tạp rất nhiều.
+ Còn thuật toán
+ nó chỉ là thuật toán
+ thì em biết mức chung chung.
+ Em biết cả những cái
+ kiểu như là đọc khung hình ấy.
+ Thế thì
+ em biết như thế này nhé.
+ Thì mức cảm giác là
+ tất nhiên là nó là Python
+ thì không sao
+ nhưng mà em không nhấn mạnh
+ em không trình bày gì ở dưới
+ cái cuột.
+ Thì cuối cùng
+ người ta cảm thấy
+ cái việc của em
+ nó quá đơn giản
+ mà trong đó
+ tôi thấy
+ em có đơn giản đâu
+ em cũng có bất hợp sức tích ấy.
+ Đúng không?
+ Thế thì bây giờ
+ em chỉ nghĩ cách trình bày
+ nhé.
+ Thế thì em chỉ nghĩ
+ vào trong đó đi.
+ Cái đoạn này nè.
+ Cái đoạn này này.
+ Thế thì người hướng thiện
+ tới rất nhiều thứ.
+ Thì người hướng thiện
+ tới rất nhiều thứ.
+ Có cả thuật toán
+ có cả hướng thiện
+ có cả hướng thiện.
+ Mà cảm giác thích bài
+ mà em cứ biết
+ bằng chữ thôi này.
+ Tôi xin nói thật
+ em thích bằng chữ này
+ không ai đọc kỹ đâu.
+ Mà không đọc kỹ
+ thì người ta sẽ
+ phán phán bước bước
+ để cảm thiện cho em thôi.
+ Người ta quan niệm là
+ để lại em đi
+ em thích mình.
+ Cái có sẵn.
+ Em muốn đem lại
+ một cách gì này
+ để lại.
+ Và có thể
+ đách ra một chút
+ cái phần em đưa vào
+ cái chương 4 ấy.
+ Tức là giữa chương này
+ là chương xây dựng.
+ Em cứ ra đây
+ xong tôi sẽ tắt
+ lắng cửa đi.
+ Tại vì chương 4 của em
+ chính là người ta sẽ quan tâm.
+ Chúng tôi là phản viện
+ bao giờ chúng tôi
+ không quan tâm là
+ cái phần bạn thực thi
+ thế nào
+ hoặc xin làm cái gì.
+ Nhưng cuối cùng
+ chương 4 của bạn
+ lại quá đơn giản.
+ Nên kiểu ngôn là
+ cũng đơn giản.
+ Chứ chắc như là
+ bây giờ bạn có thể dùng
+ bây giờ công cụ
+ bạn đưa vào hệ thống
+ nó có 3 lớp.
+ Đấy tức là một cái lớp
+ gọi là lớp dưới
+ và lớp dưới
+ trên cùng là cung khen
+ và dưới là cung khen.
+ Nên phải có 2 lớp.
+ Một cái lớp là
+ nghiên cứu cơ sở điệu
+ một cái lớp thứ 2 là
+ những cái hàm gì đấy
+ các bạn cũng được
+ nhưng mà cứ nhấn mạnh
+ làm lớp ra
+ thế này cũng chẳng biết
+ là những cái hàm
+ chung chung lên.
+ Và trong đó
+ thì phần này
+ lại quá đơn giản
+ cho em cả.
+ Các bạn có thấy không?
+ Chả có cái gì cả.
+ Tất cả nhiệm vụ
+ trong đó thì thật
+ cái cơ sở điệu
+ vô chữ của bạn
+ bạn dùng cái cái
+ Em biết là phần 92
+ Ừ không biết đâu
+ nhưng mà tôi không biết
+ cần dùng để làm gì
+ lưu cái gì như thế này
+ người ta sẽ hỏi lắm
+ ngay lưu cái gì.
+ Nhưng mà bạn
+ chưa có bài toán quản lý
+ thì bạn lưu cái gì nhiều?
+ Đấy
+ Vậy xem lại xem là
+ lịch sự là mình đã
+ chạy những video nào rồi ạ.
+ Thì đấy là cái gì
+ đấy chỉ là cái
+ cái nó gọi là
+ cá nhân hóa cho người dùng thôi.
+ Tức là đấy là cái phần
+ cơ sở điệu
+ cho cái phần
+ webline
+ tức là cái phần
+ không gọi là
+ công ty của bạn nào
+ gọi của bạn đây
+ chính là gì
+ nó gọi là app đấy
+ web app thôi
+ đúng rồi
+ thì cũng không sao
+ thì cũng được
+ nhưng mà cái web app
+ nó chỉ là cái phần
+ cho người dùng
+ còn cái phần này của bạn
+ thật nó thực ra
+ nó là phần hệ thống
+ mà nếu là
+ nếu là tùy bữa cảnh
+ nó dùng vào đâu
+ thì lúc đấy
+ người ta sẽ tích hợp là
+ có thể
+ bạn có thể làm app cộng đồng
+ cho gọi là cá nhân
+ ai tự làm
+ không thì
+ người ta có thể dùng
+ là hệ thống khác
+ có thể dùng hệ thống
+ ngôi công
+ hệ thống cơ an
+ hay là
+ có thể sử dụng
+ khác
+ miano
+ thấy mỡ
+ mοι
+ rong
+ sao
+ sao
+ theo
+ cái lựa chọn
+ mà
+ cái tiêu chọn
+ mà
+ xung quanh
+ xung quanh
+ có thể
+ giazing
+ lựa chọn
+ những cách
+ họ
+ vượt về
+ cái
+ họ
+ phân phこんな
+ bộ đảo
+ Nhất quán dùng cái chữ shocking là thay vết, chi vết lại không có chi vết là chất quốc hại.
+ Còn bám thôi mà tóm lại. Shocking nó mạnh hơn cả bám đấy nhé.
+ Shocking mạnh hơn cả bám, hiểu không?
+ Shocking là bám nhưng có dị loán. Em dùng của các man.
+ Còn cái bám không là có cái bám mà nó không có dị loán.
+ Em chỉ đi lên đâu đến giờ mới tạo ra sao suất ra, tạo ra cái đạo.
+ Trong lý thuyết là như thế này đấy.
+ Em vô cùng shocking là điều gì? Điều đó là thay vết và vừa tạo bám được.
+ Tức là của em cùng cái từ đấy thì em mấy lận mấy từ khác nhau.
+ Trong tiếng Việt ấy nó cứ lẫn lẫn thôi, không sao.
+ Thì cái này tôi lấy một chút từ để nói về gì.
+ Thứ nhưng mà đây là chính cái cách bạn báo góp rất nhiều trong cái phần này này.
+ Vấn đề là bạn triển khai, bạn cài đặt nhé.
+ Thứ nhưng bạn lại để phương pháp mà bạn lại khắc nhắc lại trong cái chương này.
+ Còn trong phần đánh giá thực nghiệm thì không sao, chuyện này là bình thường.
+ Cái đánh giá thực nghiệm nếu bạn không làm khéo thì người ta sẽ hiểu là bạn có một cái mô bưu, một cái phần mềm.
+ Bạn chỉ việc gọi là bạn đánh giá nó bằng cái công cụ thôi.
+ Nó chạy rồi bạn đánh giá thì cái việc này bạn đánh giá được rồi.
+ Nhưng mà nếu bạn có nộp rõ thì vậy thì cái bạn đánh giá nào đâu ra.
+ Nó góp công phức gì phải đoán ra đấy.
+ Thì chính cái chương bố này nó quá đơn giản.
+ Vậy thì chương bố này em phải nói rõ trước khi em nói xong chương bố.
+ Em phải nói rõ là cái mục đích của em và chính cái phần nhận nhất của nó.
+ Nó ẩn trong cái bách em này này.
+ Bách em này nếu em chỉ được nó 3 lớp.
+ Thì cái phần mà em đóng này nằm ở lớp nào.
+ Và trong cái này này tôi rất muốn là sao em tách được.
+ Bởi vì trong mỗi cái này em kể rất là nhiều.
+ Ví dụ một cái mạng này, một cái này.
+ Thì em cứ kể cái của người ta xong cái phát triển.
+ Thì nếu tốt nhất là em tách cái phần cái của người ta lại làm ra.
+ Em chỉ nhắc cái phần em chỉ cai thôi.
+ Cái phần dữ liệu của em.
+ Còn cái gì của người ta thì em nhắc nhẹ vậy.
+ Cái gì nó có sẵn ấy thì em nên phát nó ở cái phần công nghệ.
+ Cái phần dữ liệu của em.
+ Cái phần chương 2 này.
+ Phần tí của người ta.
+ Ví dụ cái bài báo đấy.
+ Còn nếu em muốn viết ở đây cũng được.
+ Thì em nhắc ở đây.
+ Ví dụ tôi xây thức mỗi một đoạn nhé.
+ Em dùng một mô hình thì em nhắc cho người ta là thế này.
+ Em làm thế này.
+ Cách viết của em là thế.
+ Tại vì cái phần thứ 2 là phần lý thuyết thì em không nói rồi.
+ Nhưng mà đến phần này là em muốn nói rằng là các cái mô hình nào mà em sử dụng.
+ Thì cái mô hình nhận diện phân tiện là em dùng hoàn toàn là mô hình pre-trained.
+ Từ cái mô hình nhận diện phân tiện số này thì là em gọi SDI.
+ Thì đấy.
+ Thì tôi muốn em phân tiện được cái phần đấy.
+ Để nó ra công sức của em.
+ Và cái gì mà em làm phần tí của người ta thì em để ở đây gọi là phương pháp.
+ Còn cái gì mà em có triển khai, em có cài đặt gọi là implementation.
+ Cái cài đặt ấy.
+ Thì em nên để vào chương 4 và viết nó thành một khối riêng.
+ Sau đó em nhét cái khối đấy vào một cái lớp của cái layer hn ấy.
+ Thế thì cái này lại đưa vào chương 4 rồi.
+ Em không đưa vào chương 4.
+ Cái khẳng định em này người ta sẽ không biết em làm gì hết.
+ Vì chương này là chương phương pháp.
+ Em nhắc lại với em.
+ Đây là lý thuyết.
+ Em có làm hay không người ta không biết là chỉ đây là phương pháp thôi.
+ Còn em gọi em làm anh.
+ Tại vì em biết lý thuyết nhưng có thể người khác sẽ cài đặt chứ không phải em.
+ Hoàn toàn đối với được.
+ Em hiểu không?
+ Cho nên cái của em cũng mệnh lạc chính là chuyện đấy.
+ Tức là cái chương 4 người ta mới quan niệm là cái em cài đặt.
+ Em triển khai.
+ Còn lại cái phần trên là phương pháp.
+ Em đề xuất phương pháp thì em có làm hay không là chuyện khác.
+ Tại phương pháp bây giờ nó không khó lắm vì nó có rất nhiều module.
+ Đấy.
+ Em muốn đem phần sang phương pháp đấy.
+ Đấy.
+ Làm sao em tách được.
+ Ờ.
+ Trong chương 4 phải có một cái phần.
+ Đấy chính đó.
+ Kết quả chính của em là hệ thống hiện dạng.
+ Chứ không phải là cái thông FB này đâu.
+ Không phải là cái FB.
+ Cái này chỉ là cái bên ngoài.
+ Thật ra nó là một cái dạng giao diện.
+ Trước đây chưa có công nghệ này.
+ Bây giờ công nghệ này năm nay mới phát triển mạnh.
+ Vì nó làm tất cả API.
+ Thậm chí thiết bị dựng API.
+ Cũng made in Python.
+ Rất ít.
+ Rất ít cái phần đấy.
+ Thực ra lập trình bằng C để làm nó không dễ một tí nào.
+ Nếu như nó gói hết cả.
+ Bạn chỉ gọi một dòng là xong.
+ Thành ra nó rất dễ.
+ Và năm nay các bạn mới thích làm cái này vì nó quá nhiều công cụ.
+ Thế thì bây giờ làm thế nào để em thể hiện được là.
+ Đúng em vẫn dùng tận dụng công cụ đấy.
+ Nhưng hệ thống của em cái nâng cấp công sức nhất ấy.
+ Là cái sơ đồ này cũng xa.
+ Nhưng mà cái giải thích nó nằm trong cái đếch N của em ấy.
+ Nếu bình thường bên em đây là cơ sở thí nghiệm, quản trị.
+ Thì em đã cố gắng quản trị với nó hết cả.
+ Mặc dù đi thôi lại.
+ FB có ở đâu là dự dụng F app thôi.
+ Nhưng mà F app của nó.
+ Là F app nó liên quan đến cái phần mà em xử lý rất nhiều.
+ Nó xử lý để em phải làm nào thành đếch N của nó.
+ Chứ không thể.
+ Nếu gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em gọi em
+ Nếu gọi người mặt browser thì bây giờ cũng làm điều đấy được.
+ Đấy!
+ Thế thì em phải làm tìm làm sao kia không?
+ Đúng không?
+ Thế thì cái của em mà em biết không khéo là tôi biết một số bạn mới biết được.
+ Tức là nó phải phải đưa vào cái sơ đồ này.
+ Cách đó đã được ở trong cái sơ đồ này nha.
+ Em h�n em biết nghe một số bạn đã nói đấy.
+ Đúng không?
+ Ch clique.
+ nó giải thích cái Big N này này
+ có gói chất thì trẻ em tôi cũng không quan tâm lắm
+ nhưng giải thích cái Big N nó có mấy cái lớp
+ trong cái phần cái mô hình này này
+ mô hình 3 lớp này này
+ cái mô hình web bay này này
+ nó có 3 lớp
+ thì nó trên cùng nó phong tên là cái mặt máy rồi
+ cái giao diện rồi
+ thì cái lớp dưới thì nó có một cái phần là cơ sở dữ liệu
+ đây này, chúng cái này là bạn
+ nhé, đấy
+ thì đây là chữ hiệu này này
+ thì đúng là nó độc lập
+ và chính cái giao diện này không làm gì kệ bạn nhé
+ từ nghiệp vụ có thứ thì nó là phần quản lý
+ nó khoảng cái phần mà bạn chạy cái mô hình của bạn ấy
+ đấy, bạn làm sao rõ được phần đấy
+ và bạn nên viết cái phần đấy thành một khối
+ xong bạn nhét nó vào đây
+ viết ở đây này, bạn triển khai
+ xong bạn nhét nó vào cái lớp đấy, bạn đề hẳn như thế
+ thì nó sẽ mạch lạc
+ chứ đừng để cái phần chạy
+ còn trên phần đấy bạn cứ viết mô hình này là thế này
+ sẽ em làm thế này, mô hình này thế này sẽ em làm thế này
+ đúng rồi tôi đọc tôi hiểu nhưng mà tôi thật chắc ai đã đọc đâu
+ người ta hiểu đấy là em
+ thích minh cái của người ta
+ em lại thích thôi
+ đối với em thích nhiều chữ
+ đấy là cách để làm
+ đấy là một cách
+ cách để làm
+ cái sơ đồ này
+ sơ đồ này rất quan trọng
+ đúng rồi, sơ đồ này rất quan trọng
+ đây là đầu tiên đọc
+ là đọc đây tổng thể
+ người ta xem bạn làm cái gì
+ thì sơ đồ này tốt nhất
+ bạn nên để ngay ở đây
+ chứ đừng để ở cuối
+ và cái đồ vào này
+ các bạn viết sơ đồ bạn cũng không hiểu
+ cái đồ vào này
+ các bạn viết sơ đồ bạn cũng không hiểu
+ các bạn viết sơ đồ bạn cũng không hiểu
+ bạn đừng đóng khung nữa
+ bạn thấy bình thường
+ đây là đồ vào, đây là đồ ra
+ còn khung này là các chức năng
+ tức là các cái
+ gọi là các cái phần
+ đây là đồ vào thôi
+ đồ vào bạn làm gì là nguồn video
+ nguồn video có 2 cách
+ một là bạn lấy từ file
+ hai là bạn lấy từ thiết bị
+ thì thiết bị đóng gói cho bạn
+ thì bạn có đề nguồn thôi
+ thiết bị rồi thì bạn tạo thành
+ nó gọi là cái media file đấy
+ thì thiết bị là quan điểm như một tên file mà
+ thì thôi thì bạn giải thích chứ thật ra
+ thì bạn giải thích chứ thật ra
+ lst chẳng có gì đâu
+ thì thôi kệ nó
+ coi như tức là chắc tôi gọi streaming
+ tức là bạn nhìn ra đang chạy chạy
+ còn file thì bạn hiển thị là view ra
+ còn streaming tức là bạn nối với camera
+ nó vẫn quay thì bạn nhìn lên
+ tức là nguồn video đấy
+ thì bạn tốt nhất là
+ tốt nhất là tốt nhất là tốt nhất là bạn cầm lên
+ cung ấm khung
+ còn nghĩ sau này là nấm khung ấm khung
+ và trong sơ đồ này em phải nhấn mạnh
+ mỗi cái gì thuộc về mô hình
+ thậm chí để màu khác hay màu khác
+ còn đậm gì
+ tức là mô hình nên cái thuật toán đọc cái khung
+ nghĩ này ra cả hai cái này vai tròn như nhau
+ cũng phải như nhau
+ đúng thôi
+ em phải nhấn mạnh được
+ và sau đó em đưa cái sơ đồ này ra
+ em phải giải thích được cái phương pháp
+ để thực hiện những cái môn hình chính như thế này
+ môn hình này của tôi là tôi thực hiện nhiều năm
+ tại sao này
+ môn này tôi thực hiện nhiều năm
+ cái môn này tôi làm như thế này
+ cái này thì là chỉ là ID quan trọng
+ cái này viết tắt cũng được
+ em cắt nó ra mà
+ em cứ viết nửa
+ cái môn này là có mấy cái bài 1, 2, 3
+ đây này, môn 9
+ đấy
+ đấy
+ đấy
+ đấy
+ đấy
+ và cái này chẳng có cái chữ nào
+ thì em viết theo thử cái gì cái anh
+ 1, 2, 3, 4 này
+ đúng không
+ đấy
+ thì em phải nhấn mạnh cái đồ án của em
+ để em đã tích hợp
+ tức là em kết hợp lại các mô hình
+ và không những kết hợp lại
+ thì em đã gia công
+ tức là em có cả
+ có cái thì em gọi PI
+ em gọi PI tool
+ em tẩy streaming lại v.v
+ đấy
+ và như vậy
+ cái phần ngay
+ cái phần tổng quan giải pháp này
+ thì tôi đề nghị là
+ một là để em để như thế này
+ em giải thích từng khối này
+ nhấn mạnh
+ sau đó đây này
+ cái phần mà
+ cái phần mà gọi là đây
+ cái phần mà gọi là
+ em gọi là cái gì nè
+ đây này
+ tôi gọi là các mô hình thuật tóa
+ nếu như mô hình có các thuật tóa nữa
+ thì em nhấn mạnh
+ đầu tiên chí là nhấn mạnh những cái mô hình
+ đây
+ những cái 4 cái mô hình chính này
+ và trong mô hình này
+ thì em có thể viết ở đây là
+ ví dụ cái nào thì em phải dùng API
+ cái nào thì em sẽ
+ chi tiết
+ cái gì mà em phải can thiệp
+ thì em bảo chi tiết
+ sẽ trình bày trên mối cho nó
+ đấy
+ cái mà em phải gọi là
+ phải code ấy
+ còn cái nào mà tôi chỉ gọi API thôi
+ thì em gọi là tôi gọi như thế
+ và tập trung chính là
+ để 1, 2, 3, 4
+ còn đây là những cái thuật tóa phụ phụ
+ các bạn
+ em viết này nó cứ tràn làm
+ rồi người ta tràn hiểu lại
+ em làm hay là
+ cùng em gộp gộp
+ những cái API lại thành cái này
+ em bảo không
+ bây giờ hoàn toàn có khả năng
+ làm như thế mà
+ đấy
+ thì đây tôi mới
+ tôi mới chữa cho bạn cái tên thôi
+ tôi gọi là sơ đồ đấy
+ tôi gọi là tổng khoa
+ pipeline sử dụng đấy
+ mà tên nó là
+ nhận dạng để số xe
+ tiền động
+ có thể như thế
+ đấy là cái
+ đấy là cái đầu tiên
+ là tôi muốn giới thiệu
+ mình sửa cái này
+ còn cái phần này
+ thì em làm sao kết hợp
+ cái nội dung này
+ đưa 1 phần vào chương bố
+ cho mấy bà thôi
+ chỗ nào mà của người ta
+ thì em đánh dấu vào
+ ok cái này
+ em muốn hình đề xuất
+ để con
+ thì cái gì của em tôi nói
+ tôi cứ hình dẫn
+ cái gì đề xuất
+ còn 1 cái nữa này
+ cái mà em
+ tôi thấy
+ em để cho người ta dễ hiểu
+ là sao cái chuyển động
+ đáng lẽ chỗ này
+ ngay từng vào giải pháp
+ nó chắc này
+ em nên đưa vào 1 cái
+ cái chỗ này thôi
+ tức là em nên họa
+ cái đầu vào
+ nó là cái ảnh
+ ảnh video
+ mà có phía sau
+ nhìn cái xe đấy
+ mà chứ nó chạy chạy
+ chỉ cần ảnh thôi
+ 1,2,3,4
+ và nó chạy
+ theo cái nguồn sáng
+ và đầu ra
+ thì em sẽ ra
+ là kết quả dạng
+ đóng không được cái gì
+ nó ra như đấy
+ em bảo chí mấy phần trăm
+ đấy
+ tức là cái ảnh vừa vào
+ cái ảnh vừa ra
+ thì em biết nhiều hơn
+ chứ em giải thích
+ em có đặc điểm
+ em biết rất nhiều
+ bằng văn
+ mà nó cứ dài dài
+ chẳng có hình vẽ
+ gì cả
+ nhưng cái thật là
+ bây giờ thầy
+ chẳng ai đọc kỹ
+ đọc kỹ đâu
+ mà không đọc kỹ
+ thì người ta luôn luôn
+ cảm giác là
+ các bạn sử dụng có sẵn
+ mà bạn dứt
+ nên bạn phải làm sao
+ để đánh mạnh
+ và có thể nói thật
+ nhất là năm nay
+ đọc file
+ thần bạn
+ chả biết
+ tôi rất ngại
+ đọc file
+ nhất là file
+ bài báo
+ 5,7 trang
+ cái người đọc
+ không thể nào
+ quan truyền hết
+ được cái cấu trúc
+ chưa nói
+ những cái gọi
+ như bên trong
+ mà em cứ đầy đầy chữ
+ người ta không đọc
+ thì thỉnh thoảng
+ người ta chuột lên
+ một cái gì
+ người ta lại không hỏi kỹ
+ người ta lại
+ đáng lẽ em biết A
+ người ta lại hiểu
+ thành cái A phẩy
+ người ta cứ xoáy
+ vào những cái lầm cầm
+ để tính sức lợi
+ như vậy thôi
+ cho nên em phải
+ làm mạch làm ra
+ đấy tôi yêu cầu thế
+ nhé
+ đặc biệt là bây giờ
+ trước bắt là
+ kiểm soát
+ cái cấu trúc
+ giữa chương
+ chương này
+ với cái chương sau
+ còn chương
+ gọi là
+ cái kết quả
+ là bài hôn
+ thì hết tốt
+ nhé
+ và trong cái chương này
+ thì đấy tôi muốn nói lại
+ cái gì
+ cái chương này
+ phải nhấn mạnh
+ thậm chí em nhấn mạnh
+ nhiều cách
+ và đặc biệt là
+ cái phần này này
+ em phải giải thích được
+ các mô hình
+ còn thuật toán này
+ thì em
+ tôi gọi là mô hình thuật toán
+ để là tập hết
+ tương tư chính
+ còn đoạn sau là
+ một số thuật toán
+ gọi là bổ trở
+ hay là kết hợp
+ thì em biết thêm
+ nhẹ nhẹ thôi
+ thuật toán nào là của em
+ thì em làm
+ còn thuật toán nào
+ thì kệ đó
+ tôi biết là sao cả
+ đúng không
+ đúng không
+ nếu như đắn chỉ
+ cái thứ gì
+ thế nào
+ tôi cũng có thể thấy
+ tổng hợp tốt
+ như cái mô hình
+ nô về táo
+ là em
+ em chuyên trực tiếp
+ từ
+ em chỉ lấy mô hình
+ của họ về thôi
+ nhưng mà
+ nếu như thế thì
+ em sẽ bị trùng
+ với cả cái phần
+ lý thuyết
+ và cả cái phần
+ phương pháp đề xuất
+ không
+ phương pháp
+ thì em phải nói rằng
+ làm vì thế này
+ chúng ta đều không phải
+ để ý em
+ khi em dùng
+ đó cũng giống như tiếng nói
+ khi em dùng đến
+ cái nhận dạng trí tự
+ và nhận dạng lời nói
+ thì thông thường
+ có những người rất là to
+ bây giờ làm sẵn rất nhiều
+ đặc biệt chính biệt
+ rất nhiều
+ nó làm
+ hết tất cả
+ tất cả loại trí tự
+ tiếng Việt
+ tất cả lời tiếng
+ bởi bởi
+ có 2 cách
+ một cách là
+ nếu như
+ tiếng nói rất khó
+ thì nó thường
+ nó phải phai phim lại
+ ví dụ nó nhận dạng
+ rất là nhiều từ
+ thì nó chỉ cần
+ có mỗi chục từ
+ thì tôi lại phải
+ gửi nó lại
+ với từ đấy
+ để phai phim lại
+ còn của em
+ thì em phải giải thích
+ tại sao phải chứng minh lại
+ vì của em
+ cái chữ xe
+ nó chỉ là
+ số
+ và chữ
+ và chữ y
+ nó rất lạch lạc
+ mà nó có khoảng cách
+ chứ nó không phải là
+ cho nên là
+ tốt nhất là em chên lại
+ thì nó sẽ vừa nhỏ
+ nó vừa tiện lợi
+ vì em có đủ dữ liệu
+ thì em phải khẳng định lên
+ thế thì cái phần
+ em chên lên lại
+ tôi nghĩ rằng
+ em nên để
+ cái chữ 4
+ tức là riêng chữ 4
+ tôi cần
+ em cần một cái là
+ em gọi là
+ em implementation
+ tức là em cài đặt
+ cái khối gọi là hiện dạng
+ và cái khối hiện dạng
+ nó nằm trong cái layer
+ gọi là layer backend
+ ngoài
+ thì backend
+ nó gọi là cái gì đâu
+ em có nghĩ
+ tức là
+ còn nếu khi nào
+ nếu bài toán này
+ mà là bài toán
+ có đặt hàng
+ của một công ty nào đó
+ mà nó có yêu cầu
+ cái backend
+ rất là quan trọng
+ nó có bao nhiêu loại
+ người sử dụng
+ nó có phải yêu cái gì
+ thì nó có backend
+ nó sẽ trở nên rất là
+ cô của em backend
+ chẳng có gì
+ nó chỉ là cái app thôi mà
+ thế thì em viết nhẹ
+ và mình viết vào rồi
+ đó chỉ là hình thức
+ để người ta giao diện
+ nó tiện
+ nó diện web
+ em phải nhấn lại
+ cái backend của em
+ chứ là cái khối hiện dạng
+ mà em phải đưa vào chương 4
+ thì người ta mới hiểu
+ em để đây
+ người ta hiểu
+ người ta hiểu
+ người ta biết thiết
+ em hiểu thế này chưa
+ đấy
+ em viết lại
+ copy paste lại một chút
+ con làm được không
+ em làm được
+ đấy
+ không thì tôi nghĩ
+ đọc cái tuyển của em
+ là tôi dạng thật thiệt đấy
+ chắc chắn là
+ bị người ta hiểu nhầm
+ mà rất là dễ hỏi
+ lan man
+ người ta không biết
+ chính là cái nghịch phúc
+ của cái gì cả
+ nó biết rất nhiều
+ bạn cứ biết
+ toàn tích thôi
+ đấy
+ chỗ này là phương pháp
+ em vừa nhớ đây
+ là phương pháp của em nhé
+ tức là ai người ta cũng hiểu
+ là cái phương pháp đề xuất này
+ là phương pháp của bạn
+ nhưng nó vẫn chỉ là phương pháp
+ còn phương pháp này
+ chỗ này mới là chỗ bạn làm
+ thế làm sao
+ bạn viết thay cả nhân
+ kết quả lại
+ đấy
+ thì đây cũng là
+ cái giải miệng
+ em sử dụng cái kết quả này
+ thì em có thể viết
+ chỗ này nên viết
+ thẳng thẳng
+ nếu em có được
+ gọi là
+ blue chat
+ không có
+ thế thì em viết
+ thì nó thể hiện ra của em
+ sau đó em bảo là
+ cái chỗ này này
+ thì tôi cài đặt
+ cái blue chat đấy
+ cho nó viết như thế
+ thế thì thôi
+ thì chỉ nói thôi
+ thế thì cái bách em này
+ em phải chia ra
+ cái bách em cứ sử dụng
+ ví dụ là cái lớp bình thường
+ còn cái bách em của em
+ mới là cái khối dạng ra
+ em phải nói rõ ra
+ sau đó thì
+ sau đó thì tôi
+ theo tôi nghĩ là
+ trước khi bạn có kiến trúc
+ các thứ này
+ bạn xây dựng
+ thì bạn nên
+ bỏ sử thang
+ cần lắm
+ bỏ sử thang này
+ bạn nên có một
+ hoặc bài bật trước này
+ tức là bạn
+ cài đặt cái khối dạng
+ đấy
+ cái hệ thống dạng của bạn
+ rồi cái khối dạng này
+ nó đặt
+ nó là trong cái
+ bách em này này
+ đấy
+ thì em có thể để ngay đây
+ tự sử đồ kiến trúc
+ cho em trước khi
+ ứng dụng đây là
+ cái hệ thống
+ tức là cái hỏa bên ngoài
+ còn em phải nói chứ
+ em muốn để nào
+ em để đây
+ còn thôi cái triển khai này
+ em biết thì tôi chỉ
+ không có
+ không có cái triển khai này
+ em nghĩ là
+ em triển khai trên cái môi trường
+ như thế nào
+ thì em để trên đi
+ cũng được
+ nhé
+ cũng được
+ nhưng mà để
+ trên đi
+ để dưới
+ dưới
+ dưới
+ nhé
+ nhưng mà thật ra
+ cơ sở liệu
+ em là đơn giản
+ là vì thế
+ là vì em có khoản lý gì đâu
+ nó chỉ là
+ mấy cái lưu
+ để cho cái người dùng thôi
+ đấy
+ thật ra nếu mà
+ bị xoáy vào chỗ này
+ vì chỗ này là rất dễ đập
+ với con bánh xe
+ thì em cũng xảy quá
+ tại vì hỏi
+ tung gì là sao
+ được chứ
+ hiểu không
+ mà mới không
+ đấy
+ cái gì vẫn để
+ không sao cả
+ nhưng mà làm sao
+ để trong biết
+ cái 3 lớp này
+ thì cái lớp nào
+ là cái lớp
+ nó mất tung sức hết
+ chứ nếu chỉ
+ có khoáng này
+ thì cả có gì hết
+ đúng không
+ đấy
+ thì em có thể
+ nói chuyện 3 lớp ở đây
+ vân vân tất cả đấy
+ nhưng mà trước khi đi vào
+ chi tiết
+ thì em phải khẳng định
+ là em phải đưa
+ cái khối hiện sản
+ ở đây
+ em làm được cái gì
+ để em nhét
+ vào cái lớp nào
+ em có được sơ đồ
+ thế nhưng mà
+ có bạn có vẽ
+ sơ đồ tốt
+ nó vẽ sơ đồ 3 lớp này
+ nó có thể vẽ
+ theo chiều dọc
+ hay chiều ngang
+ tức là
+ chiều ngang
+ và bên ngoài này
+ là phông ten
+ ở giữa
+ các lớp
+ nó chỉ như thế này
+ còn nó có chiều dọc
+ bên trên này
+ tức là cái giáo viện
+ là phông ten
+ thì ở dưới
+ nó có cái lớp
+ nó vẽ
+ nó vẽ tự vẽ thôi
+ để người ta hiểu
+ trong cái lớp này
+ nó có cái gì
+ em hiểu không
+ em vẽ được cái tốt
+ mà không em nói
+ bằng lời
+ chỗ này này
+ đúng là 3 lớp này
+ có cái sơ đồ
+ đây là gói
+ đấy là cấp cụ
+ để em làm 3 lớp
+ đấy
+ em hiểu chưa
+ đấy là cấp cụ
+ để em làm
+ chứ nhìn đây
+ em nhìn đâu
+ chỗ nào miệng dạng nào
+ vẫn ở trong cái
+ file out of error này
+ đấy
+ thế thì em gọi tên
+ nó rõ rõ ra
+ đúng
+ có cái chữ này
+ tự nhiên ra
+ em nhớ tên
+ nó rõ ra
+ nhé
+ thế thì em nhấn dạng
+ đi một chút
+ để tôi hát được bạn
+ nhấn dạng
+ tôi không nhìn rõ
+ tức là em
+ còn một cái
+ em đặt tên nó
+ là
+ cái file out of error
+ em gọi nó
+ tức là
+ phần chế
+ phần mề
+ hình thống
+ cũng được
+ em đặt tên nó là
+ lpl
+ em nhấn
+ quán
+ dùng cái tên đấy
+ thành cái phần của em đi
+ nhé
+ đấy
+ thì em có viết
+ nhưng mà em phải viết rõ
+ là em có cài đặt
+ chứ không người ta sẽ hiểu
+ là bây giờ rất dễ
+ API
+ người ta vẫn làm được
+ thế này
+ tôi đã gặp
+ rất nhiều trường hợp
+ mà
+ ngay cả
+ tùy dân đoán
+ đô thập
+ bây giờ demo
+ nó rất đẹp
+ nhưng mà nó không phải
+ làm gì đâu
+ nó cũng sẵn hết
+ mà
+ nó chỉ đưa
+ gọi là đưa
+ dữ liệu vào
+ nó chạy
+ mô hình thôi
+ quản lý nào
+ quản lý kia
+ nhưng mà
+ trong bố tàu thực tế
+ khó
+ nhưng mà cái đấy
+ demo được
+ còn chạy thực tế
+ cũng dễ
+ chạy
+ nhưng mà
+ demo rất đẹp
+ đúng là
+ em có biết
+ để tự thân hiệp
+ bởi vì nó bé quá
+ rồi
+ nhé
+ cái này này
+ thậm chí bạn viết
+ kiểu là tính hiệp
+ cũng được
+ và được gọi là
+ nhận dạng
+ lấy cái tên
+ rồi thì là
+ đặt cái tên
+ thế thì bây giờ nhé
+ cái kẻ lpl này
+ em muốn
+ coi như tên
+ gọi là cái sản phẩm
+ tạo gọi là thực hiện
+ của em đi
+ em có thể đưa vào
+ cái chữ tích tắc này
+ tức là tên
+ của cái phần mềm
+ của đồ án
+ chẳng sao không
+ ai bắt tôi vào
+ cái đó này
+ cái này này
+ cái bảng này
+ tích tắc
+ tích tắc
+ tích tắc
+ làm gì là của
+ cái đồ án này
+ chứ không phải là
+ tích tắc
+ của cái hướng tiếp cận
+ ví dụ thế
+ đây là của người ta
+ trong đoạn cuối này
+ tất cả đúng rồi này
+ edit một cái chữ
+ tên của cái phần mềm
+ hay gì đấy
+ nhận dạng
+ không sao cả
+ chữ này một số thôi
+ cái này là
+ lùn suy minh
+ rất là nhiều
+ thế này là
+ chương hốt
+ tức là
+ bản đồ
+ cái hướng
+ tức là bản đồ
+ cái giá trị
+ của người ta
+ riêng theo hướng
+ cái này chỉ là
+ bù
+ không phải bù trừ đâu
+ bù chuyển động
+ compensation
+ chứ không phải bù trừ đâu
+ bù đấy
+ đấy nó cũng có
+ khái niệm bù trừ
+ tại một chỗ
+ em biết bám
+ em biết
+ thì tôi gọi
+ thôi cứ kệ
+ theo vết đi nha
+ chứ không ra
+ cái này là
+ bật bắn kệ
+ nha
+ ok
+ ok
+ ok
+ ok
+ chạy chạy
+ chạy
+ chạy
+ xong hết
+ đúng không
+ thế thì bây giờ
+ làm sao
+ để
+ Thế thì có gì đâu, nhưng mà lúc đọc tận hôm nọ thì cái chín lục lục ấy mà lúc tôi sửa cho các bạn thì không có rõ phần này đâu.
+ Chính cho nên là các bạn mới đưa vào.
+ Thật ra bây giờ bạn gì cũng khoảng như thế, mấy bạn gì cũng khoảng như vậy.
+ Còn các bạn có lệch đề mà, cũng phải viết lại, nhưng mà các bạn cũng làm ngay.
+ Thế là cũng giống một bạn giống em ấy.
+ Nó chỉ là nó làm về cái...
+ Thế là dự trạng cảm xúc để cảnh báo cho cái máy xe.
+ Thì đúng là một cái hệ thống thật.
+ Nhưng mà lại cứ ôm vào một cái hệ thống gọi là giám sát camera, giám sát hành trình của chiếc xe.
+ Thích dởm, đấy phải giống đớn cả phương tiện, trang thiết bị.
+ Nhưng có làm gì khác với đâu.
+ Chỉ làm với mỗi phần hiện dạng thôi.
+ Còn sau cái hiện dạng đấy nó tích hợp vào đâu, nó dùng vào đâu thì đấy là cái giai đoạn sau.
+ Có làm gì với cái gọi là AI biên đâu mà cứ ôm cái đấy vào cho nó khổ.
+ Đấy, hiểu không? Đấy.
+ Thế thì cuối cùng bạn cũng sửa được.
+ Bởi vì các bạn làm đúng như vậy thì vừa để đánh giá tốt và vừa bạn cũng chắc chắn để bảo vệ.
+ Cái bạn làm này xong rồi nó cứ nọ, cứ lan man.
+ Thì họ hỏi cái không phải phần chính của bạn.
+ Nhưng mà họ xoáy vào chương bố thì phải quá đơn giản, chẳng có gì hỏi cả.
+ Tại họ cơ sở tín hiệu thì tại sao không gọi với user, với user nào được gửi, user nào không được gửi.
+ Thế cứ luôn cũng vậy.
+ Cái đấy sẽ cần thiết nếu như cái phần lõi của em làm sao, một nơi nào quan tâm.
+ Họ muốn dùng cái của em cho ông thanh tra giao thông chẳng hạn hay ông công an.
+ Thì lúc đấy, cái phần này cũng sẽ phức tạp.
+ Còn bây giờ mình chỉ dùng cái giao diện để cho đây gọi là thử nghiệm, để cho có người dùng bên ngoài.
+ Thế nên em phải làm sao cho mạnh đặc nhé.
+ Đấy, bây giờ nhấn mạnh như thế.
+ Thế nên em đẻ con con.
+ Thế nên em chỉ dấu chạy mình ra.
+ Thế nên mình nhấn mạnh ở chỗ này.
+ Đẻ to ra.
+ Và tách nó ra một phần.
+ Rồi làm xong rồi nhét nó vào đấy.
+ Và chỉ nó ở chỗ nào.
+ Đấy.
+ 

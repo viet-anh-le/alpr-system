@@ -1,65 +1,15 @@
-This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
-Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
-The top-level auxiliary file: 4_new.aux
-The style file: biblatex.bst
-Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
-Reallocated global_strs (elt_size=200001) to 20 items from 10.
-Reallocated glb_str_end (elt_size=4) to 20 items from 10.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-Database file #1: 4_new-blx.bib
-Database file #2: Danh_sach_tai_lieu_tham_khao.bib
-Biblatex version: 3.19
-Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
-Reallocated singl_function (elt_size=4) to 100 items from 50.
-You've used 1 entry,
-            6399 wiz_defined-function locations,
-            1203 strings with 8992 characters,
-and the built_in function-call counts, 1534 in all, are:
-= -- 73
-> -- 70
-< -- 1
-+ -- 49
-- -- 28
-* -- 32
-:= -- 370
-add.period$ -- 0
-call.type$ -- 1
-change.case$ -- 0
-chr.to.int$ -- 42
-cite$ -- 0
-duplicate$ -- 11
-empty$ -- 104
-format.name$ -- 0
-if$ -- 325
-int.to.chr$ -- 0
-int.to.str$ -- 0
-missing$ -- 0
-newline$ -- 20
-num.names$ -- 0
-pop$ -- 47
-preamble$ -- 1
-purify$ -- 0
-quote$ -- 0
-skip$ -- 78
-stack$ -- 0
-substring$ -- 154
-swap$ -- 1
-text.length$ -- 20
-text.prefix$ -- 0
-top$ -- 1
-type$ -- 22
-warning$ -- 0
-while$ -- 64
-width$ -- 0
-write$ -- 20
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'Chuong/4_new.blg'
+[120] biber:340> INFO - === Mon Jun 29, 2026, 12:14:44
+[140] Biber.pm:419> INFO - Reading 'Chuong/4_new.bcf'
+[203] Biber.pm:979> INFO - Found 3 citekeys in bib section 0
+[215] Biber.pm:4419> INFO - Processing section 0
+[228] Biber.pm:4610> INFO - Looking for bibtex file 'Danh_sach_tai_lieu_tham_khao.bib' for section 0
+[229] bibtex.pm:1713> INFO - LaTeX decoding ...
+[253] bibtex.pm:1519> INFO - Found BibTeX data source 'Danh_sach_tai_lieu_tham_khao.bib'
+[307] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[307] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[307] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[307] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[316] bbl.pm:660> INFO - Writing 'Chuong/4_new.bbl' with encoding 'UTF-8'
+[318] bbl.pm:763> INFO - Output to Chuong/4_new.bbl

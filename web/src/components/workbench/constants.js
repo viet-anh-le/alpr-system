@@ -29,6 +29,13 @@ export function formatBytes(bytes) {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
+export function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '--:--'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
 export function cleanPlateText(text) {
   return (text || '').replaceAll('[SEP]', ' ').replaceAll('#', '').trim()
 }

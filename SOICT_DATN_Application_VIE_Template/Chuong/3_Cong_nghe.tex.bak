@@ -1,0 +1,517 @@
+\documentclass[../DoAn.tex]{subfiles}
+\begin{document}
+
+\section{Tổng quan giải pháp}
+\label{section:3.1}
+
+Pipeline của hệ thống được thiết kế theo hướng xử lí video theo quỹ đạo phương tiện, thay vì nhận dạng biển số độc lập trên từng khung hình. Đầu vào của hệ thống có thể là video tải lên hoặc một đoạn video được trích từ phiên giám sát streaming. Trong cả hai trường hợp, dữ liệu đều được chuẩn hóa thành các chuỗi khung hình; nếu người dùng chọn chế độ tiền xử lí, các phép tăng cường như cải thiện tương phản hoặc giảm nhiễu được áp dụng trước khi đưa khung hình vào các mô hình học sâu. Sơ đồ pipeline của hệ thống được trình bày trong hình 3.1 dưới đây:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{Hinhve/DATN-Pipeline-Overview-highres.png}
+\caption{Sơ đồ tổng quan pipeline xử lí nhận dạng biển số chuyên dùng trên video}
+\label{fig:alpr_pipeline_flowchart}
+\end{figure}
+
+Dựa vào Hình 3.1, giải pháp được chia thành sáu khối xử lý chính: Khối phát hiện phương tiện, khối theo vết phương tiện, khối phát hiện biển số, khối phân loại chất lượng ảnh cho OCR, khối OCR và khối tổng hợp đa khung hình. Luồng video đầu vào được chia thành các khung hình và đưa qua khối phát hiện phương tiện trước. Kết quả phát hiện được đưa vào khối theo dõi để gán định danh ổn định cho mỗi phương tiện. Sau đó, mỗi phương tiện được theo dõi sẽ được cắt vùng và đưa qua khối phát hiện biển số. Biển số sau đó được đưa qua khối phân loại chất lượng để quyết định hướng xử lý. Ảnh biển số sau đó được đem đi nhận dạng kí tự. Cuối cùng, kết quả OCR được tổng hợp đa khung và đưa ra kết quả cuối cùng.
+{Các thành phần của giải pháp}
+
+\subsection{Khối phát hiện phương tiện}
+
+Ở khối này, tôi sử dụng mô hình YOLOv5m để phát hiện các phương tiện giao thông phổ biến trong bối cảnh Việt Nam: xe máy, xe con, xe tải, xe tải van, xe buýt và xe ba gác chở hàng. Trọng số của mô hình được lấy trực tiếp từ công trình của Che et al., đã được huấn luyện trên dữ liệu phương tiện thu thập trong điều kiện giao thông Việt Nam, do đó mô hình có khả năng thích nghi tốt với đặc thù mật độ xe, góc quay camera và điều kiện ánh sáng phổ biến tại Việt Nam.
+
+\subsection{Khối theo vết phương tiện}
+
+Sau khi phát hiện, các hộp bao phương tiện được đưa vào thuật toán BoT-SORT để gán và duy trì  \texttt{track\_id} ổn định xuyên suốt các khung hình. Việc đặt bước phát hiện phương tiện ở đầu pipeline giúp giảm vùng tìm kiếm cho biển số, đồng thời tạo cơ sở để gom nhiều quan sát của cùng một xe vào một track thống nhất. Quyết định theo vết phương tiện thay vì theo dõi biển số trực tiếp dựa trên nhận định rằng phương tiện lớn hơn biển số, xuất hiện ổn định hơn và có nhiều đặc trưng ngoại hình để BoT-SORT duy trì định danh. Biển số nhỏ, dễ mất nét, bị lóa hoặc bị che; nếu tracking trực tiếp biển số, chỉ vài khung hình xấu đã có thể làm đứt quỹ đạo. Vì vậy, biển số được xem như quan sát gắn vào track phương tiện.
+
+\subsection{Khối phát hiện biển số}
+
+Với các phương tiện đang được theo dõi, hệ thống cắt vùng ảnh phương tiện và mở rộng thêm biên 8\% để tránh mất biển số ở đầu hoặc đuôi xe, sau đó chạy mô hình YOLOv8-OBB trên từng vùng được cắt. Lý do sử dụng hộp bao có hướng (Oriented Bounding Box) thay vì hộp bao ngang (horizontal bounding box) là biển số xe trong điều kiện thực tế thường bị nghiêng do góc quay camera, hướng di chuyển của phương tiện hoặc phối cảnh đường phố. OBB giúp vùng biển số được bao sát hơn, giảm phần nền thừa khi crop và tạo đầu vào ổn định hơn cho bước OCR phía sau.
+
+\subsection{Khối phân loại chất lượng ảnh cho OCR}
+
+Sau khi được phát hiện, mỗi biển số được đưa qua bộ phân loại chất lượng trước khi quyết định có nên OCR ngay hay không. Mục tiêu của bộ định tuyến này là phân tách các ảnh biển số thành ba nhánh xử lý khác nhau: \textit{direct} — ảnh đủ rõ để OCR ngay trong khung hình hiện tại; \textit{tracklet\_fusion} — ảnh chưa đủ chất lượng, được đưa vào bộ đệm track để tổng hợp với các khung hình khác; và \textit{unreadable\_wait} — ảnh quá mờ hoặc bị che khuất, chỉ được lưu làm bằng chứng mà không chạy OCR. Việc tách riêng bước này giúp hệ thống không ép mô hình OCR đưa ra kết luận cuối cùng từ một khung hình xấu, đồng thời tiết kiệm tài nguyên tính toán.
+
+\subsection{Khối OCR}
+\label{subsection:3.1.ocr}
+
+Khối OCR thực hiện nhận dạng ký tự trên ảnh biển số đã được cắt và định tuyến qua khối phân loại chất lượng. Đầu vào của khối là ảnh crop biển số đã được nắn chỉnh phối cảnh và đưa về kích thước chuẩn. Đầu ra là chuỗi ký tự biển số kèm theo xác suất cho từng ký tự.
+
+Lý do lựa chọn mô hình nhận dạng biển số chuyên biệt thay vì sử dụng các mô hình OCR lớn có sẵn dựa trên ba nhận định. Thứ nhất, các mô hình OCR lớn được thiết kế để nhận dạng tất cả các loại ký tự trong văn bản tự do, nên chứa rất nhiều tham số không cần thiết cho bài toán biển số. Việc sử dụng nguyên mô hình lớn đó trong hệ thống sẽ gây lãng phí tài nguyên tính toán, làm tăng đáng kể độ trễ suy luận và tiêu tốn bộ nhớ, đến mức có thể không đáp ứng được yêu cầu xử lý video thời gian thực. Thứ hai, biển số xe có đặc thù rất riêng: chỉ bao gồm các chữ số và chữ in hoa, được sắp xếp theo khoảng cách và bố cục cố định, khác xa văn bản thông thường với đa dạng phông chữ, cỡ chữ và cách sắp xếp. Mô hình OCR tổng quát không tận dụng được các ràng buộc này và dễ đưa ra dự đoán sai lệch do học từ quá nhiều lớp ký tự không liên quan. Thứ ba, với tập dữ liệu biển số đã thu thập được, việc tự huấn luyện một mô hình nhỏ gọn chuyên biệt cho bài toán này là khả thi và mang lại hiệu quả vượt trội: mô hình có kích thước nhỏ hơn nhiều, chạy nhanh hơn, tiêu tốn ít tài nguyên hơn, đồng thời được tối ưu hóa trực tiếp cho đặc thù biển số Việt Nam. Hệ thống sử dụng mô hình \texttt{SmallLPR-Line-CTC} làm bộ nhận dạng biển số. Mô hình này là biến thể cải tiến của LPRNet, được thiết kế riêng cho đặc thù biển số Việt Nam với bốn cải tiến chính: STN (Spatial Transformer Network) để bù sai lệch hình học, khối \texttt{SmallBasicBlockCBAM} kết hợp MixConv và CBAM attention để trích xuất đặc trưng đa tỷ lệ, giữ feature map hai chiều kết hợp positional encoding hai chiều để bảo toàn thông tin vị trí theo hàng và cột, và kiến trúc multi-head CTC với \texttt{layout\_head} để định tuyến giải mã riêng cho biển một dòng và hai dòng.
+
+\subsection{Khối tổng hợp đa khung hình}
+
+Khi một track phương tiện kết thúc — tức phương tiện biến mất trong một số bước liên tiếp hoặc video đã được xử lí đến khung hình cuối cùng — hệ thống tiến hành tổng hợp toàn bộ bằng chứng nhận dạng ký tự đã thu thập được trong suốt thời gian tồn tại của track.
+
+Thay vì biểu quyết trực tiếp trên toàn bộ chuỗi biển số, hệ thống thực hiện biểu quyết độc lập theo từng vị trí ký tự. Với mỗi vị trí, hệ thống chọn ký tự có tổng số phiếu cao nhất, nhưng chỉ chấp nhận nếu đồng thời thỏa mãn hai điều kiện: tỷ lệ phiếu đạt ít nhất 0,5 và xác suất trung bình của ký tự đạt ít nhất 0,50. Những vị trí không thỏa mãn được gán ký hiệu ``?'' và track bị từ chối nếu còn tồn tại vị trí chưa xác định. Cách tiếp cận này cho phép giữ lại các ký tự đúng ngay cả khi một số vị trí khác bị nhiễu, đồng thời ngăn chặn kết quả sai lệch từ các khung hình xấu thông qua ngưỡng đồng thuận.
+
+\section{Thu thập và xử lí dữ liệu}
+\label{section:3.2}
+\subsection{Dữ liệu phát hiện biển số}
+\label{subsection:3.2.1}
+
+Tập dữ liệu dùng cho bài toán phát hiện biển số được tổ chức theo định dạng YOLOv8 OBB. Khác với bounding box ngang thông thường, mỗi nhãn trong tập dữ liệu gồm một lớp và bốn điểm của biển số:
+
+\begin{verbatim}
+<class_id> x1 y1 x2 y2 x3 y3 x4 y4
+\end{verbatim}
+
+Các tọa độ được chuẩn hóa về khoảng [0, 1]. Cách biểu diễn này phù hợp với bài toán phát hiện biển số trong video, vì biển số thường bị nghiêng do góc quay camera, hướng di chuyển của phương tiện hoặc phối cảnh đường phố. Việc dùng OBB giúp vùng biển số được bao sát hơn, giảm phần nền thừa khi crop và tạo đầu vào ổn định hơn cho bước OCR phía sau.
+
+Tập dữ liệu được tổng hợp từ nhiều nguồn khác nhau nhằm tăng độ đa dạng về góc nhìn, điều kiện ánh sáng, loại phương tiện và bố cục biển số. Các nguồn chính gồm dữ liệu Kaggle, các frame trích xuất từ video/YouTube, ảnh phương tiện từ Platesmania, và tập UFPR-ALPR. Ngoài ra, tập dữ liệu được bổ sung các mẫu âm tính không chứa biển số để giảm hiện tượng detector phát hiện nhầm biển số ở vùng không chứa biển.
+
+\begin{table}[H]
+\centering
+\caption{Thống kê dữ liệu phát hiện biển số}
+
+\begin{tabular}{|c|c|c|}
+\hline
+Nhóm dữ liệu & Số ảnh & Ghi chú \\
+\hline
+Platesmania & 26.836 & Nguồn lớn nhất, ảnh phương tiện thực tế \\
+Kaggle & 4.578 & Ảnh biển số xe chụp tại các bãi đỗ xe \\
+Các nguồn video & 2.851 & Frame trích xuất từ video \\
+UFPR-ALPR & 4.500 & Dùng để tăng đa dạng hình học cho bài toán định vị \\
+Mẫu âm tính & 1.700 & Ảnh không chứa biển số, dùng để giảm false positive \\
+\hline
+\end{tabular}
+\end{table}
+
+Tổng cộng, tập dữ liệu gồm 40.465 ảnh và 48.431 nhãn OBB. Dữ liệu được chia thành 33.333 ảnh huấn luyện và 7.132 ảnh kiểm định, tương ứng khoảng 82,4\% / 17,6\%. Trong toàn bộ tập dữ liệu có 38.261 ảnh có ít nhất một biển số và 2.204 ảnh âm tính với file nhãn rỗng. Các ảnh âm tính này vẫn được giữ lại vì trong hệ thống thực tế, detector thường nhận đầu vào là crop phương tiện hoặc frame video có thể không chứa biển số rõ ràng; nếu chỉ huấn luyện trên ảnh dương tính, mô hình dễ sinh dự đoán sai trên các vùng như đèn xe, logo, mặt ca-lăng hoặc biển quảng cáo.
+
+\subsection{Dữ liệu nhận diện biển số}
+\label{subsection:3.2.2}
+Tập dữ liệu dùng cho bài toán OCR biển số gồm hai phần train và valid. Mỗi ảnh là một crop biển số đã được tách khỏi ảnh phương tiện hoặc frame gốc. Nhãn OCR được mã hóa trực tiếp trong tên file: phần trước dấu \# là chuỗi biển số, phần sau dấu \# là định danh mẫu. Các biển số phần lớn được crop từ ảnh phương tiện thu thập trên Platesmania; phần còn lại đến từ Kaggle.
+
+Ví dụ về tên nhãn dữ liệu:
+
+\begin{verbatim}
+79A[SEP]122.35#nomer12660750.jpg
+30A-827.34#6748.jpg
+KP-51-53#6542.jpg
+\end{verbatim}
+
+Trong đó, [SEP] biểu diễn điểm ngắt dòng đối với biển số hai dòng. Cách mã hóa này phù hợp với mô hình OCR end-to-end, vì mô hình học trực tiếp ánh xạ từ ảnh crop sang chuỗi ký tự, không cần annotation bounding box cho từng ký tự.
+
+Thống kê tổng quan của tập dữ liệu như sau:
+\begin{table}[H]
+\centering
+\caption{Thống kê tập dữ liệu OCR}
+
+\begin{tabular}{|c|c|}
+\hline
+Thuộc tính & Số lượng \\
+\hline
+Tổng số lượng & 33.376 \\
+Train & 27.841 \\
+Valid & 5.535 \\
+Ảnh từ Platesmania & 18.925 \\
+Ảnh từ Kaggle & 14.451 \\
+Số chuỗi biển số duy nhất & 25.438 \\
+\hline
+\end{tabular}
+\end{table}
+
+Tập dữ liệu có cả biển một dòng và biển hai dòng. Trong đó, biển hai dòng chiếm tỷ lệ lớn hơn:
+\begin{table}[H]
+\centering
+\caption{Thống kê bố cục}
+\begin{tabular}{|c|c|c|}
+\hline
+Kiểu bố cục & Số ảnh & Tỉ lệ \\
+\hline
+Một dòng & 10.731 & 32,15\% \\
+Hai dòng & 22.645 & 67,85\% \\
+\hline
+\end{tabular}
+\end{table}
+
+Tập ký tự được sử dụng để huấn luyện mô hình gồm 10 chữ số (0–9), 24 chữ cái Latin viết hoa xuất hiện trên biển số xe Việt Nam (A, B, C, D, E, F, G, H, K, L, M, N, P, Q, R, S, T, U, V, X, Y, Z, Đ), cùng các ký tự phân tách (-, ., [SEP]). Ngoài ra, tập ký tự còn bao gồm ký hiệu <blank> phục vụ thuật toán CTC.
+\subsection{Dữ liệu đánh giá chất lượng biển số}
+\label{subsection:3.2.3}
+
+Bên cạnh dữ liệu phát hiện và nhận diện ký tự, hệ thống còn sử dụng một tập dữ liệu riêng cho bài toán đánh giá chất lượng ảnh crop biển số. Mục tiêu của mô hình này là ước lượng mức độ đọc được của biển số trước khi đưa ảnh sang OCR hoặc các bước xử lý tăng cường. Việc tách riêng bài toán chất lượng giúp pipeline tránh xử lý mọi crop theo cùng một cách: ảnh rõ có thể được nhận diện trực tiếp, trong khi ảnh mờ, nhỏ hoặc khó đọc có thể được đưa vào nhánh chờ thêm khung hình hoặc nhánh hợp nhất đa khung.
+
+Ở giai đoạn đầu, mô hình được huấn luyện trên dữ liệu LPLCv2 do nhóm tác giả cung cấp. LPLCv2 là tập dữ liệu phân loại độ đọc được của biển số với bốn mức nhãn  \texttt{perfect},  \texttt{good},  \texttt{poor} và  \texttt{illegible}, được xây dựng nhằm đánh giá không chỉ chất lượng ảnh nói chung mà trực tiếp là khả năng đọc ký tự trên biển số \cite{wojcik2026lplcv2}. Từ dữ liệu gốc, luận văn tạo bản dùng huấn luyện theo bốn lớp chất lượng và chia thành hai tập train/valid để huấn luyện mô hình ban đầu.
+
+\begin{table}[H]
+\centering
+\caption{Thống kê dữ liệu đánh giá chất lượng biển số}
+\begin{tabular}{|c|c|c|c|}
+\hline
+Tập dữ liệu & Train & Valid & Tổng số ảnh \\
+\hline
+LPLCv2-quality & 39.767 & 14.876 & 54.643 \\
+Fine-tune nội bộ & 24.796 & 5.993 & 30.789 \\
+\hline
+\end{tabular}
+\end{table}
+
+Sau khi có mô hình khởi tạo từ LPLCv2, luận văn fine-tune thêm trên tập dữ liệu nội bộ được gom từ các crop biển số gần với miền dữ liệu của hệ thống hơn. Các ảnh này vẫn được tổ chức theo cùng bốn mức chất lượng, nhờ đó mô hình giữ được định nghĩa nhãn nhất quán nhưng thích nghi tốt hơn với ảnh biển số Việt Nam, điều kiện camera thực tế và các lỗi thường gặp trong pipeline như crop lệch, nhòe chuyển động hoặc biển số quá nhỏ.
+
+\begin{table}[H]
+\centering
+\caption{Phân bố nhãn trong dữ liệu chất lượng}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Tập dữ liệu & Perfect & Good & Poor & Illegible \\
+\hline
+LPLCv2-quality & 24.271 & 13.458 & 9.898 & 7.016 \\
+Fine-tune nội bộ & 7.117 & 12.198 & 10.130 & 1.344 \\
+\hline
+\end{tabular}
+\end{table}
+
+\vspace{-1em}
+\section{Các mô hình và thuật toán}
+\label{section:3.3}
+
+\subsection{Thuật toán theo vết phương tiện}
+\label{subsection:3.3.tracking}
+
+Hệ thống xử lý video dựa trên quỹ đạo phương tiện thay vì nhận dạng đơn lẻ từng khung hình. Lõi theo dõi gồm hai bước chính: (1) theo vết phương tiện để cấp định danh ($v\_tid$), và (2) phát hiện nối tiếp (cascade detection) để liên kết biển số vào phương tiện.
+
+\paragraph{Theo vết phương tiện với BoT-SORT.}
+Pipeline sử dụng thuật toán BoT-SORT \cite{aharon2022bot} để gán và duy trì định danh xuyên suốt cho mỗi phương tiện. Khung hình đầu vào trước tiên được xử lý bởi mô hình YOLOv5m nhằm phát hiện sáu lớp phương tiện phổ biến tại Việt Nam. Các hộp bao tìm được sẽ được BoT-SORT xử lý qua bộ lọc Kalman và thuật toán ghép cặp Hungarian để theo vết. 
+
+Việc theo vết được áp dụng trên phương tiện thay vì biển số nhằm tăng độ ổn định. Phương tiện có kích thước lớn và đặc trưng ngoại hình rõ ràng, giúp BoT-SORT dễ dàng duy trì quỹ đạo ngay cả khi bị che khuất một phần. Biển số, ngược lại, chỉ được xem là một thuộc tính phụ thuộc của phương tiện.
+
+\paragraph{Phát hiện tiếp nối và Liên kết không gian.}
+Để định vị biển số, hệ thống áp dụng kỹ thuật phát hiện tiếp nối (Cascade Detection). Với mỗi phương tiện đang được theo dõi, vùng ảnh chứa phương tiện đó được cắt (crop) và mở rộng lề 8\% trước khi đưa vào mô hình YOLOv8-OBB. Đặc tính hình học của phương pháp này cho phép liên kết trực tiếp: biển số phát hiện trên vùng ảnh của phương tiện nào sẽ mặc định được gán cho $v\_tid$ của phương tiện đó.
+
+Trong trường hợp các phương tiện di chuyển sát nhau (ví dụ xe máy che khuất một phần ô tô), vùng ảnh cắt của một xe có thể vô tình chứa biển số của xe khác. Để giải quyết ngoại lệ này, hệ thống áp dụng ràng buộc không gian chặt chẽ: nếu tâm biển số nằm trong hộp bao của nhiều phương tiện cùng lúc, biển số sẽ luôn được gán cho phương tiện có diện tích hộp bao nhỏ nhất.
+
+\paragraph{Lưu đồ thuật toán.}
+Quy trình theo vết và ghép cặp bao gồm:
+\begin{enumerate}
+\item \textbf{Phát hiện phương tiện:} Phân loại và lấy hộp bao phương tiện bằng YOLOv5.
+\item \textbf{Theo dõi đối tượng:} BoT-SORT cấp phát và duy trì $v\_tid$ cho từng hộp bao.
+\item \textbf{Cắt ảnh (Crop):} Cắt vùng ảnh của từng phương tiện đã được gán ID.
+\item \textbf{Phát hiện biển số:} Dùng YOLOv8-OBB tìm biển số trên các vùng ảnh cắt.
+\item \textbf{Ghép cặp(Association):} Liên kết biển số với $v\_tid$ của phương tiện bị cắt ảnh, ưu tiên phương tiện có diện tích hộp bao nhỏ nhất khi xảy ra lồng ghép không gian.
+\end{enumerate}
+
+\subsection{Bộ định tuyến chất lượng (Quality Router)}
+\label{subsection:3.3.quality}
+
+Trong phân tích video thời gian thực, việc chạy nhận dạng (OCR) trên mọi khung hình chứa biển số là lãng phí tài nguyên và dễ dẫn đến sai lệch khi ảnh bị mờ hoặc che khuất. Do đó, hệ thống tích hợp bộ định tuyến chất lượng đóng vai trò "gác cổng" nhằm đánh giá ảnh cắt (crop) biển số trước khi OCR. Cơ chế này giúp tối ưu tài nguyên tính toán và ngăn chặn hiện tượng mô hình dự đoán sai trên các dữ liệu nhiễu.
+
+\paragraph{Cơ chế định tuyến bằng YOLOv8n-cls.}
+Ảnh biển số sau khi nắn chỉnh phối cảnh được đưa qua mạng phân loại YOLOv8n-cls để dự đoán mức độ đọc được theo bốn lớp: \textit{perfect}, \textit{good}, \textit{poor} và \textit{illegible}. Dựa trên các nhãn này, hệ thống rẽ nhánh luồng xử lý:
+\begin{itemize}
+    \item \textbf{Direct (\textit{perfect, good}):} Ảnh đủ sắc nét, được đưa thẳng vào mô hình OCR để ưu tiên phát ra kết quả sớm.
+    \item \textbf{Tracklet Fusion (\textit{poor}):} Ảnh suy giảm chất lượng nhưng vẫn chứa thông tin cấu trúc, được đưa vào bộ đệm (buffer) chờ bỏ phiếu đa khung hình.
+    \item \textbf{Unreadable Wait (\textit{illegible}):} Ảnh bị nhòe hoàn toàn hoặc che khuất nặng, chỉ lưu trữ làm bằng chứng hình ảnh và bỏ qua hoàn toàn bước OCR.
+\end{itemize}
+
+\paragraph{Định lượng chất lượng số (q-score).}
+Bên cạnh nhãn phân loại, hệ thống tính toán thêm một điểm chất lượng liên tục \(q \in [0,1]\) bằng thuật toán xử lý ảnh truyền thống. Điểm \(q\) kết hợp độ sắc nét (dựa trên toán tử không gian) và kích thước của biển số:
+\[
+q = 0.80 \times \min\left(\frac{\operatorname{Var}(\nabla^2 I)}{500}, 1\right)
+    + 0.20 \times \min\left(\frac{h \times w}{A_{\text{ref}}}, 1\right)
+\]
+Cần lưu ý rằng, \textbf{điểm $q$ này không can thiệp vào quyết định định tuyến chính của mạng Deep Learning}. Bất cứ khi nào mạng phân loại dự đoán ảnh là \textit{perfect} hoặc \textit{good}, ảnh đó sẽ luôn được đưa đi OCR trực tiếp (nhánh Direct) bất kể điểm $q$ được tính ra cao hay thấp. 
+
+Khi mạng Deep Learning đang hoạt động bình thường, điểm $q$ chỉ đóng vai trò \textbf{xếp hạng trong bộ đệm (Buffer Ranking)}. Cụ thể, đối với các ảnh mờ bị đẩy vào nhánh \textit{Tracklet Fusion}, điểm $q$ sẽ đóng vai trò như một trọng số chất lượng để giúp hệ thống chọn ra khung hình tốt nhất làm đại diện khi biểu quyết đa khung hình. Chỉ khi mạng Deep Learning bị vô hiệu hóa, điểm $q$ mới được kích hoạt chế độ dự phòng (fallback) để tự động thay thế nhiệm vụ rẽ nhánh.
+
+\paragraph{Flowchart thuật toán Quality Router.}
+Quy trình phân loại chất lượng và định tuyến xử lý được mô tả bằng lưu đồ trong Hình~\ref{fig:quality_router_flow}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{Hinhve/DATN-Quality-Routing.png}
+\caption{Lưu đồ thuật toán phân loại chất lượng và định tuyến xử lý}
+\label{fig:quality_router_flow}
+\end{figure}
+
+\subsection{Kiến trúc và thiết kế mô hình OCR (SmallLPR-Line-CTC)}
+\label{subsection:3.3.4}
+\textbf{Hạn chế của LPRNet gốc với bài toán biển số Việt Nam.}
+Khối OCR được xây dựng từ tinh thần LPRNet: nhận dạng trực tiếp toàn bộ ảnh biển số bằng CNN nhẹ kết hợp CTC, không cần tách ký tự thủ công \cite{zherzdev2018lprnet}. Khi áp dụng cho biển số Việt Nam, LPRNet gốc bộc lộ bốn hạn chế chính: (1) ảnh crop từ video thường bị nghiêng hoặc lệch phối cảnh, trong khi mô hình gốc không có cơ chế căn chỉnh hình học; (2) các khối tích chập nhẹ chưa khai thác tốt nét ký tự nhỏ, nhiễu cục bộ và ngữ cảnh rộng; (3) đọc đặc trưng như chuỗi một chiều làm suy giảm thông tin vị trí theo chiều dọc, cần thiết cho biển hai dòng; (4) một head CTC duy nhất buộc mọi bố cục đi qua cùng một dòng giải mã, gây đọc sai thứ tự ở biển hai dòng.
+
+\textbf{Tổng quan SmallLPR-Line-CTC.}
+Tổng quát, luồng xử lý của mô hình là:
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.9cm and 0.9cm,
+    >=Stealth,
+    block/.style={
+        draw,
+        rounded corners=3pt,
+        align=center,
+        font=\small,
+        minimum width=2.8cm,
+        minimum height=1.0cm,
+        fill=gray!6
+    },
+    input/.style={block, fill=green!10},
+    module/.style={block, fill=blue!8},
+    head/.style={block, fill=orange!12},
+    line/.style={->, thick}
+]
+
+% Main pipeline
+\node[input] (img) {Ảnh đầu vào\\\(I\)};
+\node[module, right=of img] (stn) {STN};
+\node[module, right=of stn] (cnn) {CNN\\Backbone};
+\node[module, right=of cnn] (proj) {\(1 \times 1\)\\Projection};
+\node[module, right=of proj] (pe) {2D Positional\\Encoding};
+
+% Output heads
+\node[head, right=1.2cm of pe] (global) {Global\\CTC};
+\node[head, above=0.65cm of global] (oneline) {OneLine\\CTC};
+\node[head, below=0.65cm of global] (topbottom) {Top/Bottom\\CTC};
+\node[head, below=0.65cm of topbottom] (layout) {Layout\\Head};
+
+% Arrows in main pipeline
+\draw[line] (img) -- (stn);
+\draw[line] (stn) -- (cnn);
+\draw[line] (cnn) -- (proj);
+\draw[line] (proj) -- (pe);
+
+% Branching arrows
+\draw[line] (pe.east) -- (global.west);
+\draw[line] (pe.east) |- (oneline.west);
+\draw[line] (pe.east) |- (topbottom.west);
+\draw[line] (pe.east) |- (layout.west);
+
+\end{tikzpicture}%
+}
+\caption{Kiến trúc tổng quát của mô hình OCR biển số}
+\label{fig:ocr_model_architecture}
+\end{figure}
+
+Trong đó \(I\) là ảnh crop biển số đã resize về \(48 \times 96\). Ảnh đầu vào trước hết đi qua STN để giảm sai lệch hình học, sau đó được mã hóa bởi backbone CNN cải tiến từ khối nhẹ của LPRNet. Khác với hướng chuyển ngay đặc trưng thành chuỗi một chiều, mô hình giữ feature map ở dạng hai chiều \(6 \times 12\), chiếu về không gian đặc trưng 256 chiều và cộng mã hóa vị trí theo hàng/cột. Từ biểu diễn này, các head CTC được tách theo vai trò:  \texttt{global\_head} học tín hiệu nhận dạng toàn cục,  \texttt{one\_line\_head} đọc biển một dòng,  \texttt{top\_head} và  \texttt{bottom\_head} đọc riêng hai dòng, còn  \texttt{layout\_head} dự đoán bố cục để chọn đường giải mã phù hợp ở giai đoạn suy luận. Mô hình không sử dụng bounding box ký tự, không tách ký tự trước và cũng không cần annotation vị trí dòng.
+
+\begin{table}[H]
+\centering
+\caption{Kiến trúc STN alignment network}
+\label{tab:stn-alignment-network}
+\begin{tabular}{|c|c|c|}
+\hline
+Layer & Tham số & Kích thước đầu ra \\
+\hline
+Input & RGB image & \(3 \times 48 \times 96\) \\
+Conv & \(3 \times 3,\ 3 \rightarrow 32\) & \(32 \times 46 \times 94\) \\
+MaxPool + Mish & \(2 \times 2\) & \(32 \times 23 \times 47\) \\
+Conv & \(5 \times 5,\ 32 \rightarrow 32\) & \(32 \times 19 \times 43\) \\
+MaxPool + Mish & \(3 \times 3\) & \(32 \times 6 \times 14\) \\
+FC + Mish & \(2688 \rightarrow 32\) & 32 \\
+FC & \(32 \rightarrow 6\) & affine \(2 \times 3\) \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{STN để bù sai lệch hình học.}
+Hạn chế đầu tiên của LPRNet gốc trong pipeline video là ảnh biển số hiếm khi ở trạng thái đã căn chỉnh lý tưởng: hộp crop có thể lệch tâm, méo nhẹ do góc nhìn, hoặc bị xoay do phương tiện di chuyển. Các sai lệch này làm cho cùng một ký tự xuất hiện ở nhiều tư thế khác nhau, khiến backbone phải tự học cả bài toán căn chỉnh lẫn bài toán nhận dạng. Vì vậy,  \texttt{SmallLPR-Line-CTC} đặt một Spatial Transformer Network ở đầu mô hình. Theo cách tiếp cận của STN, một mạng con có thể dự đoán phép biến đổi không gian khả vi và được huấn luyện end-to-end cùng mạng chính \cite{jaderberg2015spatial}.
+
+Trong đồ án, STN dự đoán ma trận affine \(2 \times 3\) gồm sáu tham số để biến đổi ảnh biển số trước khi đưa vào backbone. Tầng fully connected cuối được khởi tạo thành phép biến đổi đồng nhất, nên ở đầu huấn luyện mô hình không làm biến dạng ảnh. Khi dữ liệu cho thấy việc dịch chuyển, xoay hoặc co giãn nhẹ giúp giảm CTC loss, STN tự học phép hiệu chỉnh tương ứng. Cách này giữ pipeline đơn giản hơn so với tiền xử lý hình học thủ công, đồng thời tránh phụ thuộc vào các giả định cứng về góc nghiêng của biển số.
+
+\begin{table}[H]
+\centering
+\caption{Khối cơ bản  \texttt{SmallBasicBlockCBAM}}
+\label{tab:small-basic-block-cbam}
+\begin{tabular}{|c|p{10cm}|}
+\hline
+Thành phần & Mô tả \\
+\hline
+MixConv & Trích xuất đặc trưng bằng nhiều kernel, \(C_{in} \rightarrow C_{out}/4\) \\
+Conv \(3 \times 1\) & Khai thác nét dọc của ký tự \\
+Conv \(1 \times 3\) & Khai thác nét ngang và quan hệ ký tự theo chiều biển \\
+Conv \(1 \times 1\) & Khôi phục số kênh về \(C_{out}\) \\
+BatchNorm + Mish & Ổn định huấn luyện và tăng phi tuyến \\
+CBAM & Tái trọng số đặc trưng theo kênh và không gian \\
+Residual & Dùng khi \(C_{in}=C_{out}\) \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{SmallBasicBlockCBAM để tăng năng lực trích đặc trưng.}
+LPRNet gốc sử dụng các khối tích chập nhẹ để đạt tốc độ thời gian thực, nhưng thiết kế này dễ bị hạn chế khi ký tự nhỏ, bị mờ hoặc có nét gần nhau. Với ảnh biển số kích thước thấp, cùng một vùng ký tự cần được nhìn ở nhiều thang ngữ cảnh: kernel nhỏ giúp giữ nét mảnh như cạnh chữ và số, trong khi kernel lớn hơn giúp quan sát quan hệ giữa các nét hoặc giữa ký tự và nền biển. Vì vậy, khối  \texttt{SmallBasicBlockCBAM} thay phần tích chập đầu bằng MixConv, trong đó các nhóm kênh sử dụng nhiều kích thước kernel khác nhau để khai thác các mẫu ở nhiều độ phân giải \cite{tan2019mixconv}.
+
+Sau khi trích đặc trưng đa tỷ lệ, CBAM được thêm vào cuối block để tái trọng số đặc trưng theo kênh và theo không gian \cite{woo2018cbam}. Về mặt trực giác, attention theo kênh giúp mô hình chọn nhóm đặc trưng hữu ích cho nét ký tự, còn attention theo không gian giúp tăng trọng số các vùng chứa ký tự so với nền, vít, khung biển hoặc nhiễu do crop. Như vậy, backbone vẫn giữ tinh thần nhỏ gọn của LPRNet nhưng được tăng khả năng phân biệt chi tiết ký tự trong các điều kiện video không ổn định.
+\begin{table}[H] \centering \small \renewcommand{\arraystretch}{1.2} \caption{Backbone CNN của  \texttt{SmallLPR-Line-CTC}} \label{tab:smalllpr-line-ctc-backbone} \begin{tabularx}{\textwidth}{|>{\centering\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}X|>{\centering\arraybackslash}p{3.2cm}|} \hline \textbf{Layer} & \textbf{Tham số} & \textbf{Kích thước đầu ra} \\ \hline
+Input & RGB image & \(3 \times 48 \times 96\) \\
+Stem & Conv \(3 \times 3,\ 3 \rightarrow 64\) + BN + Mish & \(64 \times 48 \times 96\) \\
+Stage 1 &  \texttt{SmallBasicBlockCBAM(64,128)} + MaxPool2 & \(128 \times 24 \times 48\) \\
+Stage 2 &  \texttt{SmallBasicBlockCBAM(128,256)} & \(256 \times 24 \times 48\) \\
+ &  \texttt{SmallBasicBlockCBAM(256,256)} + MaxPool2 & \(256 \times 12 \times 24\) \\
+Stage 3 &  \texttt{SmallBasicBlockCBAM(256,256)} & \(256 \times 12 \times 24\) \\
+ &  \texttt{SmallBasicBlockCBAM(256,256)} + MaxPool2 & \(256 \times 6 \times 12\) \\
+Projection & Conv \(1 \times 1,\ 256 \rightarrow 256\) & \(256 \times 6 \times 12\) \\
+2D positional encoding & row embedding + column embedding & \(6 \times 12 \times 256\) \\
+\hline \end{tabularx} \end{table}
+
+\textbf{Feature map hai chiều và positional encoding.}
+Một điểm khác biệt quan trọng so với LPRNet gốc là mô hình không ép feature map thành chuỗi một chiều ngay sau backbone. Trong LPRNet, cách đọc theo chuỗi ngang phù hợp với giả định biển số chủ yếu là một dòng; tuy nhiên với biển số Việt Nam, tọa độ theo chiều dọc mang thông tin ngữ nghĩa rõ ràng: cùng một cột ảnh có thể chứa ký tự thuộc dòng trên hoặc dòng dưới. Nếu làm phẳng quá sớm, mô hình phải suy ra bố cục hai dòng từ một chuỗi đã mất cấu trúc hàng/cột, dẫn đến nguy cơ đảo thứ tự đọc hoặc trộn ký tự giữa hai dòng.
+
+Vì vậy,  \texttt{SmallLPR-Line-CTC} giữ đặc trưng ở dạng \(6 \times 12\) sau backbone. Sau lớp projection \(1 \times 1\), mỗi vị trí không gian được cộng mã hóa vị trí hai chiều gồm embedding theo hàng và embedding theo cột. Biểu diễn này cho phép mô hình biết một đặc trưng nằm ở dòng nào và cột nào trên biển số, nhưng vẫn giữ khả năng học mềm thay vì áp đặt quy tắc tách dòng cố định. Đây là nền tảng để các nhánh attention phía sau gom đặc trưng theo một dòng hoặc hai dòng mà không cần detector dòng riêng.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\caption{Các head nhận dạng và bố cục}
+\label{tab:recognition-layout-heads}
+\begin{tabularx}{\textwidth}{
+|>{\raggedright\arraybackslash}p{3.6cm}
+|>{\raggedright\arraybackslash}p{3.0cm}
+|>{\centering\arraybackslash}p{2.4cm}
+|>{\raggedright\arraybackslash}X|}
+\hline
+\textbf{Head} & \textbf{Đầu vào} & \textbf{Đầu ra} & \textbf{Vai trò} \\
+\hline
+ \texttt{global\_head}
+& flatten \(6 \times 12\)
+& \(72 \times |V|\)
+& CTC toàn cục trên cả biển \\
+\hline
+\makecell[l]{ \texttt{one\_line}\\ \texttt{\_attention}}
+& \(6 \times 12 \times 256\)
+& attention \(6 \times 12\)
+& Gom đặc trưng cho biển một dòng \\
+\hline
+ \texttt{one\_line\_head}
+& sequence 16 bước
+& \(16 \times |V|\)
+& CTC cho biển một dòng \\
+\hline
+ \texttt{line\_attention}
+& \(6 \times 12 \times 256\)
+& 2 attention maps
+& Tách mềm dòng trên/dòng dưới \\
+\hline
+ \texttt{top\_head}
+& sequence 12 bước
+& \(12 \times |V|\)
+& CTC dòng trên \\
+\hline
+ \texttt{bottom\_head}
+& sequence 12 bước
+& \(12 \times |V|\)
+& CTC dòng dưới \\
+\hline
+ \texttt{layout\_head}
+& global average pooled feature
+& 2 logits
+& Phân loại một dòng/hai dòng \\
+\hline
+\end{tabularx}
+\end{table}
+
+\textbf{Multi-head CTC theo bố cục.}
+Đóng góp quan trọng nhất của  \texttt{SmallLPR-Line-CTC} nằm ở cách thay một head CTC duy nhất của LPRNet bằng nhiều head chuyên biệt theo bố cục. Nếu chỉ dùng một chuỗi CTC toàn cục, mô hình phải học đồng thời hai quy ước đọc khác nhau: đọc liên tục từ trái sang phải với biển một dòng, và đọc dòng trên trước rồi dòng dưới sau với biển hai dòng. Điều này làm bài toán căn hàng của CTC trở nên nhập nhằng, đặc biệt khi hai dòng có độ dài khác nhau hoặc khi khoảng cách giữa các ký tự không đều.
+
+Trong thiết kế đề xuất,  \texttt{global\_head} vẫn được giữ như một nhánh phụ trợ để học biểu diễn toàn cục trên toàn bộ feature map. Với biển một dòng,  \texttt{one\_line\allowbreak\_attention} gom mềm đặc trưng theo chiều dọc thành một chuỗi 16 bước và  \texttt{one\_line\allowbreak\_head} thực hiện CTC trên chuỗi này. Với biển hai dòng,  \texttt{line\_attention} sinh hai attention map tương ứng với dòng trên và dòng dưới; mỗi dòng sau đó được đọc bởi một head CTC riêng. Mô hình bổ sung \textit{vertical prior} để khuyến khích attention của dòng trên tập trung vào nửa trên feature map và attention của dòng dưới tập trung vào nửa dưới, nhưng đây chỉ là thiên hướng mềm, không phải luật cắt dòng cố định.
+
+Ở giai đoạn suy luận,  \texttt{layout\_head} quyết định ảnh đầu vào thuộc dạng một dòng hay hai dòng. Nếu xác suất của lớp hai dòng lớn hơn ngưỡng \(0.5\), hệ thống giải mã riêng dòng trên bằng  \texttt{top\_head}, dòng dưới bằng  \texttt{bottom\_head}, sau đó ghép hai chuỗi bằng token  \texttt{[SEP]}. Nếu không, kết quả được lấy từ  \texttt{one\_line\allowbreak\_head}. Nhờ cách định tuyến này, cùng một mô hình xử lý được cả hai bố cục biển số mà không cần detector dòng hoặc annotation bounding box ký tự.
+
+\textbf{Hàm mất mát huấn luyện.}
+Do kiến trúc được tách thành nhiều head theo bố cục, quá trình huấn luyện cũng được xây dựng dưới dạng bài toán đa nhiệm. So với LPRNet gốc, nơi mục tiêu chính là tối ưu một chuỗi CTC, mô hình đề xuất cần đồng thời học ba loại tín hiệu: chuỗi ký tự toàn cục, chuỗi ký tự theo từng bố cục dòng và nhãn phân loại bố cục. Vì vậy, hàm mất mát tổng hợp gồm CTC loss cho các nhánh nhận dạng và cross-entropy loss cho  \texttt{layout\_head}.
+
+Với mỗi ảnh đầu vào,  \texttt{global\_head} luôn được huấn luyện trên toàn bộ chuỗi biển số để giữ tín hiệu nhận dạng chung. Nếu ảnh là biển một dòng,  \texttt{one\_line\allowbreak\_head} học chuỗi ký tự đầy đủ. Nếu ảnh là biển hai dòng, nhãn được tách thành hai phần bởi token  \texttt{[SEP]}, trong đó  \texttt{top\_head} học chuỗi dòng trên và  \texttt{bottom\_head} học chuỗi dòng dưới. Cách tổ chức này biến bố cục từ một yếu tố gây nhiễu thành tín hiệu giám sát trực tiếp, giúp mỗi head học đúng kiểu căn hàng mà nó sẽ sử dụng khi suy luận.
+
+Hàm mất mát tổng quát được định nghĩa như sau:
+\[
+\mathcal{L}
+=
+\lambda_g \mathcal{L}_{global}
++
+\lambda_1 \mathcal{L}_{one}
++
+\lambda_t \mathcal{L}_{top}
++
+\lambda_b \mathcal{L}_{bottom}
++
+\lambda_l \mathcal{L}_{layout}
+\]
+
+Trong đó \(\mathcal{L}_{global}\), \(\mathcal{L}_{one}\), \(\mathcal{L}_{top}\) và \(\mathcal{L}_{bottom}\) là CTC loss của các nhánh nhận dạng tương ứng. Thành phần \(\mathcal{L}_{layout}\) là cross-entropy loss dùng để phân loại ảnh biển số thành hai lớp: một dòng hoặc hai dòng.
+
+Trong cấu hình huấn luyện, các trọng số được đặt là:
+\[
+\lambda_g = 1.0,\quad
+\lambda_1 = 1.0,\quad
+\lambda_t = 1.0,\quad
+\lambda_b = 1.0,\quad
+\lambda_l = 0.2
+\]
+
+Việc đặt trọng số nhỏ hơn cho \(\mathcal{L}_{layout}\) phản ánh vai trò phụ trợ của nhánh bố cục. Nhiệm vụ chính của mô hình vẫn là nhận dạng chính xác chuỗi ký tự, trong khi nhánh bố cục cung cấp tín hiệu điều hướng để chọn cơ chế giải mã phù hợp ở giai đoạn suy luận.
+
+CTC loss được sử dụng vì nhãn huấn luyện chỉ có chuỗi ký tự biển số, không có vị trí chính xác của từng ký tự trên ảnh. Với mỗi nhánh CTC, mô hình sinh ra một chuỗi phân phối xác suất theo thời gian. CTC tự động xét các khả năng căn hàng giữa chuỗi dự đoán và chuỗi nhãn, sau đó tối ưu xác suất của nhãn đúng bằng cách cho phép xuất hiện token rỗng  \texttt{\textless blank\textgreater{}} và các token lặp. Nhờ đó, mô hình có thể học OCR end-to-end mà không cần annotation ký tự hoặc bước tách ký tự thủ công.
+
+Đối với các nhánh chuyên biệt, loss được mask theo bố cục của từng mẫu. Biển một dòng chỉ đóng góp vào  \texttt{one\_line\_head}, còn biển hai dòng chỉ đóng góp vào  \texttt{top\_head} và  \texttt{bottom\_head}. Nhánh  \texttt{global\_head} và  \texttt{layout\_head} được huấn luyện trên cả hai loại mẫu. Cơ chế mask này giúp tránh việc ép một nhánh học những trường hợp không phù hợp với chức năng của nó, đồng thời làm cho từng nhánh đảm nhiệm một vai trò rõ ràng trong mô hình.
+
+\paragraph{Flowchart kiến trúc OCR.}
+Kiến trúc tổng quát của mô hình  \texttt{SmallLPR-Line-CTC} được mô tả bằng lưu đồ trong Hình~\ref{fig:ocr_model_flowchart}.
+
+\begin{figure}[H]
+\centering
+% Placeholder for PlantUML diagram: OCR architecture flowchart
+% Generate at: https://plantuml.com/plantuml
+% File: docs/plantuml/ch3_ocr_architecture.puml
+\fbox{\parbox{0.9\textwidth}{\centering\small\textbf{[Sơ đồ lưu đồ kiến trúc OCR -- xem file PlantUML: docs/plantuml/ch3\_ocr\_architecture.puml]}}}
+\caption{Lưu đồ kiến trúc mô hình OCR SmallLPR-Line-CTC}
+\label{fig:ocr_model_flowchart}
+\end{figure}
+
+\section{Xử lí kết quả sau mô hình}
+\label{section:3.4}
+
+Đầu ra thô từ mô hình OCR là một chuỗi các cặp (ký tự, xác suất) $\mathcal{P} = \{(c_1, p_1), (c_2, p_2), \dots, (c_L, p_L)\}$. Đầu ra này không thể sử dụng trực tiếp do: (1) nhiễu nhận diện giữa các ký tự tương đồng, (2) độ tin cậy của một khung hình đơn lẻ thường thấp, và (3) chưa chắc chắn tuân thủ quy tắc biển số hợp lệ. Mục này mô tả hai module hậu xử lý cốt lõi: Xác thực định dạng và Tổng hợp đa khung hình (CTM).
+
+\subsection{Xác thực định dạng biển số}
+\label{subsection:3.4.1}
+
+\paragraph{1. Chuẩn hóa và rà soát khuôn dạng}
+Chuỗi ký tự thô được chuẩn hóa thông qua các thao tác:
+\begin{itemize}
+    \item Chuyển đổi toàn bộ ký tự sang chữ in hoa.
+    \item Loại bỏ khoảng trắng thừa và chuẩn hóa ký hiệu phân dòng (đối với biển hai dòng) thành dấu cách ngang.
+\end{itemize}
+Chuỗi sau chuẩn hóa được đối chiếu với tập $K$ mẫu định dạng (Templates) hợp lệ của biển số Việt Nam (ví dụ: \texttt{DDL-DDDD}, \texttt{DDLL-DDDDD}). Mỗi mẫu định nghĩa ràng buộc chặt chẽ cho từng vị trí (slot): chữ số ($D$), chữ cái ($L$), hoặc hỗn hợp ($A$).
+
+\paragraph{2. Sửa lỗi ký tự mơ hồ (Slot-aware Error Correction)}
+Mô hình OCR thường nhầm lẫn các cặp ký tự có hình thái tương đồng (O/0, I/1, S/5, B/8, G/6, Z/2). Hệ thống sử dụng thuật toán quy hoạch động (Dynamic Programming) để căn chỉnh chuỗi dự đoán vào mẫu định dạng $\mathcal{T}$, thông qua ba thao tác có chi phí (cost) bất đối xứng:
+\begin{itemize}
+    \item \textbf{Match / Replace (Cost = 0 hoặc 1):} Khớp ký tự hoặc ép kiểu (ví dụ: $O \rightarrow 0$ tại slot $D$) với chi phí thấp để giữ nguyên độ dài chuỗi.
+    \item \textbf{Skip (Cost = 2):} Bỏ qua một ký tự thừa do mô hình nhận diện dư.
+    \item \textbf{Insert (Cost = 2):} Chèn một token ẩn (wildcard) cho ký tự bị thiếu.
+\end{itemize}
+Quá trình căn chỉnh sẽ chọn mẫu $\mathcal{T}^*$ có tổng chi phí thấp nhất. Các ký tự bị ép kiểu (replace) sẽ bị phạt giảm độ tin cậy theo hệ số $\gamma = 0.92$ nhằm phản ánh mức độ mơ hồ: $p_i' = p_i \times \gamma$.
+
+\subsection{Tổng hợp đa khung hình}
+\label{subsection:3.4.2}
+
+\paragraph{1. Tiền xử lý và chọn lọc dữ liệu (Buffer Selection)}
+Các khung hình không được chốt ngay (do thuộc nhóm \textit{tracklet\_fusion} hoặc thuộc nhóm \textit{direct} nhưng độ tin cậy $p < 0.90$) sẽ được đưa vào bộ đệm (Track Buffer). Hệ thống thực hiện tiền xử lý tăng cường để tạo ra các ứng viên (candidates) tốt hơn:
+\begin{itemize}
+    \item \textbf{Unsharp Masking:} Làm sắc nét cho ảnh bị mờ nhòe (motion blur).
+    \item \textbf{Gamma Correction \& CLAHE:} Tăng cường tương phản cục bộ trên kênh độ sáng $L$ (không gian màu $LAB$) cho ảnh thiếu sáng hoặc chói sáng.
+    \item \textbf{Bilateral Filter:} Giảm nhiễu hạt và sương mù trong khi vẫn bảo toàn cạnh chữ.
+\end{itemize}
+Các phiên bản ảnh này được chạy OCR độc lập. Ứng viên tốt nhất được chọn thông qua hàm xếp hạng (Rerank) kết hợp xác suất ký tự và chi phí sửa lỗi, sau đó mới được lưu vào bộ đệm.
+
+\paragraph{2. Cơ chế Character Time-series Matching (CTM)}
+Khi track phương tiện kết thúc (ví dụ: phương tiện rời khỏi camera quá 5 khung hình liên tiếp), hệ thống kích hoạt biểu quyết CTM \cite{che2023ctm}. Thay vì lấy kết quả cứng của một khung hình duy nhất, CTM gióng hàng toàn bộ $N$ khung hình trong bộ đệm và biểu quyết độc lập tại từng vị trí ký tự (slot) $j$:
+\begin{equation}
+    c_j^* = \arg\max_{c \in \Sigma} \sum_{i=1}^N \mathbb{I}(c_{i,j} = c)
+\end{equation}
+Ký tự $c_j^*$ chỉ được chấp nhận làm kết quả cuối cùng nếu thỏa mãn hai điều kiện kiểm định:
+\begin{itemize}
+    \item \textbf{Tỷ lệ biểu quyết (Vote Ratio):} Vượt ngưỡng tối thiểu $\tau_{vote} = 0.5$ (quá nửa số khung hình đồng thuận).
+    \item \textbf{Độ tin cậy trung bình (Mean Confidence):} Đạt mức $\tau_{conf} \ge 0.50$.
+\end{itemize}
+Nếu bất kỳ slot $j$ nào không đạt ngưỡng, ký tự đó được gán cờ vô định (ký hiệu "?"). Track chỉ được hệ thống ghi nhận thành công khi $100\%$ các vị trí ký tự đều được xác định và tuân thủ đúng mẫu định dạng.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth,height=0.45\textheight,keepaspectratio]{Hinhve/DATN-CTM-Tong-hop-da-khung-hinh.png}
+\caption{Quy trình tổng hợp đa khung hình CTM (Character Time-series Matching)}
+\label{fig:ctm_voting_flowchart}
+\end{figure}
+
+\end{document}

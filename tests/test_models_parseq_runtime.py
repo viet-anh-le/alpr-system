@@ -136,12 +136,6 @@ def test_ocr_batch_dispatches_small_lpr_line_ctc_wrapper_with_layout() -> None:
     class FakeLineCtc(torch.nn.Module):
         def forward(self, images):
             return {
-                "global_logits": logits_from_sequences(
-                    [
-                        [1, 2, 3, 4, 5, 6, 7, 8, 9],
-                        [1, 2, 3, 10, 5, 6, 7, 8, 9],
-                    ]
-                ),
                 "one_line_logits": logits_from_sequences(
                     [
                         [0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 0],
@@ -171,6 +165,50 @@ def test_ocr_batch_dispatches_small_lpr_line_ctc_wrapper_with_layout() -> None:
         ["3", "0", "G", "[SEP]", "5", "1", "8", "2", "7"],
     ]
     assert [all_confident for _, all_confident in results] == [True, True]
+
+
+@pytest.mark.unit
+def test_load_small_lpr_line_ctc_checkpoint_without_global_head(tmp_path) -> None:
+    import api.core.models as models
+
+    chars = ["<blank>", "3", "0", "G"]
+    source = models.SmallLPRLineCTC(
+        vocab_size=len(chars),
+        d_model=16,
+        backbone_ch=16,
+        use_global_head=False,
+    )
+    checkpoint = tmp_path / "no_global.ckpt"
+    torch.save(
+        {
+            "state_dict": {
+                f"model.{name}": tensor
+                for name, tensor in source.state_dict().items()
+            },
+            "hyper_parameters": {
+                "args": {
+                    "chars": chars,
+                    "d_model": 16,
+                    "backbone_ch": 16,
+                    "use_global_head": False,
+                    "line_prior_strength": 1.0,
+                    "use_stn": True,
+                    "use_pos_enc": True,
+                    "two_line_threshold": 0.5,
+                    "line_separator": "[SEP]",
+                }
+            },
+        },
+        checkpoint,
+    )
+
+    wrapper = models.load_small_lpr_line_ctc_model(
+        checkpoint,
+        device=torch.device("cpu"),
+    )
+
+    assert wrapper.model.global_head is None
+    assert "global_logits" not in wrapper.model(torch.zeros((1, 3, 48, 96)))
 
 
 @pytest.mark.unit

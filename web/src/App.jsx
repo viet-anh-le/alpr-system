@@ -191,8 +191,8 @@ function AppTopbar({
           value={mode}
           onChange={onModeChange}
           options={[
-            { value: 'process', label: 'Process' },
-            { value: 'monitor', label: 'Monitor' },
+            { value: 'process', label: 'Xử lí toàn bộ' },
+            { value: 'monitor', label: 'Xử lí trích đoạn' },
           ]}
           className="lg:ml-6"
         />

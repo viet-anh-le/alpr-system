@@ -11,7 +11,7 @@ from torchvision import transforms
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-DEFAULT_PARSEQ_VN_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZĐ-.[]"
+DEFAULT_PARSEQ_VN_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZĐ-."
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class OcrSplitStats:
 
 
 def normalize_plate_label(label: str) -> str:
-    return label.strip().upper()
+    return label.strip().upper().replace("[SEP]", "")
 
 
 def label_from_path(path: str | Path) -> str:

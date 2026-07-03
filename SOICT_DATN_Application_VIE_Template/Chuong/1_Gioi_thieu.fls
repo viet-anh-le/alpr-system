@@ -272,6 +272,10 @@ INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.m
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryquotes.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryquotes.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/shapes/pgflibraryshapes.geometric.code.tex
+INPUT /usr/share/texlive/texmf-dist/tex/generic/pgf/libraries/shapes/pgflibraryshapes.geometric.code.tex
 INPUT /usr/share/texlive/texmf-dist/tex/latex/glossaries/base/glossaries.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/glossaries/base/glossaries.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/xkeyval/xkeyval.sty
@@ -362,9 +366,6 @@ INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-dm.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-compat.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
-INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/blx-bibtex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/biblatex.def
@@ -477,7 +478,7 @@ INPUT /usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
 INPUT /usr/share/texlive/texmf-dist/tex/latex/caption/ltcaption.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/caption/ltcaption.sty
 INPUT /usr/share/texlive/texmf-dist/tex/latex/biblatex/lbx/english.lbx
-OUTPUT Chuong/1_Gioi_thieu-blx.bib
+OUTPUT Chuong/1_Gioi_thieu.bcf
 INPUT Chuong/1_Gioi_thieu.bbl
 INPUT Chuong/1_Gioi_thieu.bbl
 INPUT Chuong/1_Gioi_thieu.bbl
@@ -501,6 +502,7 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/vntex/urwvn/utmr8v.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/vntex/urwvn/utmb8v.tfm
 INPUT /var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/vntex/t5.enc
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/vntex/urwvn/utmri8v.tfm
 INPUT Chuong/1_Gioi_thieu.aux
 INPUT Chuong/1_Gioi_thieu.out
 INPUT Chuong/1_Gioi_thieu.out
@@ -508,3 +510,4 @@ INPUT Chuong/1_Gioi_thieu.run.xml
 OUTPUT Chuong/1_Gioi_thieu.run.xml
 INPUT /usr/share/texlive/texmf-dist/fonts/type1/vntex/urwvn/utmb8v.pfb
 INPUT /usr/share/texlive/texmf-dist/fonts/type1/vntex/urwvn/utmr8v.pfb
+INPUT /usr/share/texlive/texmf-dist/fonts/type1/vntex/urwvn/utmri8v.pfb
