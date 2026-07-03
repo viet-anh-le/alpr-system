@@ -20,15 +20,15 @@ export default function SourceSelector({
     <section className="surface-panel overflow-hidden">
       <div className="panel-header">
         <div>
-          <p className="section-label">Event source</p>
+          <p className="section-label">Nguồn sự kiện</p>
           <h2 className="mt-1 text-lg font-bold">Phân tích trích đoạn</h2>
         </div>
         <SegmentedControl
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'rtsp', label: 'RTSP camera' },
-            { value: 'upload', label: 'Upload video' },
+            { value: 'rtsp', label: 'Camera RTSP' },
+            { value: 'upload', label: 'Tải video' },
           ]}
         />
       </div>
@@ -43,7 +43,7 @@ export default function SourceSelector({
             className="grid gap-3 lg:grid-cols-[1fr_220px_auto] lg:items-end"
           >
             <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-[var(--color-text-muted)]">RTSP URL</span>
+              <span className="text-xs font-semibold text-[var(--color-text-muted)]">URL RTSP</span>
               <TextInput
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
@@ -51,7 +51,7 @@ export default function SourceSelector({
               />
             </label>
             <Select
-              label="OCR backend"
+              label="Bộ OCR"
               value={ocrBackend}
               onChange={(event) => setOcrBackend(event.target.value)}
               options={OCR_OPTIONS}
@@ -72,8 +72,8 @@ export default function SourceSelector({
               onClick={() => inputRef.current?.click()}
               className="w-full rounded-[var(--radius-panel)] border border-dashed border-[var(--color-border)] bg-black/10 p-6 text-center transition-colors hover:border-[var(--color-border-strong)] hover:bg-white/5"
             >
-              <p className="font-semibold">Chọn video để đánh dấu interval</p>
-              <p className="mt-1 text-sm text-[var(--color-text-muted)]">Video dài sẽ được phát trong trình duyệt; chỉ interval được gửi đi phân tích.</p>
+              <p className="font-semibold">Chọn video để đánh dấu đoạn</p>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">Video dài sẽ được phát trong trình duyệt; chỉ đoạn được chọn được gửi đi phân tích.</p>
             </button>
             <input
               ref={inputRef}
@@ -97,7 +97,7 @@ export default function SourceSelector({
                     className="lg:w-52"
                   />
                   <Select
-                    label="OCR backend"
+                    label="Bộ OCR"
                     value={ocrBackend}
                     onChange={(event) => setOcrBackend(event.target.value)}
                     options={OCR_OPTIONS}

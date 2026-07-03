@@ -1,13 +1,14 @@
 import { useState } from 'react'
 
 import { Badge, Button, Dialog, EmptyState, cx } from '../ui'
+import { VEHICLE_LABEL } from '../workbench/constants'
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 
 export default function EventDetail({ event }) {
   const vehicles = Object.values(event.vehicles || {})
   if (vehicles.length === 0) {
-    return <EmptyState title="Không có vehicle evidence" />
+    return <EmptyState title="Không có chứng cứ phương tiện" />
   }
 
   return (
@@ -38,7 +39,7 @@ function EventVehicleDetail({ vehicle }) {
             {displayPlateText(vehicle.plate) || '—'}
           </p>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            {identityLabel} · {vehicle.cls || 'vehicle'} · {vehicle.ocr_frames || 0} frames
+            {identityLabel} · {VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · {vehicle.ocr_frames || 0} khung
           </p>
         </div>
         <Badge tone={confidence >= 90 ? 'success' : confidence >= 70 ? 'warning' : 'danger'}>
@@ -67,8 +68,8 @@ function TrackBufferDialog({ open, vehicle, frames, onClose }) {
     <Dialog
       open={open}
       onClose={onClose}
-      title={`Event ${identityLabel}`}
-      description={`${sortedFrames.length} frames trong event buffer`}
+      title={`Sự kiện ${identityLabel}`}
+      description={`${sortedFrames.length} khung trong bộ đệm sự kiện`}
       className="max-w-3xl"
     >
       <div className="max-h-[70vh] overflow-y-auto p-4">
@@ -94,16 +95,16 @@ function FrameCell({ frame }) {
     <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-black">
       <div className="flex h-20 items-center justify-center">
         {src ? (
-          <img src={src} alt={`frame ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
+          <img src={src} alt={`khung ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-[10px] text-[var(--color-text-subtle)]">no img</span>
+          <span className="text-[10px] text-[var(--color-text-subtle)]">không có ảnh</span>
         )}
       </div>
       <div className="h-1 bg-white/10">
         <div className={cx('h-full', qualityColor(score))} style={{ width: `${Math.min(score * 100, 100)}%` }} />
       </div>
       <p className="data-font px-1 py-1 text-center text-[10px] text-[var(--color-text-muted)]">
-        f{frame.frame_index} · {score.toFixed(2)}
+        #{frame.frame_index} · {score.toFixed(2)}
       </p>
     </div>
   )
@@ -111,12 +112,12 @@ function FrameCell({ frame }) {
 
 function formatRecognitionIdentity(vehicle) {
   const resultId = vehicle.recognition_id ?? vehicle.track_id ?? vehicle.id
-  const parts = [`Result #${resultId}`]
+  const parts = [`Kết quả #${resultId}`]
   if (vehicle.vehicle_track_id !== undefined && vehicle.vehicle_track_id !== null) {
-    parts.push(`Vehicle #${vehicle.vehicle_track_id}`)
+    parts.push(`Xe #${vehicle.vehicle_track_id}`)
   }
   if (vehicle.plate_track_id !== undefined && vehicle.plate_track_id !== null) {
-    parts.push(`Plate #${vehicle.plate_track_id}`)
+    parts.push(`Biển số #${vehicle.plate_track_id}`)
   }
   return parts.join(' · ')
 }

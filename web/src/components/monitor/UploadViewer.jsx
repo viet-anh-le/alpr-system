@@ -26,10 +26,10 @@ export default function UploadViewer({ videoUrl, onMark }) {
     <section className="surface-panel overflow-hidden">
       <div className="panel-header">
         <div>
-          <p className="section-label">Uploaded observation</p>
-          <h2 className="mt-1 text-lg font-bold">Chọn interval để phân tích</h2>
+          <p className="section-label">Quan sát từ video tải lên</p>
+          <h2 className="mt-1 text-lg font-bold">Chọn đoạn để phân tích</h2>
         </div>
-        {!picking && <Button size="sm" variant="primary" onClick={handleStartPicking}>Đánh dấu interval</Button>}
+        {!picking && <Button size="sm" variant="primary" onClick={handleStartPicking}>Đánh dấu đoạn</Button>}
       </div>
       <video
         ref={videoRef}

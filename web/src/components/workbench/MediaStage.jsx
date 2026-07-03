@@ -18,7 +18,7 @@ export default function MediaStage({ frameB64, videoUrl, progress, status }) {
         <section className="surface-panel overflow-hidden">
             <div className="panel-header">
                 <div>
-                    <p className="section-label">Media evidence</p>
+                    <p className="section-label">Chứng cứ hình ảnh</p>
                 </div>
                 <Badge tone={tone}>{label}</Badge>
             </div>
@@ -28,7 +28,7 @@ export default function MediaStage({ frameB64, videoUrl, progress, status }) {
                     {hasFrame && !isDone && (
                         <img
                             src={`data:image/jpeg;base64,${frameB64}`}
-                            alt="Khung hình đã annotate"
+                            alt="Khung hình đã chú thích"
                             className="block max-h-[68vh] w-full object-contain"
                             draggable={false}
                         />
@@ -49,8 +49,8 @@ export default function MediaStage({ frameB64, videoUrl, progress, status }) {
                     {!videoUrl && !hasFrame && (
                         <div className="p-4">
                             <EmptyState title="Chưa có nguồn phân tích">
-                                Chọn video upload hoặc ghi camera clip để xem
-                                khung hình annotate và tiến trình OCR tại đây.
+                                Chọn video tải lên hoặc ghi clip camera để xem
+                                khung hình đã chú thích và tiến trình OCR tại đây.
                             </EmptyState>
                         </div>
                     )}
@@ -82,7 +82,7 @@ export default function MediaStage({ frameB64, videoUrl, progress, status }) {
                             />
                             {progress.frame > 0 && (
                                 <p className="mt-2 data-font text-xs text-white/70">
-                                    Frame {progress.frame.toLocaleString("vi")}{" "}
+                                    Khung {progress.frame.toLocaleString("vi")}{" "}
                                     / {progress.total.toLocaleString("vi")}
                                 </p>
                             )}
@@ -93,7 +93,7 @@ export default function MediaStage({ frameB64, videoUrl, progress, status }) {
                     <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3">
                         <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                             <span className="font-semibold">
-                                {label} · original video ready for review
+                                {label} · video gốc đã sẵn sàng để kiểm tra
                             </span>
                             <span className="data-font font-bold">
                                 {Math.round(progress.pct || 0)}%

@@ -25,7 +25,7 @@ export default function IntervalPicker({ duration, initialStart, initialEnd, onS
     <div className="border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="section-label">Event window</p>
+          <p className="section-label">Cửa sổ sự kiện</p>
           <p className="mt-1 data-font text-sm text-[var(--color-text-muted)]">
             {fmt(start)} → {fmt(end)} · Δ {delta.toFixed(1)}s
           </p>
@@ -37,7 +37,7 @@ export default function IntervalPicker({ duration, initialStart, initialEnd, onS
       <Progress value={duration ? (end / duration) * 100 : 0} tone={tooLong ? 'danger' : 'info'} className="mb-4" />
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-xs text-[var(--color-text-muted)]">
-          Start {fmt(start)}
+          Bắt đầu {fmt(start)}
           <input
             type="range"
             min={0}
@@ -49,7 +49,7 @@ export default function IntervalPicker({ duration, initialStart, initialEnd, onS
           />
         </label>
         <label className="space-y-1 text-xs text-[var(--color-text-muted)]">
-          End {fmt(end)}
+          Kết thúc {fmt(end)}
           <input
             type="range"
             min={0}
@@ -63,7 +63,7 @@ export default function IntervalPicker({ duration, initialStart, initialEnd, onS
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="primary" disabled={!valid} onClick={() => onAnalyze(start, end)}>
-          Phân tích interval
+          Phân tích đoạn
         </Button>
         <Button variant="ghost" onClick={onCancel}>Hủy</Button>
       </div>

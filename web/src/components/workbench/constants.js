@@ -12,10 +12,11 @@ export const OCR_OPTIONS = [
   { value: 'smalllpr_ctc', label: 'SmallLPR CTC' },
   { value: 'parseq', label: 'PARSeq' },
   { value: 'yolov5_char', label: 'YOLOv5 Char' },
-  { value: 'vietnamese_yolov5', label: 'YOLOv5 Vietnamese' },
+  { value: 'vietnamese_yolov5', label: 'YOLOv5 Việt Nam' },
 ]
 
 export const VEHICLE_LABEL = {
+  vehicle: 'Phương tiện',
   car: 'Ô tô',
   motorcycle: 'Xe máy',
   motorbike_rider: 'Xe máy',

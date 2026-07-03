@@ -16,6 +16,7 @@ export default function EventCard({ event }) {
   const vehicleList = Object.values(vehicles || {})
   const primary = vehicleList[0]
   const tone = status === 'completed' ? 'success' : status === 'failed' ? 'danger' : 'info'
+  const statusLabel = getStatusLabel(status)
 
   return (
     <article className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
@@ -23,17 +24,17 @@ export default function EventCard({ event }) {
         <div>
           <p className="data-font text-xs text-[var(--color-text-subtle)]">#{id.slice(-8)} · {fmtTime(markedAt)}</p>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            Window {(windowEndSec - windowStartSec).toFixed(1)}s · {vehicleList.length} vehicles
+            Đoạn {(windowEndSec - windowStartSec).toFixed(1)}s · {vehicleList.length} phương tiện
           </p>
         </div>
-        <Badge tone={tone}>{status}</Badge>
+        <Badge tone={tone}>{statusLabel}</Badge>
       </div>
 
       {(status === 'pending' || status === 'processing') && (
         <div className="mt-3">
           <div className="mb-2 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
             <span>Đang phân tích sự kiện</span>
-            <span className="data-font">{pct ? `${pct}%` : 'queued'}</span>
+            <span className="data-font">{pct ? `${pct}%` : 'đang chờ'}</span>
           </div>
           <Progress value={pct || 8} />
         </div>
@@ -49,7 +50,7 @@ export default function EventCard({ event }) {
         <>
           {primary && (
             <div className="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2">
-              <p className="section-label text-emerald-100">Primary plate</p>
+              <p className="section-label text-emerald-100">Biển số chính</p>
               <p className="plate-font mt-1 text-lg font-bold tracking-widest text-emerald-50">
                 {displayPlateText(primary.plate)}
               </p>
@@ -60,11 +61,18 @@ export default function EventCard({ event }) {
             onClick={() => setExpanded((value) => !value)}
             className="mt-3 text-sm font-semibold text-cyan-100 hover:text-cyan-50"
           >
-            {expanded ? 'Ẩn evidence' : 'Xem evidence'}
+            {expanded ? 'Ẩn chứng cứ' : 'Xem chứng cứ'}
           </button>
           {expanded && <EventDetail event={event} />}
         </>
       )}
     </article>
   )
+}
+
+function getStatusLabel(status) {
+  if (status === 'completed') return 'Hoàn tất'
+  if (status === 'failed') return 'Có lỗi'
+  if (status === 'processing') return 'Đang xử lý'
+  return 'Đang chờ'
 }

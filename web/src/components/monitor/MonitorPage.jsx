@@ -139,7 +139,7 @@ export default function MonitorPage() {
       formData.append('ocr_backend', ocrBackend)
       const response = await fetch('/monitor/upload', { method: 'POST', body: formData })
       if (!response.ok) {
-        setError(`Upload monitor thất bại: ${await response.text()}`)
+        setError(`Tải video giám sát thất bại: ${await response.text()}`)
         return
       }
       const data = await response.json()
@@ -178,7 +178,7 @@ export default function MonitorPage() {
             }
       ))
     } catch (err) {
-      setError(`Mark failed: ${err.message}`)
+      setError(`Đánh dấu thất bại: ${err.message}`)
     }
   }
 
@@ -201,7 +201,7 @@ export default function MonitorPage() {
             }
       ))
     } catch (err) {
-      setError(`Mark failed: ${err.message}`)
+      setError(`Đánh dấu thất bại: ${err.message}`)
     }
   }
 
@@ -232,17 +232,17 @@ export default function MonitorPage() {
           <section className="surface-panel p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="section-label">Active monitor session</p>
+                <p className="section-label">Phiên giám sát đang chạy</p>
                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                  {session.mode === 'live' ? session.rtspUrl : session.file?.name || 'Uploaded video'}
+                  {session.mode === 'live' ? session.rtspUrl : session.file?.name || 'Video đã tải lên'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge tone={session.mode === 'live' ? 'success' : 'info'}>{session.mode}</Badge>
+                <Badge tone={session.mode === 'live' ? 'success' : 'info'}>{session.mode === 'live' ? 'Trực tiếp' : 'Video'}</Badge>
                 {session.mode === 'live' && (
-                  <Button variant="danger" onClick={handleMarkLive}>Mark last 10s</Button>
+                  <Button variant="danger" onClick={handleMarkLive}>Đánh dấu 10 giây gần nhất</Button>
                 )}
-                <Button variant="ghost" onClick={disconnect}>Đóng session</Button>
+                <Button variant="ghost" onClick={disconnect}>Đóng phiên</Button>
               </div>
             </div>
           </section>

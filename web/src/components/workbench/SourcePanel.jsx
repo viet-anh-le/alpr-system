@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, Button, EmptyState, SegmentedControl, Select, cx } from "../ui";
 import { OCR_OPTIONS, PREPROCESS_OPTIONS, formatBytes, formatDuration } from "./constants";
 
-const SOURCE_OPTIONS = [{ value: "video", label: "Video upload" }];
+const SOURCE_OPTIONS = [{ value: "video", label: "Tải video" }];
 
 export default function SourcePanel({
   onFileSelect,
@@ -130,7 +130,7 @@ export default function SourcePanel({
             Chọn video để phân tích
           </h2>
         </div>
-        <Badge tone="info">Video-first ALPR</Badge>
+        <Badge tone="info">ALPR ưu tiên video</Badge>
       </div>
 
       <div className="space-y-4 p-4">
@@ -174,7 +174,7 @@ export default function SourcePanel({
               <span aria-hidden>↑</span>
             </div>
             <p className="font-semibold">
-              Kéo video vào đây hoặc chọn file
+              Kéo video vào đây hoặc chọn tệp
             </p>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
               MP4, WebM, MOV, AVI, MKV.
@@ -225,9 +225,9 @@ export default function SourcePanel({
         )}
 
         {source === "image" && !compact && (
-          <EmptyState title="Ảnh tĩnh chưa được nối backend">
-            Phase này giữ API hiện có. Khi thêm POST /upload/image,
-            tab này sẽ dùng cùng kết quả evidence workbench.
+          <EmptyState title="Ảnh tĩnh chưa được nối máy chủ">
+            Giai đoạn này giữ API hiện có. Khi thêm POST /upload/image,
+            thẻ này sẽ dùng cùng kết quả từ bàn kiểm chứng.
           </EmptyState>
         )}
 
@@ -248,7 +248,7 @@ export default function SourcePanel({
                 </p>
                 <p className="mt-1 text-xs text-[var(--color-text-subtle)]">
                   {formatBytes(file.size)} · {formatDuration(videoDuration)} ·{" "}
-                  {file.type || "video file"}
+                  {file.type || "tệp video"}
                 </p>
               </div>
               <Button
@@ -267,7 +267,7 @@ export default function SourcePanel({
           {compact ? (
             <div className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-[var(--color-text-muted)]">
               Thiết lập mô hình
-              <span className="data-font text-xs">locked</span>
+              <span className="data-font text-xs">đã khóa</span>
             </div>
           ) : (
             <button
@@ -292,7 +292,7 @@ export default function SourcePanel({
                 options={PREPROCESS_OPTIONS}
               />
               <Select
-                label="OCR backend"
+                label="Bộ OCR"
                 value={ocrBackend}
                 onChange={(event) =>
                   onOcrBackendChange(event.target.value)

@@ -44,8 +44,8 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
     <Dialog
       open={!!vehicle}
       onClose={onClose}
-      title={`Result #${titleTrackId}${titlePlate ? ` · ${titlePlate}` : ''}`}
-      description={record ? `${frames.length} ảnh evidence · ${record.ocr_method || 'OCR'} · ${Math.round((record.plate_text_confidence || 0) * 100)}% confidence` : 'Bộ đệm track được lưu sau khi OCR hoàn tất.'}
+      title={`Kết quả #${titleTrackId}${titlePlate ? ` · ${titlePlate}` : ''}`}
+      description={record ? `${frames.length} ảnh chứng cứ · ${formatOcrMethod(record.ocr_method)} · ${Math.round((record.plate_text_confidence || 0) * 100)}% độ tin cậy` : 'Bộ đệm theo vết được lưu sau khi OCR hoàn tất.'}
       className="max-w-4xl"
     >
       <div className="max-h-[76vh] overflow-y-auto p-4">
@@ -62,22 +62,22 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
           </div>
         )}
 
-        {error && !loading && <EmptyState title="Không tải được track buffer">{error}</EmptyState>}
+        {error && !loading && <EmptyState title="Không tải được bộ đệm theo vết">{error}</EmptyState>}
 
         {record && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <ImageBox url={record.vehicle_thumbnail_url} label="Vehicle thumbnail" />
+              <ImageBox url={record.vehicle_thumbnail_url} label="Ảnh đại diện phương tiện" />
               <ImageBox
                 url={record.best_plate_frame?.image_url || record.best_plate_frame?.image_b64}
-                label={`Best plate · score=${frameScore(record.best_plate_frame).toFixed(2)}`}
+                label={`Biển số rõ nhất · điểm ${frameScore(record.best_plate_frame).toFixed(2)}`}
                 highlight
               />
             </div>
 
             {votes.length > 0 && (
               <section className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-                <p className="section-label">OCR vote summary</p>
+                <p className="section-label">Tổng hợp phiếu OCR</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {votes.map(([text, count]) => (
                     <Badge
@@ -94,8 +94,8 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
 
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <p className="section-label">Track buffer · sắp xếp theo score</p>
-                <Badge tone="info">{sortedFrames.length} frames</Badge>
+                <p className="section-label">Bộ đệm theo vết · sắp xếp theo điểm</p>
+                <Badge tone="info">{sortedFrames.length} khung</Badge>
               </div>
               {sortedFrames.length === 0 ? (
                 <EmptyState title="Không có ảnh trong bộ đệm" />
@@ -186,7 +186,7 @@ function ImageBox({ url, label, highlight = false }) {
         {src ? (
           <img src={src} alt={label} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-[var(--color-text-subtle)]">No image</span>
+          <span className="text-xs text-[var(--color-text-subtle)]">Không có ảnh</span>
         )}
       </div>
       <p className="border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 text-xs font-semibold text-[var(--color-text-muted)]">
@@ -204,17 +204,17 @@ function FrameCell({ frame, isBest }) {
     <div className={cx('overflow-hidden rounded-lg border bg-black', isBest ? 'border-emerald-300/55' : 'border-[var(--color-border)]')}>
       <div className="relative flex h-20 items-center justify-center">
         {normalizedSrc ? (
-          <img src={normalizedSrc} alt={`frame ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
+          <img src={normalizedSrc} alt={`khung ${frame.frame_index}`} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-[10px] text-[var(--color-text-subtle)]">no img</span>
+          <span className="text-[10px] text-[var(--color-text-subtle)]">không có ảnh</span>
         )}
-        {isBest && <span className="absolute right-1 top-1 rounded bg-emerald-300 px-1.5 py-0.5 text-[9px] font-bold text-black">BEST</span>}
+        {isBest && <span className="absolute right-1 top-1 rounded bg-emerald-300 px-1.5 py-0.5 text-[9px] font-bold text-black">TỐT NHẤT</span>}
       </div>
       <div className="h-1 bg-white/10">
         <div className={cx('h-full', qualityColor(score))} style={{ width: `${Math.min(score * 100, 100)}%` }} />
       </div>
       <p className={cx('data-font px-1 py-1 text-center text-[10px]', qualityText(score))}>
-        f{frame.frame_index} · {score.toFixed(2)}
+        #{frame.frame_index} · {score.toFixed(2)}
       </p>
     </div>
   )
@@ -230,4 +230,17 @@ function qualityText(quality) {
   if (quality >= 0.8) return 'text-emerald-100'
   if (quality >= 0.6) return 'text-amber-100'
   return 'text-red-100'
+}
+
+function formatOcrMethod(value) {
+  if (!value) return 'OCR'
+  const labels = {
+    realtime_buffer: 'Bộ đệm thời gian thực',
+    default: 'Mặc định',
+    smalllpr_ctc: 'SmallLPR CTC',
+    parseq: 'PARSeq',
+    yolov5_char: 'YOLOv5 ký tự',
+    vietnamese_yolov5: 'YOLOv5 Việt Nam',
+  }
+  return labels[value] || value.replaceAll('_', ' ')
 }

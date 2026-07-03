@@ -14,24 +14,24 @@ export default function ResultsPanel({ vehicles, rejectedVehicles, totalDone, jo
   const total = confirmed.length + rejected.length
   const activeList = activeTab === 'rejected' ? rejected : confirmed
   const activeEmptyTitle = activeTab === 'rejected'
-    ? 'Chưa có plate bị rejected'
-    : 'Chưa có plate evidence hợp lệ'
+    ? 'Chưa có biển số bị loại'
+    : 'Chưa có chứng cứ biển số hợp lệ'
   const activeEmptyCopy = activeTab === 'rejected'
-    ? 'Các biển số ngoài template, confidence thấp, hoặc không đủ frame sẽ xuất hiện trong tab này.'
-    : 'Khi pipeline xác nhận biển số hợp lệ, evidence và confidence sẽ xuất hiện trong tab này.'
+    ? 'Các biển số sai mẫu định dạng, độ tin cậy thấp hoặc không đủ khung hình sẽ xuất hiện trong thẻ này.'
+    : 'Khi pipeline xác nhận biển số hợp lệ, chứng cứ và độ tin cậy sẽ xuất hiện trong thẻ này.'
 
   return (
     <>
       <section className="surface-panel recognition-panel flex flex-col">
         <div className="panel-header">
           <div>
-            <p className="section-label">Recognition review</p>
+            <p className="section-label">Kiểm chứng nhận dạng</p>
             <h2 className="mt-1 text-lg font-bold">
-              {activeTab === 'rejected' ? 'Biển số bị rejected' : 'Biển số đã nhận dạng'}
+              {activeTab === 'rejected' ? 'Biển số bị loại' : 'Biển số đã nhận dạng'}
             </h2>
           </div>
           <Badge tone={status === 'done' ? 'success' : total > 0 ? 'info' : 'neutral'}>
-            {total} candidates
+            {total} ứng viên
           </Badge>
         </div>
 
@@ -51,7 +51,7 @@ export default function ResultsPanel({ vehicles, rejectedVehicles, totalDone, jo
             onClick={() => setActiveTab('confirmed')}
           />
           <Metric
-            label="Rejected"
+            label="Bị loại"
             value={rejected.length}
             tone="warning"
             active={activeTab === 'rejected'}
@@ -62,18 +62,18 @@ export default function ResultsPanel({ vehicles, rejectedVehicles, totalDone, jo
         <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2">
           <p className="text-xs font-semibold text-[var(--color-text-muted)]">
             {activeTab === 'rejected'
-              ? `${rejected.length} rejected plates cần kiểm tra riêng`
-              : `${confirmed.length} confirmed plates trong session`}
+              ? `${rejected.length} biển số bị loại cần kiểm tra riêng`
+              : `${confirmed.length} biển số đã xác nhận trong phiên`}
           </p>
           {activeTab === 'rejected' && rejected.length > 0 && (
-            <Badge tone="warning">Outside format / low confidence</Badge>
+            <Badge tone="warning">Sai định dạng / độ tin cậy thấp</Badge>
           )}
         </div>
 
         <div className="recognition-panel-body p-3">
           {total === 0 ? (
-            <EmptyState title="Chưa có plate evidence">
-              Khi pipeline tìm thấy phương tiện và crop biển số, kết quả OCR cùng confidence sẽ xuất hiện tại đây.
+            <EmptyState title="Chưa có chứng cứ biển số">
+              Khi pipeline tìm thấy phương tiện và cắt biển số, kết quả OCR cùng độ tin cậy sẽ xuất hiện tại đây.
             </EmptyState>
           ) : activeList.length === 0 ? (
             <EmptyState title={activeEmptyTitle}>{activeEmptyCopy}</EmptyState>
@@ -139,11 +139,11 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
               {plate || (rejected || vehicle.done ? 'Không thể đọc' : 'Đang nhận dạng')}
             </p>
             <Badge tone={rejected ? 'warning' : vehicle.done ? 'success' : 'info'}>
-              {rejected ? 'Rejected' : vehicle.done ? 'Confirmed' : 'Processing'}
+              {rejected ? 'Bị loại' : vehicle.done ? 'Đã xác nhận' : 'Đang xử lý'}
             </Badge>
           </div>
           <p className="mt-1 text-xs text-[var(--color-text-subtle)]">
-            {identityLabel} · {VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · {frameCount} frame
+            {identityLabel} · {VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · {frameCount} khung
           </p>
         </div>
         <div className="data-font text-right text-sm font-bold text-[var(--color-text)]">
@@ -152,8 +152,8 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <EvidenceThumb src={vehicle.vehicle_b64} label="Vehicle crop" />
-        <EvidenceThumb src={vehicle.plate_b64} label="Plate crop" dark />
+        <EvidenceThumb src={vehicle.vehicle_b64} label="Ảnh cắt phương tiện" />
+        <EvidenceThumb src={vehicle.plate_b64} label="Ảnh cắt biển số" dark />
       </div>
 
       <div className="mt-3">
@@ -164,20 +164,20 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
         <div className="min-w-0 flex-1">
           <Progress value={conf} tone={tone === 'neutral' ? 'info' : tone} />
         </div>
-        <Button size="sm" variant="secondary" onClick={() => onInspect(vehicle)}>Inspect</Button>
+        <Button size="sm" variant="secondary" onClick={() => onInspect(vehicle)}>Kiểm tra</Button>
       </div>
 
       {vehicle.clusters && vehicle.clusters.length > 1 && (
         <div className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-3">
-          <p className="text-xs font-semibold text-[var(--color-text-muted)]">Multiple plates detected</p>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)]">Phát hiện nhiều biển số</p>
           {vehicle.clusters.map((cluster, idx) => {
             const clusterConf = Math.round((cluster.confidence || 0) * 100)
             return (
               <div key={idx} className="rounded-lg border border-[var(--color-border)] bg-black/15 p-2">
                 <div className="flex items-center justify-between">
-                  <Badge tone="neutral">Cluster {idx + 1}</Badge>
+                  <Badge tone="neutral">Cụm {idx + 1}</Badge>
                   <span className="text-[10px] text-[var(--color-text-subtle)]">
-                    {cluster.frame_count} frames · {clusterConf}%
+                    {cluster.frame_count} khung · {clusterConf}%
                   </span>
                 </div>
                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-3">
@@ -192,7 +192,7 @@ function ResultCard({ vehicle, rejected = false, onInspect }) {
                       <PlateDisplay chars={cluster.chars} compact />
                     </div>
                     <div className="mt-2 flex justify-end">
-                      <Button size="sm" variant="secondary" onClick={() => onInspect({ ...vehicle, ...cluster })}>Inspect</Button>
+                      <Button size="sm" variant="secondary" onClick={() => onInspect({ ...vehicle, ...cluster })}>Kiểm tra</Button>
                     </div>
                   </div>
                 </div>
@@ -212,7 +212,7 @@ function EvidenceThumb({ src, label, dark = false }) {
         {src ? (
           <img src={`data:image/jpeg;base64,${src}`} alt={label} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-[var(--color-text-subtle)]">No image</span>
+          <span className="text-xs text-[var(--color-text-subtle)]">Không có ảnh</span>
         )}
       </div>
       <p className="border-t border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-subtle)]">
@@ -243,8 +243,8 @@ function EvidenceDrawer({ item, jobId, onClose }) {
       <Drawer
         open={!!vehicle}
         onClose={onClose}
-        title={plate || `Result #${vehicle?.recognition_id ?? vehicle?.id ?? ''}`}
-        description={vehicle ? `${identityLabel} · ${VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · ${conf || 0}% confidence` : ''}
+        title={plate || `Kết quả #${vehicle?.recognition_id ?? vehicle?.id ?? ''}`}
+        description={vehicle ? `${identityLabel} · ${VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · ${conf || 0}% độ tin cậy` : ''}
         className="max-w-3xl"
       >
         {vehicle && (
@@ -255,29 +255,29 @@ function EvidenceDrawer({ item, jobId, onClose }) {
                 onClick={() => vehicle.vehicle_b64 && setZoomed({ src: `data:image/jpeg;base64,${vehicle.vehicle_b64}`, alt: identityLabel })}
                 className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-black/20 p-2 text-left"
               >
-                <EvidenceImage src={vehicle.vehicle_b64} label="Vehicle evidence" />
+                <EvidenceImage src={vehicle.vehicle_b64} label="Chứng cứ phương tiện" />
               </button>
               <button
                 type="button"
-                onClick={() => vehicle.plate_b64 && setZoomed({ src: `data:image/jpeg;base64,${vehicle.plate_b64}`, alt: `Plate ${plate}` })}
+                onClick={() => vehicle.plate_b64 && setZoomed({ src: `data:image/jpeg;base64,${vehicle.plate_b64}`, alt: `Biển số ${plate}` })}
                 className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-black p-2 text-left"
               >
-                <EvidenceImage src={vehicle.plate_b64} label="Plate evidence" />
+                <EvidenceImage src={vehicle.plate_b64} label="Chứng cứ biển số" />
               </button>
             </div>
 
             <div className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-              <p className="section-label">OCR confidence by character</p>
+              <p className="section-label">Độ tin cậy OCR theo ký tự</p>
               <div className="mt-3">
                 <PlateDisplay chars={vehicle.chars} />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button size="sm" variant="primary" disabled={!plate} onClick={copy}>
-                  {copied ? 'Đã sao chép' : 'Sao chép plate'}
+                  {copied ? 'Đã sao chép' : 'Sao chép biển số'}
                 </Button>
                 {jobId && (
                   <Button size="sm" onClick={() => setShowBuffer(true)}>
-                    Xem track buffer
+                    Xem bộ đệm theo vết
                   </Button>
                 )}
               </div>
@@ -285,7 +285,7 @@ function EvidenceDrawer({ item, jobId, onClose }) {
 
             {vehicle.vote_summary && (
               <div className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-                <p className="section-label">OCR vote summary</p>
+                <p className="section-label">Tổng hợp phiếu OCR</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {Object.entries(vehicle.vote_summary).map(([text, count]) => (
                     <Badge key={text} tone="neutral">
@@ -315,7 +315,7 @@ function EvidenceImage({ src, label }) {
         {src ? (
           <img src={`data:image/jpeg;base64,${src}`} alt={label} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-sm text-[var(--color-text-subtle)]">No image</span>
+          <span className="text-sm text-[var(--color-text-subtle)]">Không có ảnh</span>
         )}
       </div>
       <p className="mt-2 text-xs font-semibold text-[var(--color-text-muted)]">{label}</p>
@@ -327,8 +327,8 @@ function formatRecognitionIdentity(vehicle) {
   const resultId = vehicle.recognition_id ?? vehicle.id
   const vehicleTrackId = vehicle.vehicle_track_id
   const plateTrackId = vehicle.plate_track_id
-  const parts = [`Result #${resultId}`]
-  if (vehicleTrackId !== undefined && vehicleTrackId !== null) parts.push(`Vehicle #${vehicleTrackId}`)
-  if (plateTrackId !== undefined && plateTrackId !== null) parts.push(`Plate #${plateTrackId}`)
+  const parts = [`Kết quả #${resultId}`]
+  if (vehicleTrackId !== undefined && vehicleTrackId !== null) parts.push(`Xe #${vehicleTrackId}`)
+  if (plateTrackId !== undefined && plateTrackId !== null) parts.push(`Biển số #${plateTrackId}`)
   return parts.join(' · ')
 }

@@ -179,10 +179,10 @@ function AppTopbar({
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-sm font-bold text-[var(--color-text)] sm:text-base">
-              Vietnamese ALPR Evidence Workbench
+              Bàn kiểm chứng ALPR Việt Nam
             </h1>
             <p className="truncate text-xs text-[var(--color-text-muted)]">
-              Detect · Track · OCR · Evidence review
+              Phát hiện · Theo vết · OCR · Kiểm chứng chứng cứ
             </p>
           </div>
         </div>
@@ -218,11 +218,11 @@ function AppTopbar({
 }
 
 function getStatusBadge(status, progress, vehicleCount) {
-  if (status === 'done') return { label: `Done · ${vehicleCount} plates`, tone: 'success' }
-  if (status === 'error') return { label: 'Failed', tone: 'danger' }
-  if (status === 'uploading') return { label: 'Uploading', tone: 'info' }
-  if (status === 'processing') return { label: `Processing · ${Math.round(progress.pct || 0)}%`, tone: 'info' }
-  return { label: 'Idle', tone: 'neutral' }
+  if (status === 'done') return { label: `Hoàn tất · ${vehicleCount} biển số`, tone: 'success' }
+  if (status === 'error') return { label: 'Có lỗi', tone: 'danger' }
+  if (status === 'uploading') return { label: 'Đang tải lên', tone: 'info' }
+  if (status === 'processing') return { label: `Đang phân tích · ${Math.round(progress.pct || 0)}%`, tone: 'info' }
+  return { label: 'Sẵn sàng', tone: 'neutral' }
 }
 
 function AuthPage({ mode }) {
@@ -274,27 +274,27 @@ function AuthPage({ mode }) {
           <div className="brand-mark mb-6">
             <PlateGlyph />
           </div>
-          <p className="section-label">Secure workspace</p>
+          <p className="section-label">Không gian bảo vệ</p>
           <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight text-[var(--color-text)]">
-            {isRegister ? 'Tạo workspace cho ALPR evidence review' : 'Đăng nhập ALPR Evidence Workbench'}
+            {isRegister ? 'Tạo không gian kiểm chứng ALPR' : 'Đăng nhập bàn kiểm chứng ALPR'}
           </h1>
           <p className="mt-4 max-w-xl text-base leading-7 text-[var(--color-text-muted)]">
-            Dashboard bảo vệ phiên xử lý, lịch sử nhận dạng, crop chứng cứ và track buffer theo tài khoản.
+            Bảng điều khiển bảo vệ phiên xử lý, lịch sử nhận dạng, ảnh cắt chứng cứ và bộ đệm theo vết theo từng tài khoản.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            <AuthMetric value="SSE" label="realtime events" />
-            <AuthMetric value="CSRF" label="protected writes" />
-            <AuthMetric value="DB" label="evidence history" />
+            <AuthMetric value="SSE" label="Sự kiện thời gian thực" />
+            <AuthMetric value="CSRF" label="Ghi dữ liệu có bảo vệ" />
+            <AuthMetric value="DB" label="Lịch sử chứng cứ" />
           </div>
         </section>
 
         <section className="surface-panel overflow-hidden">
           <div className="panel-header">
             <div>
-              <p className="section-label">{isRegister ? 'Register' : 'Login'}</p>
-              <h2 className="mt-1 text-lg font-bold">{isRegister ? 'Tạo tài khoản' : 'Mở dashboard'}</h2>
+              <p className="section-label">{isRegister ? 'Đăng kí' : 'Đăng nhập'}</p>
+              <h2 className="mt-1 text-lg font-bold">{isRegister ? 'Tạo tài khoản' : 'Mở bảng điều khiển'}</h2>
             </div>
-            <Badge tone="info">Graduation demo</Badge>
+            <Badge tone="info">Bản trình diễn tốt nghiệp</Badge>
           </div>
           <form onSubmit={submit} className="space-y-4 p-5">
             {isRegister && (
