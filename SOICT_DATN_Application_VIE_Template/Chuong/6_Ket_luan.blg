@@ -1,9 +1,0 @@
-[0] Config.pm:307> INFO - This is Biber 2.19
-[0] Config.pm:310> INFO - Logfile is 'Chuong/6_Ket_luan.blg'
-[45] biber:340> INFO - === Mon Jun 29, 2026, 22:27:22
-[55] Biber.pm:419> INFO - Reading 'Chuong/6_Ket_luan.bcf'
-[89] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[95] bbl.pm:660> INFO - Writing 'Chuong/6_Ket_luan.bbl' with encoding 'UTF-8'
-[96] bbl.pm:763> INFO - Output to Chuong/6_Ket_luan.bbl
-[96] Biber.pm:131> WARN - The file 'Chuong/6_Ket_luan.bcf' does not contain any citations!
-[96] Biber.pm:133> INFO - WARNINGS: 1

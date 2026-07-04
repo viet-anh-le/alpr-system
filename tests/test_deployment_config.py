@@ -52,6 +52,19 @@ def test_vehicle_detector_backend_can_force_yolov5_on_runpod(monkeypatch):
         importlib.reload(config)
 
 
+def test_reid_device_can_force_cpu_tracking_on_runpod(monkeypatch):
+    from api.core import config
+
+    monkeypatch.setenv("REID_DEVICE", "cpu")
+
+    reloaded = importlib.reload(config)
+    try:
+        assert reloaded.REID_DEVICE == "cpu"
+    finally:
+        monkeypatch.delenv("REID_DEVICE", raising=False)
+        importlib.reload(config)
+
+
 def test_runpod_docker_context_keeps_yolov5_source_available():
     dockerignore = Path(".dockerignore").read_text()
 
@@ -66,3 +79,10 @@ def test_runpod_keeps_setuptools_pkg_resources_for_yolov5():
 
     assert "setuptools<81" in dockerfile
     assert "setuptools<81" in requirements
+
+
+def test_runpod_cpu_reid_uses_cpu_onnxruntime_package():
+    requirements = Path("requirements-runpod.txt").read_text()
+
+    assert "onnxruntime==1.20.0" in requirements
+    assert "onnxruntime-gpu" not in requirements

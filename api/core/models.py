@@ -35,6 +35,7 @@ from .config import (
     PARSEQ_IMAGE_W,
     PARSEQ_OCR_CKPT_PATH,
     PLATE_MODEL_PATH,
+    REID_DEVICE,
     REID_MODEL_PATH,
     ROOT,
     SMALL_LPR_CTC_CKPT_PATH,
@@ -166,7 +167,7 @@ def load_models() -> ModelBundle:
     # via ModelBundle.create_vehicle_tracker() to avoid stateful conflicts
     # between concurrent video processing jobs.
     reid_weights = REID_MODEL_PATH
-    tracker_device = str(device)
+    tracker_device = REID_DEVICE if REID_DEVICE and REID_DEVICE != "auto" else str(device)
     tracker_half = False
     logger.info("Vehicle tracker config stored (per-session instances will be created on demand).")
     quality_router = PlateQualityRouter.from_env(device=device)

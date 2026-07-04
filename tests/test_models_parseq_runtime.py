@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -301,6 +302,39 @@ def test_load_models_uses_small_lpr_line_ctc_backend_by_default(monkeypatch) -> 
     assert isinstance(bundle.ocr, models.SmallLprLineCtcOcrModel)
     assert bundle.ocr_backend == "smalllpr_line_ctc"
     assert loaded_paths[0] == models.SMALL_LPR_LINE_CTC_CKPT_PATH
+
+
+@pytest.mark.unit
+def test_load_models_can_force_reid_tracker_to_cpu(monkeypatch) -> None:
+    import api.core.models as models
+
+    monkeypatch.setattr(models, "REID_DEVICE", "cpu")
+    monkeypatch.setattr(models.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(models, "YOLOV5_CHAR_CKPT_PATH", Path("__missing_char.pt"))
+    monkeypatch.setattr(models, "YOLO", lambda path: SimpleNamespace(path=str(path)))
+    monkeypatch.setattr(
+        models,
+        "load_yolov5_vehicle_detector",
+        lambda path, *, device: SimpleNamespace(kind="vehicle", path=str(path), device=device),
+    )
+    monkeypatch.setattr(
+        models.PlateQualityRouter,
+        "from_env",
+        classmethod(lambda cls, device=None: SimpleNamespace(kind="router", device=device)),
+    )
+    monkeypatch.setattr(
+        models,
+        "load_small_lpr_line_ctc_model",
+        lambda path, *, device: models.SmallLprLineCtcOcrModel(
+            model=torch.nn.Identity(),
+            chars=["<blank>", "A"],
+        ),
+    )
+
+    bundle = models.load_models()
+
+    assert str(bundle.device) == "cuda"
+    assert bundle.tracker_device == "cpu"
 
 
 @pytest.mark.unit

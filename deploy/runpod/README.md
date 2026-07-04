@@ -79,6 +79,7 @@ VEHICLE_MODEL_PATH=/workspace/alpr/models/vehicle_object.pt
 PLATE_MODEL_PATH=/workspace/alpr/models/plate_obb_best.pt
 SMALL_LPR_LINE_CTC_CKPT_PATH=/workspace/alpr/models/small_lpr_line_ctc.ckpt
 REID_MODEL_PATH=/workspace/alpr/models/vehicle_reid.onnx
+REID_DEVICE=cpu
 PLATE_QUALITY_ROUTER_MODEL=/workspace/alpr/models/plate_quality_router_best.pt
 ```
 

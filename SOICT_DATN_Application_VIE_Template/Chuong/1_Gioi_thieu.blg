@@ -1,9 +1,0 @@
-[0] Config.pm:307> INFO - This is Biber 2.19
-[0] Config.pm:310> INFO - Logfile is 'Chuong/1_Gioi_thieu.blg'
-[44] biber:340> INFO - === Sun Jun 28, 2026, 13:32:11
-[54] Biber.pm:419> INFO - Reading 'Chuong/1_Gioi_thieu.bcf'
-[88] Biber.pm:979> INFO - Found 0 citekeys in bib section 0
-[95] bbl.pm:660> INFO - Writing 'Chuong/1_Gioi_thieu.bbl' with encoding 'UTF-8'
-[95] bbl.pm:763> INFO - Output to Chuong/1_Gioi_thieu.bbl
-[95] Biber.pm:131> WARN - The file 'Chuong/1_Gioi_thieu.bcf' does not contain any citations!
-[95] Biber.pm:133> INFO - WARNINGS: 1

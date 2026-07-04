@@ -93,6 +93,7 @@ PLATE_MODEL_PATH = _rooted_env_path(
     "runs/obb/experiments/detection/lp_detection_obb_merged/weights/best.pt",
 )
 REID_MODEL_PATH = _rooted_env_path("REID_MODEL_PATH", "weights/tracking/vehicle_reid.onnx")
+REID_DEVICE = os.environ.get("REID_DEVICE", "auto").strip().lower()
 
 OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_line_ctc").strip().lower()
 SMALL_LPR_CKPT_PATH = _rooted_env_path(
