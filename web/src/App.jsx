@@ -21,7 +21,10 @@ function DashboardPage() {
   const [error, setError] = useState(null)
   const [jobId, setJobId] = useState(null)
   const [videoUrl, setVideoUrl] = useState(null)
+  const [processedVideoUrl, setProcessedVideoUrl] = useState(null)
+  const [processedVideoExpected, setProcessedVideoExpected] = useState(false)
   const [previewFrame, setPreviewFrame] = useState(null)
+  const [preprocessedPreviewFrame, setPreprocessedPreviewFrame] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [preprocessMode, setPreprocessMode] = useState('none')
   const [ocrBackend, setOcrBackend] = useState('default')
@@ -48,7 +51,11 @@ function DashboardPage() {
     setProgress({ frame: data.frame, total: data.total, pct: data.pct })
   }, [])
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback((data) => {
+    setProcessedVideoUrl(data?.processed_video_url || null)
+    if (typeof data?.preprocess_mode === 'string') {
+      setProcessedVideoExpected(data.preprocess_mode !== 'none')
+    }
     setStatus('done')
     setProgress((prev) => ({ ...prev, pct: 100 }))
   }, [])
@@ -62,6 +69,10 @@ function DashboardPage() {
     setPreviewFrame(data?.b64 ? data : null)
   }, [])
 
+  const handlePreprocessedFrame = useCallback((data) => {
+    setPreprocessedPreviewFrame(data?.b64 ? data : null)
+  }, [])
+
   useStream(jobId, {
     onVehicle: handleVehicle,
     onRejectedVehicle: handleRejectedVehicle,
@@ -69,6 +80,7 @@ function DashboardPage() {
     onComplete: handleComplete,
     onError: handleError,
     onFrame: handleFrame,
+    onPreprocessedFrame: handlePreprocessedFrame,
   })
 
   const handleFileSelect = async (file) => {
@@ -84,11 +96,15 @@ function DashboardPage() {
     setError(null)
     setJobId(null)
     setPreviewFrame(null)
+    setPreprocessedPreviewFrame(null)
+    setProcessedVideoUrl(null)
+    setProcessedVideoExpected(preprocessMode !== 'none')
 
     try {
-      const id = await uploadVideo(file, preprocessMode, ocrBackend)
+      const upload = await uploadVideo(file, preprocessMode, ocrBackend)
       if (activeSessionRef.current !== sessionId) return
-      setJobId(id)
+      setProcessedVideoExpected(upload.processedVideoExpected)
+      setJobId(upload.jobId)
       setStatus('processing')
     } catch (err) {
       if (activeSessionRef.current !== sessionId) return
@@ -108,7 +124,10 @@ function DashboardPage() {
     setError(null)
     setJobId(null)
     setVideoUrl(null)
+    setProcessedVideoUrl(null)
+    setProcessedVideoExpected(false)
     setPreviewFrame(null)
+    setPreprocessedPreviewFrame(null)
   }
 
   const handleLogout = async () => {
@@ -148,7 +167,16 @@ function DashboardPage() {
                 disabled={status === 'uploading' || status === 'processing'}
                 compact={status !== 'idle'}
               />
-              <MediaStage previewFrame={previewFrame} videoUrl={videoUrl} progress={progress} status={status} />
+              <MediaStage
+                previewFrame={previewFrame}
+                preprocessedPreviewFrame={preprocessedPreviewFrame}
+                videoUrl={videoUrl}
+                processedVideoUrl={processedVideoUrl}
+                processedVideoExpected={processedVideoExpected}
+                preprocessMode={preprocessMode}
+                progress={progress}
+                status={status}
+              />
             </div>
             <ResultsPanel
               vehicles={vehicleList}

@@ -232,8 +232,11 @@ def select_ocr_model(
     models: ModelBundle | object,
     ocr_backend: str = "default",
 ) -> object:
+    model_backend = getattr(models, "ocr_backend", "smalllpr_ctc")
+    if not isinstance(model_backend, str):
+        model_backend = "smalllpr_ctc"
     resolved_backend = normalize_ocr_backend(
-        ocr_backend if ocr_backend != "default" else getattr(models, "ocr_backend", "smalllpr_ctc")
+        ocr_backend if ocr_backend != "default" else model_backend
     )
     if resolved_backend == "yolov5_char" and getattr(models, "ocr_yolov5", None):
         return getattr(models, "ocr_yolov5")

@@ -1,6 +1,14 @@
 import { useEffect, useRef } from 'react'
 
-export function useStream(jobId, { onVehicle, onRejectedVehicle, onProgress, onComplete, onError, onFrame }) {
+export function useStream(jobId, {
+  onVehicle,
+  onRejectedVehicle,
+  onProgress,
+  onComplete,
+  onError,
+  onFrame,
+  onPreprocessedFrame,
+}) {
   const esRef = useRef(null)
 
   useEffect(() => {
@@ -16,6 +24,7 @@ export function useStream(jobId, { onVehicle, onRejectedVehicle, onProgress, onC
         case 'vehicle':  onVehicle(ev);        break
         case 'rejected_vehicle': onRejectedVehicle?.(ev); break
         case 'frame':    onFrame?.(ev);        break
+        case 'preprocessed_frame': onPreprocessedFrame?.(ev); break
         case 'complete': onComplete(ev); es.close(); break
         case 'error':    onError(ev.message);  es.close(); break
         case 'ping':     break

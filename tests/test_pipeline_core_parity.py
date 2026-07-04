@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import cv2
 import numpy as np
 import pytest
 
@@ -74,6 +76,24 @@ def _build_tracker_with_buffer(
         tracker.buffer_crop(tid, crop, 0.9, ocr_conf, pl, i)
     tracker._cls[tid] = "car"
     return tracker
+
+
+def _solid_crop(value: int) -> np.ndarray:
+    return np.full((20, 94, 3), value, dtype=np.uint8)
+
+
+def _decode_jpeg_bytes(data: bytes) -> np.ndarray:
+    img = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert img is not None
+    return img
+
+
+def _decode_jpeg_b64(data: str) -> np.ndarray:
+    return _decode_jpeg_bytes(base64.b64decode(data))
+
+
+def _assert_solid_image_value(img: np.ndarray, expected: int) -> None:
+    assert abs(int(img[0, 0, 0]) - expected) <= 2
 
 
 class TestFinaliseTrackOcrUnit:
@@ -152,6 +172,30 @@ class TestFinaliseTrackOcrUnit:
         assert events[0]["plate"] == "51G-123.45"
         assert events[0]["done"] is True
         assert tracker._done.get(tid) is True
+
+    def test_finalise_plate_avatar_matches_best_buffer_crop(self):
+        from api.core.pipeline_core import _finalise_track_ocr
+        from api.core.tracker import WebTrackletManager
+
+        tid = 41
+        tracker = WebTrackletManager()
+        tracker._cls[tid] = "car"
+        plate_probs = _make_prob_lists_for_plate("51G-12345", conf=0.95, n=1)[0]
+
+        tracker.update_plate_img(
+            tid,
+            _solid_crop(10),
+            _make_prob_lists_for_plate("51G-12345", conf=0.99, n=1)[0],
+        )
+        tracker.buffer_crop(tid, _solid_crop(10), 0.45, 0.99, plate_probs, 10)
+        tracker.buffer_crop(tid, _solid_crop(220), 0.96, 0.95, plate_probs, 20)
+        tracker.buffer_crop(tid, _solid_crop(120), 0.80, 0.95, plate_probs, 30)
+
+        events: list[dict] = []
+        _finalise_track_ocr(tid, tracker, self._models(), events.append, "", None, None)
+
+        assert events[0]["track_buffer"][0]["frame_index"] == 20
+        _assert_solid_image_value(_decode_jpeg_b64(events[0]["plate_b64"]), 220)
 
     def test_rejected_vehicle_event_contains_expected_keys(self):
         from api.core.pipeline_core import _finalise_track_ocr
@@ -294,6 +338,61 @@ class TestFinaliseTrackOcrUnit:
         assert captured[0].vehicle_track_id == 32
         assert captured[0].plate_track_id is None
         assert captured[0].track_buffer[0].ocr_confidence == 0.95
+
+    def test_record_save_uploads_best_buffer_crop_as_best_plate_image(self, monkeypatch):
+        import api.core.pipeline as pipeline
+        from api.core.tracker import WebTrackletManager
+        from api.database.models import RecognitionRecord
+
+        tracker = WebTrackletManager()
+        tracker._cls[33] = "car"
+        tid = 33
+        chars = _make_prob_lists_for_plate("77A-17022", conf=0.95, n=1)[0]
+        tracker.update_plate_img(
+            tid,
+            _solid_crop(10),
+            _make_prob_lists_for_plate("77A-17022", conf=0.99, n=1)[0],
+        )
+        tracker.buffer_crop(tid, _solid_crop(10), 0.45, 0.99, chars, 10)
+        tracker.buffer_crop(tid, _solid_crop(220), 0.96, 0.95, chars, 20)
+
+        captured_records: list[RecognitionRecord] = []
+        uploaded: dict[str, bytes] = {}
+
+        async def fake_upsert_record(record):
+            captured_records.append(record)
+
+        class DoneFuture:
+            def result(self, timeout=None):
+                return None
+
+        def fake_run_coroutine_threadsafe(coro, _loop):
+            asyncio.run(coro)
+            return DoneFuture()
+
+        def fake_upload(_bucket, path, data):
+            uploaded[path] = data
+            return path
+
+        monkeypatch.setattr("api.database.mongodb.is_db_configured", lambda: True)
+        monkeypatch.setattr("api.database.mongodb.upsert_record", fake_upsert_record)
+        monkeypatch.setattr(pipeline, "_storage_upload", fake_upload)
+        monkeypatch.setattr(pipeline.asyncio, "run_coroutine_threadsafe", fake_run_coroutine_threadsafe)
+
+        pipeline._record_save(
+            "sess-1",
+            tid,
+            tracker,
+            chars,
+            "ocr_output_ctm",
+            {"77A-17022": 1},
+            loop=object(),
+            user_id="user-1",
+        )
+
+        assert captured_records[0].best_plate_frame.frame_index == 20
+        best_upload = uploaded["sess-1/plate_33.jpg"]
+        _assert_solid_image_value(_decode_jpeg_bytes(best_upload), 220)
 
     def test_finalise_runs_deferred_ocr_for_poor_tracklet(self, monkeypatch):
         import torch

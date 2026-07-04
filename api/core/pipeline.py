@@ -225,23 +225,31 @@ def run_job(
     """Legacy upload-and-process-whole-video entry point. Thin wrapper around
     the async frame pipeline; owns video file lifecycle + session row."""
     from .frame_source import FileFrameSource
-    from .preprocessing import PreprocessedFrameSource, normalize_preprocess_mode
+    from .preprocessed_video import (
+        RecordingFrameSource,
+        build_preprocessed_video_path,
+        preprocessed_video_url,
+        register_preprocessed_video_artifact,
+    )
+    from .preprocessing import normalize_preprocess_mode
     from .pipeline_async import _safe_put, process_frames_async as process_frames
 
     def emit(event: dict) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, event)
 
     normalized_mode = "none"
+    recorder: RecordingFrameSource | None = None
     _session_create(job_id, filename, loop, user_id, preprocess_mode, ocr_backend)
 
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
         raw_source = FileFrameSource(video_path)
-        source = (
-            raw_source
-            if normalized_mode == "none"
-            else PreprocessedFrameSource(raw_source, normalized_mode)
-        )
+        source = raw_source
+        if normalized_mode != "none":
+            recorder = RecordingFrameSource(
+                raw_source,
+                build_preprocessed_video_path(job_id),
+            )
         timings: dict[str, float] | None = {} if ALPR_DEBUG_TIMINGS else None
         
         if ocr_backend == "vietnamese_yolov5":
@@ -256,6 +264,8 @@ def run_job(
                 record_save=_record_save_later,
                 timings=timings,
                 user_id=user_id,
+                preprocess_mode=normalized_mode,
+                preprocessed_frame_recorder=recorder,
             )
         else:
             summary = process_frames(
@@ -269,6 +279,8 @@ def run_job(
                 timings=timings,
                 ocr_backend=ocr_backend,
                 user_id=user_id,
+                preprocess_mode=normalized_mode,
+                preprocessed_frame_recorder=recorder,
             )
             
         if timings is not None:
@@ -277,7 +289,24 @@ def run_job(
                 job_id,
                 {key: round(value, 4) for key, value in sorted(timings.items())},
             )
-        emit({"type": "complete", "total_vehicles": summary["total_vehicles"]})
+        processed_video_url: str | None = None
+        if recorder is not None:
+            if recorder.available and user_id:
+                register_preprocessed_video_artifact(job_id, user_id, recorder.output_path)
+                processed_video_url = preprocessed_video_url(job_id)
+            elif recorder.error:
+                logger.warning(
+                    "Preprocessed video artifact unavailable for job=%s: %s",
+                    job_id,
+                    recorder.error,
+                )
+
+        emit({
+            "type": "complete",
+            "total_vehicles": summary["total_vehicles"],
+            "preprocess_mode": normalized_mode,
+            "processed_video_url": processed_video_url,
+        })
         _session_update(job_id, {
             "status": "completed",
             "total_records": summary["total_vehicles"],

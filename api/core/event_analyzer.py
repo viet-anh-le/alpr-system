@@ -133,6 +133,7 @@ def run_event(
     loop: asyncio.AbstractEventLoop,
     models: ModelBundle,
     ocr_backend: str = "default",
+    preprocess_mode: str = "none",
 ) -> None:
     """Run a single event analysis. Thread-pool entry point."""
     marked_at = datetime.now(timezone.utc)
@@ -176,6 +177,7 @@ def run_event(
                 loop=None,
                 timings=timings,
                 emit_preview=False,
+                preprocess_mode=preprocess_mode,
             )
         else:
             summary = process_frames(
@@ -187,6 +189,7 @@ def run_event(
                 timings=timings,
                 ocr_backend=ocr_backend,
                 emit_preview=False,
+                preprocess_mode=preprocess_mode,
             )
         dur_ms = int((time.monotonic() - started) * 1000)
         if timings is not None:

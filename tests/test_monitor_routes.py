@@ -550,7 +550,8 @@ def test_dispatch_event_upload_mode_submits_to_executor(monkeypatch):
     assert submitted[0]["event_id"] == "evt_disp_upload"
     assert submitted[0]["source_type"] == "upload"
     assert submitted[0]["source_ref"] == "short_clip.mp4"
-    assert submitted[0]["source"].mode == "night"
+    assert submitted[0]["preprocess_mode"] == "night"
+    assert not hasattr(submitted[0]["source"], "mode")
 
 
 @pytest.mark.unit

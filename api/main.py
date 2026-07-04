@@ -21,13 +21,20 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.auth import get_current_user, get_current_user_with_csrf, router as auth_router
 from api.core.config import MAX_UPLOAD_MB, MONGODB_DB_NAME, MONGODB_URI, WEB_ORIGIN
 from api.core.models import ModelBundle, load_models
 from api.core.pipeline import run_job
+from api.core.preprocessed_video import (
+    clear_preprocessed_video_artifacts,
+    cleanup_expired_preprocessed_video_artifacts,
+    get_preprocessed_video_artifact,
+    start_preprocessed_video_cleanup_task,
+    stop_preprocessed_video_cleanup_task,
+)
 from api.core.preprocessing import normalize_preprocess_mode
 from api.database.models import User
 from api.database.mongodb import close_db, init_db
@@ -53,6 +60,7 @@ _job_semaphore: asyncio.Semaphore | None = None  # created after event loop exis
 async def lifespan(app: FastAPI):
     app.state.models = load_models()
     routes_monitor.start_monitor_cleanup_task()
+    start_preprocessed_video_cleanup_task()
     if MONGODB_URI:
         await init_db(MONGODB_URI, MONGODB_DB_NAME)
     else:
@@ -61,7 +69,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await routes_monitor.stop_monitor_cleanup_task()
+        await stop_preprocessed_video_cleanup_task()
         routes_monitor.cleanup_all_upload_sessions()
+        clear_preprocessed_video_artifacts()
         await close_db()
         routes_monitor._event_executor.shutdown(wait=False, cancel_futures=True)
 
@@ -122,6 +132,7 @@ async def upload(
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    cleanup_expired_preprocessed_video_artifacts()
 
     job_id      = uuid.uuid4().hex[:8]
     queue       = asyncio.Queue()
@@ -159,7 +170,12 @@ async def upload(
             )
 
     asyncio.ensure_future(_run_with_semaphore())
-    return {"job_id": job_id, "preprocess_mode": normalized_mode, "ocr_backend": ocr_backend}
+    return {
+        "job_id": job_id,
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": ocr_backend,
+        "processed_video_expected": normalized_mode != "none",
+    }
 
 
 @app.get("/records/{job_id}/{track_id}")
@@ -178,6 +194,21 @@ async def get_track_record(
         raise HTTPException(status_code=404, detail="Record not found")
 
     return record.model_dump(mode="json")
+
+
+@app.get("/jobs/{job_id}/preprocessed-video")
+async def get_preprocessed_video(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    artifact = get_preprocessed_video_artifact(job_id, _user_id(current_user))
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return FileResponse(
+        artifact.path,
+        media_type="video/mp4",
+        filename=f"{job_id}-preprocessed.mp4",
+    )
 
 
 @app.get("/stream/{job_id}")

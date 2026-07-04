@@ -103,6 +103,9 @@ def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
                 "plate_track_id": None,
             }
 
+        def cluster_results(self, tid: int) -> list[dict]:
+            return []
+
     source = MagicMock()
     source.total_frames = 0
     source.fps = 30.0
@@ -147,6 +150,7 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
     v_pred.boxes.__len__ = lambda self: 0
 
     models = MagicMock()
+    models.device = torch.device("cpu")
     models.vehicle.predict.return_value = [v_pred]
     models.vehicle.names = {5: "motorcycle"}
     mock_tracker = MagicMock()
@@ -177,6 +181,17 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
         ],
     )
     monkeypatch.setattr(pipeline_async, "_finalise_track_ocr", fake_finalise)
+    monkeypatch.setattr(pipeline_async, "select_ocr_model", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_async,
+        "preprocess_plate_for_model",
+        lambda *_args, **_kwargs: torch.zeros((3, 48, 96)),
+    )
+    monkeypatch.setattr(
+        pipeline_async,
+        "ocr_batch",
+        lambda _model, tensors, _device: [(_chars("30A12345"), True) for _ in range(len(tensors))],
+    )
 
     pipeline_async.process_frames_async(source, emit=lambda event: None, models=models)
 
@@ -222,3 +237,92 @@ def test_process_frames_async_emits_preview_frame_with_tracked_boxes(monkeypatch
     assert len(frame_events) == 1
     assert frame_events[0]["boxes"][0]["box"] == [5, 10, 105, 110]
     assert frame_events[0]["boxes"][0]["label"] == "motorcycle #32"
+
+
+@pytest.mark.unit
+def test_process_frames_async_uses_preprocessing_for_vehicle_only(monkeypatch):
+    from api.core import pipeline_async
+
+    class FakeAssociator:
+        def __init__(self, *args, **kwargs) -> None:
+            self.vehicle_cache = {32: (0, 0, 80, 60)}
+
+        def process_frame(self, plate_tracks, vehicle_tracks):
+            return [(32, plate) for plate in plate_tracks]
+
+    class FakeRecorder:
+        def __init__(self) -> None:
+            self.frame_means: list[float] = []
+
+        def record_frame(self, frame: np.ndarray) -> None:
+            self.frame_means.append(float(frame.mean()))
+
+        def finish(self) -> None:
+            pass
+
+    raw_frame = np.full((90, 120, 3), 24, dtype=np.uint8)
+    source = MagicMock()
+    source.total_frames = 1
+    source.fps = 30.0
+    source.iter_frames.return_value = iter([(0, raw_frame, 0.0)])
+
+    v_pred = MagicMock()
+    v_pred.boxes = MagicMock()
+    v_pred.boxes.__len__ = lambda self: 0
+
+    captured: dict[str, float] = {}
+
+    def fake_vehicle_predict(frame, **_kwargs):
+        captured["vehicle_predict_mean"] = float(frame.mean())
+        return [v_pred]
+
+    def fake_track(_dets, frame):
+        captured["tracker_mean"] = float(frame.mean())
+        return (
+            np.array([[0, 0, 80, 60]], dtype=np.int32),
+            np.array([32], dtype=np.int64),
+            np.array([5], dtype=np.int32),
+        )
+
+    def fake_detect_plate(frame, *_args, **_kwargs):
+        captured["plate_detect_mean"] = float(frame.mean())
+        return [
+            {
+                "id": 65,
+                "crop": frame[10:30, 20:70].copy(),
+                "box": [20, 10, 70, 30],
+            }
+        ]
+
+    def fake_prepare_ocr_jobs(matched, *_args, **_kwargs):
+        _tid, plate_crop, vehicle_crop = matched[0]
+        captured["plate_crop_mean"] = float(plate_crop.mean())
+        captured["vehicle_crop_mean"] = float(vehicle_crop.mean())
+        return [], {32}
+
+    models = MagicMock()
+    models.vehicle.predict.side_effect = fake_vehicle_predict
+    models.vehicle.names = {5: "motorcycle"}
+    models.create_vehicle_tracker = MagicMock(return_value=MagicMock(track=fake_track))
+    recorder = FakeRecorder()
+
+    monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
+    monkeypatch.setattr(pipeline_async, "TrajectoryAssociator", FakeAssociator)
+    monkeypatch.setattr(pipeline_async, "detect_plate_tracks_cascade", fake_detect_plate)
+    monkeypatch.setattr(pipeline_async, "prepare_route_ocr_jobs", fake_prepare_ocr_jobs)
+
+    pipeline_async.process_frames_async(
+        source,
+        emit=lambda event: None,
+        models=models,
+        preprocess_mode="night",
+        preprocessed_frame_recorder=recorder,
+    )
+
+    raw_mean = float(raw_frame.mean())
+    assert captured["vehicle_predict_mean"] > raw_mean
+    assert captured["tracker_mean"] > raw_mean
+    assert recorder.frame_means[0] > raw_mean
+    assert captured["plate_detect_mean"] == raw_mean
+    assert captured["plate_crop_mean"] == raw_mean
+    assert captured["vehicle_crop_mean"] == raw_mean

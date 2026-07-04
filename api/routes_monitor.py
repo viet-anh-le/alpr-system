@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from api.core.live_session import LiveSession
-from api.core.preprocessing import PreprocessedFrameSource, normalize_preprocess_mode
+from api.core.preprocessing import normalize_preprocess_mode
 
 logger = logging.getLogger(__name__)
 
@@ -419,8 +419,6 @@ def _dispatch_event(
         try:
             source = FileFrameSource(sess["path"], t_start=body.t_start, t_end=body.t_end)
             preprocess_mode = normalize_preprocess_mode(sess.get("preprocess_mode"))
-            if preprocess_mode != "none":
-                source = PreprocessedFrameSource(source, preprocess_mode)
             source_ref = sess["filename"]
             ws, we = body.t_start, body.t_end
         except Exception:
@@ -448,6 +446,7 @@ def _dispatch_event(
         "loop": loop,
         "models": models,
         "ocr_backend": sess.get("ocr_backend", "default"),
+        "preprocess_mode": normalize_preprocess_mode(sess.get("preprocess_mode")),
     }
 
     if body.mode == "upload":

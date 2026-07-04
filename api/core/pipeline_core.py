@@ -28,6 +28,7 @@ from .config import (
 )
 from .frame_source import FrameSource
 from .models import ModelBundle, ocr_batch, preprocess_plate_for_model, select_ocr_model
+from .preprocessing import apply_preprocessing, normalize_preprocess_mode
 from .progress import make_progress_event
 from .preview_frame import make_preview_frame_event
 from .quality_router import PlateQualityRouter
@@ -87,6 +88,8 @@ def process_frames(
     ocr_backend: str = "default",
     user_id: str | None = None,
     emit_preview: bool = True,
+    preprocess_mode: str = "none",
+    preprocessed_frame_recorder: object | None = None,
 ) -> dict:
     """Run the full ALPR pipeline on a FrameSource.
 
@@ -116,13 +119,26 @@ def process_frames(
     processed_seen = 0
     preview_seen = 0
     preview_stride = _fps_stride(source.fps, ALPR_PREVIEW_FPS) if emit_preview else 0
+    normalized_preprocess_mode = normalize_preprocess_mode(preprocess_mode)
+    active_recorder = (
+        preprocessed_frame_recorder
+        if normalized_preprocess_mode != "none"
+        else None
+    )
 
     for src_idx, frame, _ts in source.iter_frames():
         frame_idx = src_idx + 1  # 1-based to match legacy run_job
         processed_seen += 1
+        vehicle_frame = (
+            frame
+            if normalized_preprocess_mode == "none"
+            else apply_preprocessing(frame, normalized_preprocess_mode)
+        )
+        if active_recorder is not None:
+            active_recorder.record_frame(vehicle_frame)
 
         stage_start = time.perf_counter()
-        v_pred = models.vehicle.predict(frame, classes=VEHICLE_CLASSES, verbose=False)[0]
+        v_pred = models.vehicle.predict(vehicle_frame, classes=VEHICLE_CLASSES, verbose=False)[0]
         _add_timing("vehicle_detect", stage_start)
         if v_pred.boxes is not None and len(v_pred.boxes) > 0:
             xyxy = v_pred.boxes.xyxy.cpu().numpy()
@@ -133,7 +149,7 @@ def process_frames(
             dets = np.zeros((0, 6), dtype=np.float32)
 
         stage_start = time.perf_counter()
-        boxes, ids, classes = vehicle_tracker.track(dets, frame)
+        boxes, ids, classes = vehicle_tracker.track(dets, vehicle_frame)
         _add_timing("vehicle_track", stage_start)
 
         tracked: list[dict] = []
@@ -246,6 +262,14 @@ def process_frames(
             ]
             if box_dicts:
                 emit(make_preview_frame_event(frame, box_dicts, frame_index=frame_idx))
+                if vehicle_frame is not frame:
+                    preprocessed_event = make_preview_frame_event(
+                        vehicle_frame,
+                        box_dicts,
+                        frame_index=frame_idx,
+                    )
+                    preprocessed_event["type"] = "preprocessed_frame"
+                    emit(preprocessed_event)
 
         previously_tracked = currently_tracked
 
@@ -300,6 +324,9 @@ def process_frames(
 
     if timings is not None:
         timings["total"] = time.perf_counter() - total_start
+
+    if active_recorder is not None:
+        active_recorder.finish()
 
     return {
         "total_vehicles": len(tracker._best),

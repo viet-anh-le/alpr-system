@@ -4,6 +4,7 @@ Single source of truth; import from here everywhere.
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -196,6 +197,15 @@ ALPR_TARGET_PROCESS_FPS = _env_float("ALPR_TARGET_PROCESS_FPS", 0.0)
 ALPR_PREVIEW_FPS = _env_float("ALPR_PREVIEW_FPS", 2.0)
 ALPR_PREVIEW_MAX_WIDTH = _env_int("ALPR_PREVIEW_MAX_WIDTH", 960)
 ALPR_PREVIEW_JPEG_QUALITY = _env_int("ALPR_PREVIEW_JPEG_QUALITY", 70)
+ALPR_PREPROCESSED_VIDEO_DIR = _rooted_env_path(
+    "ALPR_PREPROCESSED_VIDEO_DIR",
+    str(Path(tempfile.gettempdir()) / "alpr_preprocessed"),
+)
+ALPR_PREPROCESSED_VIDEO_TTL_SEC = _env_float("ALPR_PREPROCESSED_VIDEO_TTL_SEC", 3600.0)
+ALPR_PREPROCESSED_VIDEO_CLEANUP_INTERVAL_SEC = _env_float(
+    "ALPR_PREPROCESSED_VIDEO_CLEANUP_INTERVAL_SEC",
+    300.0,
+)
 ALPR_DEBUG_TIMINGS = _env_bool("ALPR_DEBUG_TIMINGS", False)
 PLATE_PAD = 8  # context padding around plate crop (px)
 CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops

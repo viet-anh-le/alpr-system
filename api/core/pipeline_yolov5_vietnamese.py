@@ -14,6 +14,7 @@ import torch
 from .config import ALPR_PREVIEW_FPS, ROOT
 from .frame_source import FrameSource
 from .models import ModelBundle
+from .preprocessing import apply_preprocessing, normalize_preprocess_mode
 from .preview_frame import make_preview_frame_event
 from .progress import make_progress_event
 
@@ -241,6 +242,8 @@ def process_frames_yolov5_vietnamese(
     timings: dict[str, float] | None = None,
     user_id: str | None = None,
     emit_preview: bool = True,
+    preprocess_mode: str = "none",
+    preprocessed_frame_recorder: object | None = None,
 ) -> dict:
     del record_save, user_id
     total_start = time.perf_counter()
@@ -258,6 +261,12 @@ def process_frames_yolov5_vietnamese(
     )
     
     total = source.total_frames or 0
+    normalized_preprocess_mode = normalize_preprocess_mode(preprocess_mode)
+    active_recorder = (
+        preprocessed_frame_recorder
+        if normalized_preprocess_mode != "none"
+        else None
+    )
     frame_idx = 0
     processed_seen = 0
     preview_seen = 0
@@ -301,10 +310,21 @@ def process_frames_yolov5_vietnamese(
     for src_idx, frame, _ts in source.iter_frames():
         frame_idx = src_idx + 1
         processed_seen += 1
+        vehicle_frame = (
+            frame
+            if normalized_preprocess_mode == "none"
+            else apply_preprocessing(frame, normalized_preprocess_mode)
+        )
+        if active_recorder is not None:
+            active_recorder.record_frame(vehicle_frame)
 
         # 1. Object Detection (Plates)
         stage_start = time.perf_counter()
-        img_tensor, resized_img, trans_x, trans_y = preprocess_image_object(frame, size=(1280, 1280), device=models.device)
+        img_tensor, resized_img, trans_x, trans_y = preprocess_image_object(
+            vehicle_frame,
+            size=(1280, 1280),
+            device=models.device,
+        )
         preds = obj_model(img_tensor, augment=False)[0]
         detections = non_max_suppression(preds, conf_thres=0.5, iou_thres=0.5, multi_label=True, max_det=100)
         _add_timing("vehicle_detect", stage_start)
@@ -312,7 +332,11 @@ def process_frames_yolov5_vietnamese(
         dets_for_tracker = []
         for det in detections:
             if len(det):
-                det[:, :4] = scale_coords(resized_img.shape[:2], det[:, :4], frame.shape[:2]).round()
+                det[:, :4] = scale_coords(
+                    resized_img.shape[:2],
+                    det[:, :4],
+                    vehicle_frame.shape[:2],
+                ).round()
                 for *xyxy, conf, cls in det.tolist():
                     name = obj_names[int(cls)]
                     if name in ['square license plate', 'rectangle license plate', 'car', 'truck', 'van', 'bus', 'motorbike', 'delivery tricycle']:
@@ -324,7 +348,7 @@ def process_frames_yolov5_vietnamese(
         stage_start = time.perf_counter()
         
         if len(dets_arr) > 0:
-            tracked_res = plate_tracker.update(dets_arr, frame)
+            tracked_res = plate_tracker.update(dets_arr, vehicle_frame)
         else:
             tracked_res = np.zeros((0, 8), dtype=np.float32)
             
@@ -434,6 +458,14 @@ def process_frames_yolov5_vietnamese(
                 ]
                 if box_dicts:
                     emit(make_preview_frame_event(frame, box_dicts, frame_index=frame_idx))
+                    if vehicle_frame is not frame:
+                        preprocessed_event = make_preview_frame_event(
+                            vehicle_frame,
+                            box_dicts,
+                            frame_index=frame_idx,
+                        )
+                        preprocessed_event["type"] = "preprocessed_frame"
+                        emit(preprocessed_event)
 
         previously_tracked = currently_tracked
 
@@ -466,6 +498,9 @@ def process_frames_yolov5_vietnamese(
 
     if timings is not None:
         timings["total"] = time.perf_counter() - total_start
+
+    if active_recorder is not None:
+        active_recorder.finish()
 
     return {
         "total_vehicles": len(best_results),

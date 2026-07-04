@@ -125,6 +125,7 @@ async def test_protected_alpr_routes_require_auth(monkeypatch):
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         assert (await client.get("/sessions")).status_code == 401
         assert (await client.get("/records/nope/1")).status_code == 401
+        assert (await client.get("/jobs/nope/preprocessed-video")).status_code == 401
 
 
 async def test_sessions_and_records_are_filtered_by_user(monkeypatch):

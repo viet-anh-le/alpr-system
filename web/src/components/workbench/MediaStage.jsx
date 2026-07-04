@@ -1,4 +1,6 @@
-import { Badge, EmptyState, Progress } from "../ui";
+import { useEffect, useMemo, useState } from "react";
+
+import { Badge, EmptyState, Progress, SegmentedControl } from "../ui";
 
 function statusCopy(status) {
     if (status === "done") return ["Hoàn tất", "success"];
@@ -8,11 +10,57 @@ function statusCopy(status) {
     return ["Sẵn sàng", "neutral"];
 }
 
-export default function MediaStage({ previewFrame, videoUrl, progress, status }) {
+export default function MediaStage({
+    previewFrame,
+    preprocessedPreviewFrame,
+    videoUrl,
+    processedVideoUrl,
+    processedVideoExpected = false,
+    preprocessMode = "none",
+    progress,
+    status,
+}) {
     const isDone = status === "done";
     const isError = status === "error";
-    const hasPreview = !!previewFrame?.b64;
     const [label, tone] = statusCopy(status);
+    const hasProcessedView =
+        processedVideoExpected || (preprocessMode && preprocessMode !== "none");
+    const [view, setView] = useState("source");
+    const viewOptions = useMemo(
+        () => [
+            { value: "source", label: "Gốc" },
+            ...(hasProcessedView
+                ? [{ value: "processed", label: "Sau tiền xử lý" }]
+                : []),
+        ],
+        [hasProcessedView],
+    );
+    const activeView = hasProcessedView ? view : "source";
+    const showingProcessed = activeView === "processed";
+    const activePreviewFrame = showingProcessed
+        ? preprocessedPreviewFrame
+        : previewFrame;
+    const showPreviewFrame =
+        !!activePreviewFrame?.b64 && !isDone;
+    const displayVideoUrl =
+        showingProcessed
+            ? isDone && processedVideoUrl
+                ? processedVideoUrl
+                : null
+            : videoUrl;
+    const hasMedia = showPreviewFrame || !!displayVideoUrl;
+    const artifactMissing =
+        showingProcessed && isDone && processedVideoExpected && !processedVideoUrl;
+    const doneCopy =
+        showingProcessed && processedVideoUrl
+            ? "video sau tiền xử lý đã sẵn sàng để kiểm tra"
+            : "video gốc đã sẵn sàng để kiểm tra";
+
+    useEffect(() => {
+        if (!hasProcessedView && view !== "source") {
+            setView("source");
+        }
+    }, [hasProcessedView, view]);
 
     return (
         <section className="surface-panel overflow-hidden">
@@ -20,28 +68,39 @@ export default function MediaStage({ previewFrame, videoUrl, progress, status })
                 <div>
                     <p className="section-label">Chứng cứ hình ảnh</p>
                 </div>
-                <Badge tone={tone}>{label}</Badge>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    {hasProcessedView && (
+                        <SegmentedControl
+                            value={activeView}
+                            onChange={setView}
+                            options={viewOptions}
+                        />
+                    )}
+                    <Badge tone={artifactMissing ? "warning" : tone}>
+                        {artifactMissing ? "Thiếu video tiền xử lý" : label}
+                    </Badge>
+                </div>
             </div>
 
             <div className="p-4">
                 <div className="relative overflow-hidden rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-black scanline-bg">
-                    {hasPreview && !isDone && (
-                        <PreviewFrame frame={previewFrame} />
+                    {showPreviewFrame && (
+                        <PreviewFrame frame={activePreviewFrame} />
                     )}
 
-                    {(isDone || !hasPreview) && videoUrl && (
+                    {!showPreviewFrame && displayVideoUrl && (
                         <video
-                            key={videoUrl}
-                            src={videoUrl}
+                            key={`${activeView}-${displayVideoUrl}`}
+                            src={displayVideoUrl}
                             controls
                             muted
-                            autoPlay={!isDone}
+                            autoPlay={!isDone && !showingProcessed}
                             loop={isDone}
                             className="block max-h-[68vh] w-full object-contain"
                         />
                     )}
 
-                    {!videoUrl && !hasPreview && (
+                    {!displayVideoUrl && !showPreviewFrame && (
                         <div className="p-4">
                             <EmptyState title="Chưa có nguồn phân tích">
                                 Chọn video tải lên hoặc ghi clip camera để xem
@@ -50,7 +109,7 @@ export default function MediaStage({ previewFrame, videoUrl, progress, status })
                         </div>
                     )}
 
-                    {videoUrl && !isDone && (
+                    {hasMedia && !isDone && (
                         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-4 pb-4 pt-16">
                             <div className="mb-2 flex items-center justify-between gap-3 text-sm text-white">
                                 <div className="flex items-center gap-2">
@@ -84,11 +143,17 @@ export default function MediaStage({ previewFrame, videoUrl, progress, status })
                         </div>
                     )}
                 </div>
+                {artifactMissing && (
+                    <div className="mt-3 rounded-[var(--radius-control)] border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                        Không tạo được video sau tiền xử lý. Kết quả nhận dạng
+                        vẫn hoàn tất; chuyển sang tab Gốc để đối chiếu evidence.
+                    </div>
+                )}
                 {videoUrl && isDone && (
                     <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3">
                         <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                             <span className="font-semibold">
-                                {label} · video gốc đã sẵn sàng để kiểm tra
+                                {label} · {doneCopy}
                             </span>
                             <span className="data-font font-bold">
                                 {Math.round(progress.pct || 0)}%
