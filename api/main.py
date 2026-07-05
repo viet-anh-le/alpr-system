@@ -25,7 +25,13 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.auth import get_current_user, get_current_user_with_csrf, router as auth_router
-from api.core.config import MAX_UPLOAD_MB, MONGODB_DB_NAME, MONGODB_URI, WEB_ORIGIN
+from api.core.config import (
+    MAX_UPLOAD_MB,
+    MONGODB_DB_NAME,
+    MONGODB_URI,
+    WEB_ORIGIN,
+    normalize_ocr_backend,
+)
 from api.core.models import ModelBundle, load_models
 from api.core.pipeline import run_job
 from api.core.preprocessed_video import (
@@ -130,8 +136,12 @@ async def upload(
 ) -> dict:
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
+        normalized_ocr_backend = normalize_ocr_backend(ocr_backend)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    runtime_ocr_backend = (
+        "default" if ocr_backend.strip().lower() == "default" else normalized_ocr_backend
+    )
     cleanup_expired_preprocessed_video_artifacts()
 
     job_id      = uuid.uuid4().hex[:8]
@@ -165,7 +175,7 @@ async def upload(
         async with _job_semaphore:
             await loop.run_in_executor(
                 None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
-                file.filename or "video.mp4", mjpeg_queue, normalized_mode, ocr_backend,
+                file.filename or "video.mp4", mjpeg_queue, normalized_mode, runtime_ocr_backend,
                 _user_id(current_user), _job_owners
             )
 
@@ -173,7 +183,7 @@ async def upload(
     return {
         "job_id": job_id,
         "preprocess_mode": normalized_mode,
-        "ocr_backend": ocr_backend,
+        "ocr_backend": runtime_ocr_backend,
         "processed_video_expected": normalized_mode != "none",
     }
 

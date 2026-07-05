@@ -8,10 +8,7 @@ export const PREPROCESS_OPTIONS = [
 ]
 
 export const OCR_OPTIONS = [
-  { value: 'default', label: 'Mặc định' },
-  { value: 'smalllpr_ctc', label: 'SmallLPR CTC' },
-  { value: 'parseq', label: 'PARSeq' },
-  { value: 'yolov5_char', label: 'YOLOv5 Char' },
+  { value: 'default', label: 'SmallLPR-Line-CTC (mặc định)' },
   { value: 'vietnamese_yolov5', label: 'YOLOv5 Việt Nam' },
 ]
 

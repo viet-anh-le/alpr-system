@@ -33,19 +33,17 @@ from .config import (
     PAD_IDX,
     PARSEQ_IMAGE_H,
     PARSEQ_IMAGE_W,
-    PARSEQ_OCR_CKPT_PATH,
     PLATE_MODEL_PATH,
     REID_DEVICE,
     REID_MODEL_PATH,
     ROOT,
-    SMALL_LPR_CTC_CKPT_PATH,
-    SMALL_LPR_CKPT_PATH,
     SMALL_LPR_LINE_CTC_CKPT_PATH,
     SOS_IDX,
     VEHICLE_DETECTOR_BACKEND,
     VEHICLE_MODEL_PATH,
     YOLOV5_CHAR_CKPT_PATH,
     YOLOV5_OBJECT_CKPT_PATH,
+    normalize_ocr_backend,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,6 +134,14 @@ def load_yolov5_vehicle_detector(
 
 
 def load_models() -> ModelBundle:
+    configured_ocr_backend = normalize_ocr_backend(OCR_BACKEND)
+    ocr_backend = "smalllpr_line_ctc"
+    if configured_ocr_backend == "vietnamese_yolov5":
+        logger.info(
+            "OCR_BACKEND=vietnamese_yolov5 uses the dedicated YOLOv5 Vietnamese pipeline; "
+            "loading SmallLPR-Line-CTC as the single-frame OCR fallback."
+        )
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info("Loading models on %s…", device)
 
@@ -148,15 +154,7 @@ def load_models() -> ModelBundle:
         vehicle = YOLO(str(VEHICLE_MODEL_PATH))
     plate = YOLO(str(PLATE_MODEL_PATH))
 
-    ocr_backend = normalize_ocr_backend(OCR_BACKEND)
-    if ocr_backend == "parseq":
-        ocr = load_parseq_ocr_model(PARSEQ_OCR_CKPT_PATH, device=device)
-    elif ocr_backend == "smalllpr_ctc":
-        ocr = load_small_lpr_ctc_model(SMALL_LPR_CTC_CKPT_PATH, device=device)
-    elif ocr_backend == "smalllpr_line_ctc":
-        ocr = load_small_lpr_line_ctc_model(SMALL_LPR_LINE_CTC_CKPT_PATH, device=device)
-    else:
-        ocr = load_small_lpr_model(SMALL_LPR_CKPT_PATH, device=device)
+    ocr = load_small_lpr_line_ctc_model(SMALL_LPR_LINE_CTC_CKPT_PATH, device=device)
 
     logger.info(
         "Single-frame OCR ready (%s); track-level results use cached OCR voting.",
@@ -207,40 +205,14 @@ def load_models() -> ModelBundle:
     )
 
 
-def normalize_ocr_backend(value: str) -> str:
-    backend = value.strip().lower()
-    if backend == "small_lpr":
-        return "smalllpr"
-    if backend in {"small_lpr_ctc", "ctc"}:
-        return "smalllpr_ctc"
-    if backend in {"small_lpr_line_ctc", "line_ctc"}:
-        return "smalllpr_line_ctc"
-    if backend in {
-        "parseq",
-        "smalllpr",
-        "smalllpr_ctc",
-        "smalllpr_line_ctc",
-        "yolov5_char",
-        "vietnamese_yolov5",
-    }:
-        return backend
-    raise ValueError(
-        "OCR_BACKEND must be one of: parseq, smalllpr, smalllpr_ctc, smalllpr_line_ctc, yolov5_char, vietnamese_yolov5"
-    )
-
-
 def select_ocr_model(
     models: ModelBundle | object,
     ocr_backend: str = "default",
 ) -> object:
-    model_backend = getattr(models, "ocr_backend", "smalllpr_ctc")
+    model_backend = getattr(models, "ocr_backend", "smalllpr_line_ctc")
     if not isinstance(model_backend, str):
-        model_backend = "smalllpr_ctc"
-    resolved_backend = normalize_ocr_backend(
-        ocr_backend if ocr_backend != "default" else model_backend
-    )
-    if resolved_backend == "yolov5_char" and getattr(models, "ocr_yolov5", None):
-        return getattr(models, "ocr_yolov5")
+        model_backend = "smalllpr_line_ctc"
+    normalize_ocr_backend(ocr_backend if ocr_backend != "default" else model_backend)
     return getattr(models, "ocr")
 
 
@@ -347,17 +319,7 @@ def preprocess_plate(
     image_height: int | None = None,
 ) -> torch.Tensor:
     """BGR crop → normalized OCR input tensor."""
-    resolved_backend = normalize_ocr_backend(backend or OCR_BACKEND)
-    if resolved_backend == "parseq":
-        return preprocess_plate_parseq(
-            bgr,
-            image_width=image_width or PARSEQ_IMAGE_W,
-            image_height=image_height or PARSEQ_IMAGE_H,
-        )
-    if resolved_backend == "yolov5_char":
-        from api.core.ocr_yolov5 import preprocess_plate_yolov5
-
-        return preprocess_plate_yolov5(bgr)
+    normalize_ocr_backend(backend or OCR_BACKEND)
     return preprocess_plate_small_lpr(bgr)
 
 

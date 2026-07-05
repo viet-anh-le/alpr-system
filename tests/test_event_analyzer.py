@@ -194,7 +194,7 @@ def test_run_event_accepts_monitor_ocr_backend(monkeypatch):
         queue=queue,
         loop=loop,
         models=MagicMock(),
-        ocr_backend="yolov5_char",
+        ocr_backend="smalllpr_line_ctc",
     )
 
     async def drain():
@@ -207,7 +207,7 @@ def test_run_event_accepts_monitor_ocr_backend(monkeypatch):
     loop.run_until_complete(drain())
     loop.close()
 
-    assert captured["ocr_backend"] == "yolov5_char"
+    assert captured["ocr_backend"] == "smalllpr_line_ctc"
     assert [ev["type"] for ev in events] == [
         "event_started",
         "event_progress",

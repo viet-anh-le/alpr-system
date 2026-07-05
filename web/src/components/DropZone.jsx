@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 
+import { OCR_OPTIONS } from './workbench/constants'
+
 const PREPROCESS_OPTIONS = [
   { value: 'none', label: 'Không xử lý' },
   { value: 'night', label: 'Ban đêm' },
@@ -7,14 +9,6 @@ const PREPROCESS_OPTIONS = [
   { value: 'fog', label: 'Sương mù' },
   { value: 'rain', label: 'Mưa / nhiễu' },
   { value: 'glare', label: 'Chói sáng' },
-]
-
-const OCR_OPTIONS = [
-  { value: 'default', label: 'Mặc định' },
-  { value: 'smalllpr_ctc', label: 'SmallLPR CTC' },
-  { value: 'parseq', label: 'PARSeq' },
-  { value: 'yolov5_char', label: 'YOLOv5 Char' },
-  { value: 'vietnamese_yolov5', label: 'YOLOv5 Vietnamese (Custom)' },
 ]
 
 function formatBytes(b) {

@@ -430,7 +430,7 @@ class TestFinaliseTrackOcrUnit:
         models = MagicMock()
         models.device = torch.device("cpu")
         models.ocr = MagicMock()
-        models.ocr_backend = "smalllpr_ctc"
+        models.ocr_backend = "smalllpr_line_ctc"
 
         _finalise_track_ocr(tid, tracker, models, events.append, "", None, None)
 
@@ -887,7 +887,7 @@ class TestProcessFramesUnit:
         source = _make_mock_source(frames)
         models = _make_mock_models_no_detections()
         models.device = torch.device("cpu")
-        models.ocr_backend = "smalllpr_ctc"
+        models.ocr_backend = "smalllpr_line_ctc"
         models.quality_router = PlateQualityRouter(classifier=lambda crop: {"good": 0.96})
         models._mock_tracker.track.return_value = (
             np.array([[0, 0, 180, 140]], dtype=np.int32),

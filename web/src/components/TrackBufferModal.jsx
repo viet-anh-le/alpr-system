@@ -236,10 +236,8 @@ function formatOcrMethod(value) {
   if (!value) return 'OCR'
   const labels = {
     realtime_buffer: 'Bộ đệm thời gian thực',
-    default: 'Mặc định',
-    smalllpr_ctc: 'SmallLPR CTC',
-    parseq: 'PARSeq',
-    yolov5_char: 'YOLOv5 ký tự',
+    default: 'SmallLPR-Line-CTC (mặc định)',
+    smalllpr_line_ctc: 'SmallLPR-Line-CTC',
     vietnamese_yolov5: 'YOLOv5 Việt Nam',
   }
   return labels[value] || value.replaceAll('_', ' ')

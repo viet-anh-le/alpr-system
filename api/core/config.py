@@ -96,6 +96,24 @@ REID_MODEL_PATH = _rooted_env_path("REID_MODEL_PATH", "weights/tracking/vehicle_
 REID_DEVICE = os.environ.get("REID_DEVICE", "auto").strip().lower()
 
 OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_line_ctc").strip().lower()
+
+
+def normalize_ocr_backend(value: str) -> str:
+    backend = value.strip().lower().replace("-", "_")
+    if backend in {
+        "default",
+        "small_lpr_line_ctc",
+        "smalllpr_line_ctc",
+        "line_ctc",
+    }:
+        return "smalllpr_line_ctc"
+    if backend == "vietnamese_yolov5":
+        return "vietnamese_yolov5"
+    raise ValueError(
+        "OCR_BACKEND must be one of: default, smalllpr_line_ctc, vietnamese_yolov5"
+    )
+
+
 SMALL_LPR_CKPT_PATH = _rooted_env_path(
     "SMALL_LPR_CKPT_PATH",
     "weights/ocr/small_lpr-epoch=136-val_acc=0.914.ckpt",
@@ -124,21 +142,7 @@ PARSEQ_IMAGE_W = int(os.environ.get("PARSEQ_IMAGE_W", "128"))
 PARSEQ_IMAGE_H = int(os.environ.get("PARSEQ_IMAGE_H", "32"))
 
 # Backward-compatible alias for scripts that still import OCR_CKPT_PATH.
-_SMALL_LPR_CTC_BACKENDS = {"smalllpr_ctc", "small_lpr_ctc", "ctc"}
-_SMALL_LPR_LINE_CTC_BACKENDS = {"smalllpr_line_ctc", "small_lpr_line_ctc", "line_ctc"}
-OCR_CKPT_PATH = (
-    PARSEQ_OCR_CKPT_PATH
-    if OCR_BACKEND == "parseq"
-    else (
-        SMALL_LPR_LINE_CTC_CKPT_PATH
-        if OCR_BACKEND in _SMALL_LPR_LINE_CTC_BACKENDS
-        else (
-            SMALL_LPR_CTC_CKPT_PATH
-            if OCR_BACKEND in _SMALL_LPR_CTC_BACKENDS
-            else SMALL_LPR_CKPT_PATH
-        )
-    )
-)
+OCR_CKPT_PATH = SMALL_LPR_LINE_CTC_CKPT_PATH
 
 # ── Detection ─────────────────────────────────────────────────────────────────
 # object.pt class IDs:

@@ -10,10 +10,10 @@ import torch
 
 @pytest.mark.unit
 def test_preprocess_plate_parseq_backend_uses_parseq_image_contract() -> None:
-    from api.core.models import preprocess_plate
+    from api.core.models import preprocess_plate_parseq
 
     crop = np.full((24, 96, 3), 127, dtype=np.uint8)
-    tensor = preprocess_plate(crop, backend="parseq", image_width=128, image_height=32)
+    tensor = preprocess_plate_parseq(crop, image_width=128, image_height=32)
 
     assert tuple(tensor.shape) == (3, 32, 128)
     assert tensor.dtype == torch.float32
@@ -95,21 +95,30 @@ def test_normalize_ocr_backend_rejects_removed_small_lpr_nar_aliases() -> None:
 
 
 @pytest.mark.unit
-def test_normalize_ocr_backend_accepts_small_lpr_ctc_aliases() -> None:
-    from api.core.models import normalize_ocr_backend
-
-    assert normalize_ocr_backend("small_lpr_ctc") == "smalllpr_ctc"
-    assert normalize_ocr_backend("smalllpr_ctc") == "smalllpr_ctc"
-    assert normalize_ocr_backend("ctc") == "smalllpr_ctc"
-
-
-@pytest.mark.unit
 def test_normalize_ocr_backend_accepts_small_lpr_line_ctc_aliases() -> None:
     from api.core.models import normalize_ocr_backend
 
+    assert normalize_ocr_backend("default") == "smalllpr_line_ctc"
+    assert normalize_ocr_backend("small-lpr-line-ctc") == "smalllpr_line_ctc"
     assert normalize_ocr_backend("small_lpr_line_ctc") == "smalllpr_line_ctc"
     assert normalize_ocr_backend("smalllpr_line_ctc") == "smalllpr_line_ctc"
     assert normalize_ocr_backend("line_ctc") == "smalllpr_line_ctc"
+
+
+@pytest.mark.unit
+def test_normalize_ocr_backend_accepts_vietnamese_yolov5_only_as_yolov5_option() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    assert normalize_ocr_backend("vietnamese_yolov5") == "vietnamese_yolov5"
+
+
+@pytest.mark.unit
+def test_normalize_ocr_backend_rejects_removed_ocr_backends() -> None:
+    from api.core.models import normalize_ocr_backend
+
+    for backend in ("smalllpr", "small_lpr", "smalllpr_ctc", "small_lpr_ctc", "ctc", "parseq", "yolov5_char"):
+        with pytest.raises(ValueError, match="smalllpr_line_ctc"):
+            normalize_ocr_backend(backend)
 
 
 @pytest.mark.unit
@@ -338,34 +347,15 @@ def test_load_models_can_force_reid_tracker_to_cpu(monkeypatch) -> None:
 
 
 @pytest.mark.unit
-def test_load_models_uses_parseq_backend_when_configured(monkeypatch) -> None:
+def test_load_models_rejects_removed_ocr_backend_before_loading_models(monkeypatch) -> None:
     import api.core.models as models
 
     monkeypatch.setattr(models, "OCR_BACKEND", "parseq")
-    monkeypatch.setattr(models.torch.cuda, "is_available", lambda: False)
-    monkeypatch.setattr(models, "YOLO", lambda path: SimpleNamespace(path=str(path)))
     monkeypatch.setattr(
         models,
-        "VehicleTracker",
-        lambda **kwargs: SimpleNamespace(kind="tracker", kwargs=kwargs),
-    )
-    monkeypatch.setattr(
-        models.PlateQualityRouter,
-        "from_env",
-        classmethod(lambda cls, device=None: SimpleNamespace(kind="router", device=device)),
+        "YOLO",
+        lambda path: pytest.fail(f"YOLO should not load for invalid OCR backend: {path}"),
     )
 
-    loaded: dict[str, object] = {}
-
-    def fake_load_parseq(path, *, device):
-        loaded["path"] = path
-        loaded["device"] = device
-        return models.ParseqOcrModel(model=torch.nn.Identity(), image_width=128, image_height=32)
-
-    monkeypatch.setattr(models, "load_parseq_ocr_model", fake_load_parseq)
-
-    bundle = models.load_models()
-
-    assert isinstance(bundle.ocr, models.ParseqOcrModel)
-    assert bundle.ocr_backend == "parseq"
-    assert str(loaded["path"]).endswith("weights/ocr/parseq/parseq_vn_plate_best.pt")
+    with pytest.raises(ValueError, match="smalllpr_line_ctc"):
+        models.load_models()

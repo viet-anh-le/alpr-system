@@ -57,9 +57,34 @@ async def test_monitor_upload_returns_session_id(client, tmp_path):
 
 
 @pytest.mark.integration
+async def test_monitor_upload_rejects_removed_ocr_backend(client):
+    fixture = Path("tests/fixtures/short_clip.mp4")
+    with open(fixture, "rb") as f:
+        resp = await client.post(
+            "/monitor/upload",
+            files={"file": ("short_clip.mp4", f, "video/mp4")},
+            data={"ocr_backend": "parseq"},
+        )
+
+    assert resp.status_code == 400
+    assert "smalllpr_line_ctc" in resp.json()["detail"]
+
+
+@pytest.mark.integration
 async def test_monitor_live_connect_rejects_non_rtsp_scheme(client):
     resp = await client.post("/monitor/live/connect", json={"rtsp_url": "http://evil/path"})
     assert resp.status_code == 400
+
+
+@pytest.mark.integration
+async def test_monitor_live_connect_rejects_removed_ocr_backend(client):
+    resp = await client.post(
+        "/monitor/live/connect",
+        json={"rtsp_url": "rtsp://10.0.0.5/main", "ocr_backend": "smalllpr_ctc"},
+    )
+
+    assert resp.status_code == 400
+    assert "smalllpr_line_ctc" in resp.json()["detail"]
 
 
 @pytest.mark.integration

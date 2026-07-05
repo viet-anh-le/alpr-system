@@ -38,19 +38,13 @@ from api.core.cascade_plate import (  # noqa: E402
 from api.core.config import (  # noqa: E402
     FRAME_STRIDE,
     OCR_BACKEND,
-    PARSEQ_OCR_CKPT_PATH,
     PLATE_MODEL_PATH,
-    SMALL_LPR_CKPT_PATH,
-    SMALL_LPR_CTC_CKPT_PATH,
     SMALL_LPR_LINE_CTC_CKPT_PATH,
 )
 from api.core.frame_source import FileFrameSource  # noqa: E402
 from api.core.models import (  # noqa: E402
     ModelBundle,
-    load_parseq_ocr_model,
-    load_small_lpr_ctc_model,
     load_small_lpr_line_ctc_model,
-    load_small_lpr_model,
     normalize_ocr_backend,
     ocr_batch,
     preprocess_plate_for_model,
@@ -87,31 +81,25 @@ class _DirectQualityRouter:
         )
 
 
-class _DummyVehicleTracker:
-    def reset(self) -> None:
-        return
-
-
 def load_plate_ocr_models() -> ModelBundle:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     plate = YOLO(str(PLATE_MODEL_PATH))
 
     ocr_backend = normalize_ocr_backend(OCR_BACKEND)
-    if ocr_backend == "parseq":
-        ocr = load_parseq_ocr_model(PARSEQ_OCR_CKPT_PATH, device=device)
-    elif ocr_backend == "smalllpr_ctc":
-        ocr = load_small_lpr_ctc_model(SMALL_LPR_CTC_CKPT_PATH, device=device)
-    elif ocr_backend == "smalllpr_line_ctc":
-        ocr = load_small_lpr_line_ctc_model(SMALL_LPR_LINE_CTC_CKPT_PATH, device=device)
-    else:
-        ocr = load_small_lpr_model(SMALL_LPR_CKPT_PATH, device=device)
+    if ocr_backend == "vietnamese_yolov5":
+        raise ValueError(
+            "scripts/infer_plate_ocr_async.py supports only SmallLPR-Line-CTC; "
+            "use the web/API pipeline for YOLOv5 Vietnamese."
+        )
+    ocr = load_small_lpr_line_ctc_model(SMALL_LPR_LINE_CTC_CKPT_PATH, device=device)
 
     return ModelBundle(
         device=device,
         vehicle=SimpleNamespace(names={0: "scene"}),
         plate=plate,
         ocr=ocr,
-        vehicle_tracker=_DummyVehicleTracker(),
+        reid_weights=Path(""),
+        tracker_device=str(device),
         quality_router=_DirectQualityRouter(),
         ocr_backend=ocr_backend,
     )

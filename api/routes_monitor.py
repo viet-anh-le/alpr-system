@@ -22,6 +22,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Upload
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+from api.core.config import normalize_ocr_backend
 from api.core.live_session import LiveSession
 from api.core.preprocessing import normalize_preprocess_mode
 
@@ -67,6 +68,11 @@ def _now() -> float:
 
 def _touch_session(sess: dict) -> None:
     sess["last_access_at"] = _now()
+
+
+def _runtime_ocr_backend(value: str) -> str:
+    normalized = normalize_ocr_backend(value)
+    return "default" if value.strip().lower() == "default" else normalized
 
 
 def _delete_file(path: str | os.PathLike[str] | None) -> None:
@@ -245,6 +251,7 @@ async def monitor_upload(
     """Accept a video file for monitor-mode playback + mark-driven analysis."""
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
+        normalized_ocr_backend = _runtime_ocr_backend(ocr_backend)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -269,7 +276,7 @@ async def monitor_upload(
         "path": tmp_path,
         "filename": file.filename or "video.mp4",
         "preprocess_mode": normalized_mode,
-        "ocr_backend": ocr_backend,
+        "ocr_backend": normalized_ocr_backend,
         "created_at": now,
         "last_access_at": now,
         "active_events": 0,
@@ -280,7 +287,7 @@ async def monitor_upload(
         "session_id": session_id,
         "video_url": f"/monitor/upload/{session_id}/video",
         "preprocess_mode": normalized_mode,
-        "ocr_backend": ocr_backend,
+        "ocr_backend": normalized_ocr_backend,
     }
 
 
@@ -317,6 +324,10 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
     parsed = urlparse(body.rtsp_url)
     if parsed.scheme not in ("rtsp", "rtsps"):
         raise HTTPException(status_code=400, detail="URL must be rtsp:// or rtsps://")
+    try:
+        normalized_ocr_backend = _runtime_ocr_backend(body.ocr_backend)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     session_id = _new_session_id()
     path = f"live_{session_id[4:]}"  # MediaMTX path name
@@ -335,7 +346,7 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
         "mediamtx_path": path,
         "mjpeg_queue": mjpeg_q,
         "rtsp_url": body.rtsp_url,
-        "ocr_backend": body.ocr_backend,
+        "ocr_backend": normalized_ocr_backend,
     }
     event_queues[session_id] = asyncio.Queue()
 

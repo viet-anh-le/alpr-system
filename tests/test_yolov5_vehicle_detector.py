@@ -45,8 +45,8 @@ def test_load_models_reuses_yolov5_object_for_vehicle(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         models,
-        "load_small_lpr_ctc_model",
-        lambda path, device: models.SmallLprCtcOcrModel(
+        "load_small_lpr_line_ctc_model",
+        lambda path, device: models.SmallLprLineCtcOcrModel(
             model=torch.nn.Identity(),
             chars=["<blank>", "A"],
         ),
