@@ -8,7 +8,7 @@ import { API_BASE } from '../../apiClient'
 export default function useEventStream(sessionId, onEvent) {
   useEffect(() => {
     if (!sessionId) return undefined
-    const es = new EventSource(`${API_BASE}/monitor/${sessionId}/events/stream`)
+    const es = new EventSource(`${API_BASE}/monitor/${sessionId}/events/stream`, { withCredentials: true })
     es.onmessage = (msg) => {
       try {
         const ev = JSON.parse(msg.data)

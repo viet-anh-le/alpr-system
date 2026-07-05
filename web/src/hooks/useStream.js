@@ -15,7 +15,7 @@ export function useStream(jobId, {
   useEffect(() => {
     if (!jobId) return
 
-    const es = new EventSource(`${API_BASE}/stream/${jobId}`)
+    const es = new EventSource(`${API_BASE}/stream/${jobId}`, { withCredentials: true })
     esRef.current = es
 
     es.onmessage = (e) => {
