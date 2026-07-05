@@ -171,7 +171,7 @@ export default function LandingPage() {
                     <p className="mt-3 text-[var(--color-text-muted)]">
                         Người dùng không cần tin vào một chuỗi biển số đơn lẻ.
                         Hệ thống hiển thị nguồn video, trạng thái kết quả, ảnh
-                        đối chiếu, độ tin cậy theo ký tự, phiếu OCR, ứng viên bị
+                        đối chiếu, độ tin cậy theo ký tự, phiếu OCR, biển số bị
                         loại và lịch sử.
                     </p>
                 </div>

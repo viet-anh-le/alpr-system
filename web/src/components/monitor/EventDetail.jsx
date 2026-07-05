@@ -1,12 +1,12 @@
 import { useState } from 'react'
 
+import PlateDisplay from '../PlateDisplay'
 import { Badge, Button, Dialog, EmptyState, cx } from '../ui'
-import { VEHICLE_LABEL } from '../workbench/constants'
-
-const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
+import { VEHICLE_LABEL, averageConfidence, cleanPlateText } from '../workbench/constants'
+import { getEventVehicles, getVehicleClusters } from './eventDisplay'
 
 export default function EventDetail({ event }) {
-  const vehicles = Object.values(event.vehicles || {})
+  const vehicles = getEventVehicles(event)
   if (vehicles.length === 0) {
     return <EmptyState title="Không có ảnh phương tiện" />
   }
@@ -25,18 +25,19 @@ function EventVehicleDetail({ vehicle }) {
   const frames = vehicle.track_buffer || []
   const vehicleId = vehicle.track_id ?? vehicle.id
   const identityLabel = formatRecognitionIdentity(vehicle)
-  const confidence = Math.round((vehicle.confidence || 0) * 100)
+  const confidence = averageConfidence(vehicle.chars, vehicle.plate_text_confidence ?? vehicle.confidence)
+  const clusters = getVehicleClusters(vehicle)
 
   return (
     <article className="rounded-xl border border-[var(--color-border)] bg-black/15 p-3">
       <div className="grid grid-cols-2 gap-2">
-        <ImageBox src={imageSrc(vehicle.vehicle_b64)} alt={`Xe ${vehicleId}`} fallback="Không có ảnh xe" />
-        <ImageBox src={imageSrc(vehicle.plate_b64)} alt={displayPlateText(vehicle.plate)} fallback="Không có ảnh biển số" dark />
+        <ImageBox src={imageSrc(vehicle.vehicle_b64 || vehicle.vehicle_image_url)} alt={`Xe ${vehicleId}`} fallback="Không có ảnh xe" />
+        <ImageBox src={imageSrc(vehicle.plate_b64 || vehicle.plate_image_url)} alt={cleanPlateText(vehicle.plate_text ?? vehicle.plate)} fallback="Không có ảnh biển số" dark />
       </div>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="plate-font truncate text-base font-bold tracking-widest text-emerald-100">
-            {displayPlateText(vehicle.plate) || '—'}
+            {cleanPlateText(vehicle.plate_text ?? vehicle.plate) || '—'}
           </p>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
             {identityLabel} · {VEHICLE_LABEL[vehicle.cls] || vehicle.cls || 'Phương tiện'} · {vehicle.ocr_frames || 0} khung
@@ -50,9 +51,71 @@ function EventVehicleDetail({ vehicle }) {
         Bộ đệm ({frames.length})
       </Button>
 
+      {clusters.length > 1 && (
+        <div className="mt-3 space-y-2 border-t border-[var(--color-border)] pt-3">
+          <p className="text-xs font-semibold text-[var(--color-text-muted)]">
+            Phát hiện nhiều biển số
+          </p>
+          {clusters.map((cluster, index) => (
+            <EventClusterDetail
+              key={cluster.cluster_index ?? index}
+              cluster={cluster}
+              index={index}
+              parent={vehicle}
+            />
+          ))}
+        </div>
+      )}
+
       <TrackBufferDialog
         open={showBuffer}
         vehicle={vehicle}
+        frames={frames}
+        onClose={() => setShowBuffer(false)}
+      />
+    </article>
+  )
+}
+
+function EventClusterDetail({ cluster, index, parent }) {
+  const [showBuffer, setShowBuffer] = useState(false)
+  const frames = cluster.track_buffer || []
+  const confidence = averageConfidence(cluster.chars, cluster.plate_text_confidence ?? cluster.confidence)
+  const clusterVehicle = { ...parent, ...cluster }
+
+  return (
+    <article className="rounded-lg border border-[var(--color-border)] bg-black/15 p-2">
+      <div className="grid grid-cols-[auto_1fr] gap-3">
+        <div className="w-24">
+          <ImageBox
+            src={imageSrc(cluster.plate_b64 || cluster.plate_image_url)}
+            alt={cleanPlateText(cluster.plate_text ?? cluster.plate)}
+            fallback="Không có ảnh biển số"
+            dark
+          />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <Badge tone="neutral">Cụm {index + 1}</Badge>
+            <span className="data-font text-xs font-bold text-[var(--color-text)]">
+              {confidence > 0 ? `${confidence}%` : '—'}
+            </span>
+          </div>
+          <p className="plate-font mt-2 truncate text-sm font-bold tracking-widest text-white">
+            {cleanPlateText(cluster.plate_text ?? cluster.plate) || '—'}
+          </p>
+          <div className="mt-2">
+            <PlateDisplay chars={cluster.chars} compact />
+          </div>
+          <Button className="mt-2" size="sm" onClick={() => setShowBuffer(true)}>
+            Bộ đệm ({frames.length})
+          </Button>
+        </div>
+      </div>
+
+      <TrackBufferDialog
+        open={showBuffer}
+        vehicle={clusterVehicle}
         frames={frames}
         onClose={() => setShowBuffer(false)}
       />

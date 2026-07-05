@@ -57,7 +57,7 @@ export default function ResultsPanel({
                                   : "neutral"
                         }
                     >
-                        {total} ứng viên
+                        {total} biển số
                     </Badge>
                 </div>
 
