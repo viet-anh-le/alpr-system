@@ -187,15 +187,17 @@ def _build_cluster_data(
 
     data: list[dict] = []
     for result, member_indices in cluster_results:
-        # Find the best entry (highest combined_score) in this cluster
-        best_crop = valid_entries[0].crop if valid_entries else _empty_crop()
-        best_score = -1.0
-        for idx in member_indices:
-            if idx < len(valid_entries):
-                entry = valid_entries[idx]
-                if entry.combined_score > best_score:
-                    best_score = entry.combined_score
-                    best_crop = entry.crop
+        cluster_entries = [
+            valid_entries[idx]
+            for idx in member_indices
+            if idx < len(valid_entries)
+        ]
+        best_entry = max(
+            cluster_entries,
+            key=lambda entry: entry.combined_score,
+            default=None,
+        )
+        best_crop = best_entry.crop if best_entry is not None else _empty_crop()
 
         avg_conf = (
             sum(p for _, p in result.char_probs) / len(result.char_probs)
@@ -207,18 +209,56 @@ def _build_cluster_data(
         data.append(
             {
                 "plate": result.text,
+                "plate_text": result.text,
                 "chars": [[c, round(p, 3)] for c, p in result.char_probs],
                 "plate_b64": plate_b64,
                 "vehicle_b64": vehicle_b64,
                 "confidence": round(avg_conf, 4),
-                "frame_count": len(member_indices),
+                "plate_text_confidence": round(avg_conf, 4),
+                "frame_count": len(cluster_entries),
+                "ocr_frames": len(cluster_entries),
+                "ocr_method": "ocr_output_ctm",
+                "vote_summary": result.vote_summary,
+                "ocr_vote_summary": result.vote_summary,
+                "track_buffer": _track_buffer_json_for_entries(tracker, cluster_entries),
                 "template": result.template_name,
             }
         )
 
     # Sort by frame_count descending (largest cluster first)
     data.sort(key=lambda c: c["frame_count"], reverse=True)
+    for cluster_index, cluster in enumerate(data):
+        cluster["cluster_index"] = cluster_index
     return data
+
+
+def _track_buffer_json_for_entries(
+    tracker: WebTrackletManager,
+    entries: list[TrackBufferEntry],
+) -> list[dict]:
+    frames: list[dict] = []
+    for entry in sorted(
+        entries,
+        key=lambda item: (
+            1 if item.router_result.get("legibility") in ("perfect", "good") else 0,
+            item.combined_score,
+        ),
+        reverse=True,
+    ):
+        frames.append(
+            {
+                "frame_index": int(entry.frame_idx),
+                "quality_score": round(float(entry.quality_score), 4),
+                "ocr_confidence": round(float(entry.ocr_conf), 4),
+                "combined_score": round(float(entry.combined_score), 4),
+                "ocr_text": "".join(ch for ch, _ in entry.char_probs) if entry.char_probs else None,
+                "candidate_method": entry.candidate_method,
+                "route": entry.route,
+                "image_b64": tracker._encode(entry.crop, max_w=None, quality=85),
+                **entry.router_result,
+            }
+        )
+    return frames
 
 
 def _empty_crop() -> np.ndarray:

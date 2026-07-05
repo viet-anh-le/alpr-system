@@ -20,6 +20,7 @@ OCR flow change (motion-based ALPR):
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 
@@ -98,7 +99,11 @@ def _record_save(
     """
     try:
         from api.database.mongodb import is_db_configured, upsert_record
-        from api.database.models import PlateFrame as DBFrame, RecognitionRecord as DBRecord
+        from api.database.models import (
+            PlateFrame as DBFrame,
+            RecognitionCluster as DBCluster,
+            RecognitionRecord as DBRecord,
+        )
 
         if not is_db_configured():
             return
@@ -111,35 +116,55 @@ def _record_save(
         if not entries:
             return
 
-        # Upload every buffered crop and build track_buffer
-        track_frames: list[DBFrame] = []
-        for i, entry in enumerate(entries):
-            _, jpg = cv2.imencode(".jpg", entry.crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        def _db_frame_from_entry(entry, path: str, quality: int = 85) -> DBFrame:
+            _, jpg = cv2.imencode(".jpg", entry.crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
             url = _storage_upload(
-                "evidence", f"{session_id}/track_{tid}_frame_{i}.jpg", bytes(jpg)
+                "evidence", path, bytes(jpg)
             )
-            track_frames.append(DBFrame(
+            return DBFrame(
                 frame_index=int(entry.frame_idx),
                 quality_score=round(float(entry.quality_score), 4),
                 image_url=url,
                 ocr_text=chars_to_display_text(entry.char_probs) if entry.char_probs else None,
                 ocr_confidence=round(float(entry.ocr_conf), 4),
-            ))
+            )
+
+        def _db_frame_from_payload(frame: dict, path: str) -> DBFrame:
+            url = frame.get("image_url")
+            image_b64 = frame.get("image_b64")
+            if image_b64:
+                url = _storage_upload("evidence", path, base64.b64decode(image_b64))
+            return DBFrame(
+                frame_index=int(frame.get("frame_index", 0)),
+                quality_score=round(float(frame.get("quality_score", 0.0)), 4),
+                image_url=url,
+                ocr_text=frame.get("ocr_text"),
+                ocr_confidence=(
+                    round(float(frame["ocr_confidence"]), 4)
+                    if frame.get("ocr_confidence") is not None
+                    else None
+                ),
+            )
+
+        # Upload every buffered crop and build track_buffer
+        track_frames: list[DBFrame] = []
+        for i, entry in enumerate(entries):
+            track_frames.append(
+                _db_frame_from_entry(
+                    entry,
+                    f"{session_id}/track_{tid}_frame_{i}.jpg",
+                )
+            )
 
         if not track_frames:
             return
 
         best_entry = entries[0]
 
-        _, jpg = cv2.imencode(".jpg", best_entry.crop, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        best_url = _storage_upload("evidence", f"{session_id}/plate_{tid}.jpg", bytes(jpg))
-
-        best_plate_frame = DBFrame(
-            frame_index=int(best_entry.frame_idx),
-            quality_score=round(float(best_entry.quality_score), 4),
-            image_url=best_url,
-            ocr_text=chars_to_display_text(best_entry.char_probs) if best_entry.char_probs else None,
-            ocr_confidence=round(float(best_entry.ocr_conf), 4),
+        best_plate_frame = _db_frame_from_entry(
+            best_entry,
+            f"{session_id}/plate_{tid}.jpg",
+            quality=90,
         )
 
         # Vehicle thumbnail
@@ -151,6 +176,53 @@ def _record_save(
 
         plate_text = chars_to_display_text(char_probs)
         plate_conf = sum(p for _, p in char_probs) / len(char_probs) if char_probs else 0.0
+        clusters: list[DBCluster] = []
+        for fallback_index, cluster in enumerate(tracker.cluster_results(tid)):
+            cluster_index = int(cluster.get("cluster_index", fallback_index))
+            cluster_frames = [
+                _db_frame_from_payload(
+                    frame,
+                    f"{session_id}/track_{tid}_cluster_{cluster_index}_frame_{i}.jpg",
+                )
+                for i, frame in enumerate(cluster.get("track_buffer") or [])
+            ]
+            if not cluster_frames:
+                continue
+
+            best_cluster_frame = cluster_frames[0]
+            if cluster.get("plate_b64"):
+                best_cluster_url = _storage_upload(
+                    "evidence",
+                    f"{session_id}/plate_{tid}_cluster_{cluster_index}.jpg",
+                    base64.b64decode(cluster["plate_b64"]),
+                )
+                best_cluster_frame = best_cluster_frame.model_copy(
+                    update={"image_url": best_cluster_url}
+                )
+
+            cluster_chars = [
+                (str(ch), float(conf))
+                for ch, conf in cluster.get("chars", [])
+            ]
+            clusters.append(
+                DBCluster(
+                    cluster_index=cluster_index,
+                    plate_text=cluster.get("plate_text") or cluster.get("plate", ""),
+                    chars=cluster_chars,
+                    best_plate_frame=best_cluster_frame,
+                    track_buffer=cluster_frames,
+                    plate_text_confidence=round(
+                        float(cluster.get("plate_text_confidence", cluster.get("confidence", 0.0))),
+                        4,
+                    ),
+                    ocr_vote_summary=cluster.get("ocr_vote_summary")
+                    or cluster.get("vote_summary")
+                    or {},
+                    ocr_method=cluster.get("ocr_method", "ocr_output_ctm"),
+                    frame_count=int(cluster.get("frame_count", len(cluster_frames))),
+                    template=cluster.get("template"),
+                )
+            )
 
         record = DBRecord(
             session_id=session_id,
@@ -165,6 +237,7 @@ def _record_save(
             plate_text=plate_text,
             plate_text_confidence=round(plate_conf, 4),
             ocr_vote_summary=vote_summary,
+            clusters=clusters,
             ocr_method=ocr_method,
             first_seen_frame=min(f.frame_index for f in track_frames),
             last_seen_frame=max(f.frame_index for f in track_frames),

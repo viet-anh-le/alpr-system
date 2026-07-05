@@ -1,18 +1,18 @@
 import { useEffect } from 'react'
 import IconButton from './IconButton'
+import { lockBodyScroll } from './scrollLock'
 import { cx } from './utils'
 
 export default function Drawer({ open, onClose, title, description, children, className }) {
   useEffect(() => {
     if (!open) return undefined
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const onKey = (event) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => {
-      document.body.style.overflow = previous
+      unlock()
       window.removeEventListener('keydown', onKey)
     }
   }, [open, onClose])

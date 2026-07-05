@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 
 import { apiFetch } from '../apiClient'
 import { Badge, Dialog, EmptyState, Skeleton, cx } from './ui'
+import {
+  buildInlineRecord,
+  frameScore,
+  getTrackRecordId,
+  mergePersistedRecord,
+} from './trackBufferRecord'
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 
@@ -14,7 +20,7 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
   useEffect(() => {
     if (!vehicle || !jobId) return
     const inlineRecord = buildInlineRecord(vehicle, jobId)
-    const trackId = vehicle.recognition_id ?? vehicle.id ?? vehicle.track_id
+    const trackId = getTrackRecordId(vehicle)
     setRecord(inlineRecord)
     setLoading(!inlineRecord)
     setError(null)
@@ -118,64 +124,11 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
   )
 }
 
-function buildInlineRecord(vehicle, jobId) {
-  const frames = Array.isArray(vehicle?.track_buffer) ? vehicle.track_buffer : []
-  if (!vehicle || frames.length === 0) return null
-
-  const bestFrame = frames.reduce(
-    (best, frame) => (frameScore(frame) > frameScore(best) ? frame : best),
-    null,
-  )
-  const charConf = Array.isArray(vehicle.chars) && vehicle.chars.length > 0
-    ? vehicle.chars.reduce((sum, item) => sum + (Number(item?.[1]) || 0), 0) / vehicle.chars.length
-    : 0
-
-  return {
-    session_id: jobId,
-    track_id: vehicle.recognition_id ?? vehicle.id ?? vehicle.track_id,
-    vehicle_track_id: vehicle.vehicle_track_id,
-    plate_track_id: vehicle.plate_track_id,
-    vehicle_class: vehicle.cls,
-    vehicle_thumbnail_url: vehicle.vehicle_b64,
-    best_plate_frame: bestFrame || {
-      frame_index: null,
-      quality_score: vehicle.confidence || 0,
-      image_b64: vehicle.plate_b64,
-    },
-    track_buffer: frames,
-    plate_text: vehicle.plate,
-    plate_text_confidence: charConf,
-    ocr_vote_summary: vehicle.vote_summary || {},
-    ocr_method: vehicle.ocr_method || 'realtime_buffer',
-  }
-}
-
-function mergePersistedRecord(record, inlineRecord) {
-  if (!inlineRecord) return record
-  const hasPersistedFrames = Array.isArray(record?.track_buffer) && record.track_buffer.length > 0
-  if (hasPersistedFrames) return record
-
-  return {
-    ...inlineRecord,
-    ...record,
-    best_plate_frame: record?.best_plate_frame || inlineRecord.best_plate_frame,
-    track_buffer: inlineRecord.track_buffer,
-  }
-}
-
 function normalizeImageSrc(src) {
   if (!src) return null
   return src.startsWith?.('http') || src.startsWith?.('data:')
     ? src
     : `data:image/jpeg;base64,${src}`
-}
-
-function frameScore(frame) {
-  if (!frame) return -1
-  if (Number.isFinite(Number(frame.combined_score))) return Number(frame.combined_score)
-  const quality = Number(frame.quality_score) || 0
-  const ocrConfidence = Math.max(Number(frame.ocr_confidence) || 0.1, 0.1)
-  return quality * ocrConfidence
 }
 
 function ImageBox({ url, label, highlight = false }) {

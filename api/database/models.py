@@ -82,6 +82,28 @@ class PlateFrame(BaseModel):
     ocr_confidence: float | None = None
 
 
+class RecognitionCluster(BaseModel):
+    """One OCR cluster within a mixed track buffer."""
+
+    cluster_index: int
+    plate_text: str
+    chars: list[tuple[str, float]] = Field(default_factory=list)
+    best_plate_frame: PlateFrame
+    track_buffer: list[PlateFrame] = Field(default_factory=list)
+    plate_text_confidence: float = 0.0
+    ocr_vote_summary: dict[str, int] = Field(default_factory=dict)
+    ocr_method: Literal[
+        "prob_vote",
+        "segment_vote",
+        "ocr_output_ctm",
+        "single_frame_direct",
+        "paddle_prob_vote",
+        "paddle_segment_vote",
+    ] = "ocr_output_ctm"
+    frame_count: int = 0
+    template: str | None = None
+
+
 # ── Top-level collections ─────────────────────────────────────────────────────
 
 class User(BaseModel):
@@ -181,6 +203,9 @@ class RecognitionRecord(BaseModel):
 
     # Raw vote tallies, e.g. {"51A12345": 8, "51A1234S": 2}
     ocr_vote_summary: dict[str, int] = Field(default_factory=dict)
+
+    # Distinct OCR clusters split out of a mixed/reused track buffer.
+    clusters: list[RecognitionCluster] = Field(default_factory=list)
 
     # Which OCR voting strategy produced the final result
     ocr_method: Literal[

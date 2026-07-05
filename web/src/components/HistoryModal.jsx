@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { apiJson } from '../apiClient'
-import { Badge, Drawer, EmptyState, Skeleton, cx } from './ui'
+import TrackBufferModal from './TrackBufferModal'
+import { Badge, Button, Drawer, EmptyState, Skeleton, cx } from './ui'
 import { VEHICLE_LABEL } from './workbench/constants'
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
@@ -139,32 +140,130 @@ export default function HistoryModal({ open, onClose }) {
 }
 
 function HistoryRecord({ vehicle }) {
+  const [bufferVehicle, setBufferVehicle] = useState(null)
   const confidence = Math.round((vehicle.plate_text_confidence || 0) * 100)
   const identity = formatRecognitionIdentity(vehicle)
+  const clusters = Array.isArray(vehicle.clusters) ? vehicle.clusters : []
+
   return (
-    <article className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <div className="grid grid-cols-2 gap-px bg-[var(--color-border)]">
-        <HistoryImage src={vehicle.vehicle_thumbnail_url} alt="Ảnh phương tiện đối chiếu" />
-        <HistoryImage src={vehicle.best_plate_frame?.image_url} alt="Ảnh biển số đối chiếu" dark />
-      </div>
-      <div className="space-y-3 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <p className="plate-font min-w-0 truncate text-lg font-bold tracking-widest">
-            {displayPlateText(vehicle.plate_text) || '—'}
-          </p>
-          <Badge tone={confidence >= 90 ? 'success' : confidence >= 70 ? 'warning' : 'danger'}>
-            {confidence}%
-          </Badge>
+    <>
+      <article className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="grid grid-cols-2 gap-px bg-[var(--color-border)]">
+          <HistoryImage src={vehicle.vehicle_thumbnail_url} alt="Ảnh phương tiện đối chiếu" />
+          <HistoryImage src={vehicle.best_plate_frame?.image_url} alt="Ảnh biển số đối chiếu" dark />
         </div>
-        <p className="text-xs text-[var(--color-text-muted)]">
-          {identity} · {VEHICLE_LABEL[vehicle.vehicle_class] || vehicle.vehicle_class || 'Phương tiện'} · {formatOcrMethod(vehicle.ocr_method)}
-        </p>
-        <p className="data-font text-[11px] text-[var(--color-text-subtle)]">
-          Khung {vehicle.first_seen_frame ?? '—'} → {vehicle.last_seen_frame ?? '—'}
-        </p>
-      </div>
-    </article>
+        <div className="space-y-3 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <p className="plate-font min-w-0 truncate text-lg font-bold tracking-widest">
+              {displayPlateText(vehicle.plate_text) || '—'}
+            </p>
+            <Badge tone={confidence >= 90 ? 'success' : confidence >= 70 ? 'warning' : 'danger'}>
+              {confidence}%
+            </Badge>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            {identity} · {VEHICLE_LABEL[vehicle.vehicle_class] || vehicle.vehicle_class || 'Phương tiện'} · {formatOcrMethod(vehicle.ocr_method)}
+          </p>
+          <p className="data-font text-[11px] text-[var(--color-text-subtle)]">
+            Khung {vehicle.first_seen_frame ?? '—'} → {vehicle.last_seen_frame ?? '—'}
+          </p>
+          <Button size="sm" variant="secondary" onClick={() => setBufferVehicle(toModalVehicle(vehicle))}>
+            Bộ đệm theo vết
+          </Button>
+
+          {clusters.length > 1 && (
+            <div className="space-y-2 border-t border-[var(--color-border)] pt-3">
+              <p className="section-label">Cụm OCR đã lưu</p>
+              {clusters.map((cluster) => {
+                const clusterConfidence = Math.round((cluster.plate_text_confidence || 0) * 100)
+                return (
+                  <div
+                    key={cluster.cluster_index}
+                    className="rounded-lg border border-[var(--color-border)] bg-black/15 p-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge tone="neutral">Cụm {(cluster.cluster_index ?? 0) + 1}</Badge>
+                      <span className="text-[10px] text-[var(--color-text-subtle)]">
+                        {cluster.frame_count || cluster.track_buffer?.length || 0} khung · {clusterConfidence}%
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-black">
+                        {cluster.best_plate_frame?.image_url ? (
+                          <img
+                            src={cluster.best_plate_frame.image_url}
+                            alt={`Cụm ${(cluster.cluster_index ?? 0) + 1}`}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-[10px] text-[var(--color-text-subtle)]">
+                            Không có ảnh
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="plate-font truncate text-sm font-bold tracking-widest">
+                          {displayPlateText(cluster.plate_text) || '—'}
+                        </p>
+                        <Button
+                          className="mt-2"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setBufferVehicle(toModalVehicle(vehicle, cluster))}
+                        >
+                          Xem bộ đệm
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </article>
+
+      {bufferVehicle && (
+        <TrackBufferModal
+          vehicle={bufferVehicle}
+          jobId={vehicle.session_id}
+          onClose={() => setBufferVehicle(null)}
+        />
+      )}
+    </>
   )
+}
+
+function toModalVehicle(record, cluster = null) {
+  if (!cluster) {
+    return {
+      ...record,
+      id: record.track_id,
+      recognition_id: record.track_id,
+      cls: record.vehicle_class,
+      plate: record.plate_text,
+      chars: record.chars || [],
+      vote_summary: record.ocr_vote_summary,
+      vehicle_b64: record.vehicle_thumbnail_url,
+      plate_b64: record.best_plate_frame?.image_url,
+    }
+  }
+
+  return {
+    ...record,
+    ...cluster,
+    id: record.track_id,
+    recognition_id: record.track_id,
+    track_id: record.track_id,
+    vehicle_track_id: record.vehicle_track_id,
+    plate_track_id: record.plate_track_id,
+    cls: record.vehicle_class,
+    plate: cluster.plate_text,
+    chars: cluster.chars || [],
+    vote_summary: cluster.ocr_vote_summary,
+    vehicle_b64: record.vehicle_thumbnail_url,
+    plate_b64: cluster.best_plate_frame?.image_url,
+  }
 }
 
 function formatRecognitionIdentity(vehicle) {
