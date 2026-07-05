@@ -37,6 +37,6 @@ RUN python -m pip install --upgrade pip "setuptools<81" wheel \
 COPY . .
 RUN chmod +x /app/deploy/runpod/start.sh
 
-EXPOSE 8000 8889
+EXPOSE 8000 8889 8554
 
 CMD ["/app/deploy/runpod/start.sh"]

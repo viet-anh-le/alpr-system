@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  shouldFallbackToMjpeg,
+  WEBRTC_FALLBACK_TIMEOUT_MS,
+} from './webrtcFallback'
 
 /**
  * useWebRTC — minimal WHEP client.
@@ -14,6 +18,22 @@ export default function useWebRTC(whepUrl) {
     if (!whepUrl) return undefined
     let pc = new RTCPeerConnection()
     let cancelled = false
+    let fallbackTimer = null
+
+    const clearFallbackTimer = () => {
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer)
+        fallbackTimer = null
+      }
+    }
+
+    const switchToMjpegFallback = (message) => {
+      if (cancelled) return
+      clearFallbackTimer()
+      setStatus('error')
+      setError(message)
+      pc?.close()
+    }
 
     pc.addTransceiver('video', { direction: 'recvonly' })
     pc.addTransceiver('audio', { direction: 'recvonly' })
@@ -22,14 +42,23 @@ export default function useWebRTC(whepUrl) {
       if (videoRef.current) videoRef.current.srcObject = e.streams[0]
     }
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'connected') setStatus('live')
+      if (!pc) return
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        clearFallbackTimer()
+        setStatus('live')
+      }
       if (pc.iceConnectionState === 'failed') {
-        setStatus('error')
-        setError('WebRTC ICE failed')
+        switchToMjpegFallback('WebRTC ICE failed')
       }
     }
 
     setStatus('connecting')
+    fallbackTimer = window.setTimeout(() => {
+      if (shouldFallbackToMjpeg(pc?.iceConnectionState)) {
+        switchToMjpegFallback('WebRTC connection timed out')
+      }
+    }, WEBRTC_FALLBACK_TIMEOUT_MS)
+
     ;(async () => {
       try {
         const offer = await pc.createOffer()
@@ -45,15 +74,15 @@ export default function useWebRTC(whepUrl) {
         await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp })
       } catch (e) {
         if (!cancelled) {
-          setStatus('error')
-          setError(e.message)
+          switchToMjpegFallback(e.message)
         }
       }
     })()
 
     return () => {
       cancelled = true
-      pc.close()
+      clearFallbackTimer()
+      pc?.close()
       pc = null
     }
   }, [whepUrl])

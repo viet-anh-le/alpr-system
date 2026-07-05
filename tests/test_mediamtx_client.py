@@ -40,7 +40,7 @@ def test_add_path_posts_correct_json(mock_api):
     assert str(req.url).endswith("/v3/config/paths/add/live_abc")
     import json as _json
     body = _json.loads(req.content.decode())
-    assert body == {"source": "rtsp://10.0.0.5/main"}
+    assert body == {"source": "rtsp://10.0.0.5/main", "rtspTransport": "tcp"}
 
 
 @pytest.mark.unit

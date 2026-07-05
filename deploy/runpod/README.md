@@ -26,6 +26,7 @@ Expose ports:
 
 - `8000/http`
 - `8889/http`
+- `8554/tcp` for RTSP demo ingest from a local machine
 - `22/tcp` if SSH is needed
 
 Mount the network volume at `/workspace`.
@@ -118,3 +119,25 @@ curl -i https://<vercel-project>.vercel.app/auth/me
 ```
 
 `/auth/me` should return `401` before login.
+
+## 7. Local video as RTSP demo source
+
+Expose `8554/tcp` on RunPod, then publish a local video from your laptop to
+the pod's MediaMTX server:
+
+```bash
+ffmpeg -re -stream_loop -1 -i ./video.mp4 \
+  -an -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
+  -g 50 -bf 0 \
+  -rtsp_transport tcp -f rtsp \
+  rtsp://<runpod-tcp-host>:<runpod-tcp-port>/alpr_demo
+```
+
+In the Vercel frontend's monitor tab, use:
+
+```text
+rtsp://127.0.0.1:8554/alpr_demo
+```
+
+The browser only sends this URL to FastAPI. It is resolved from inside the
+RunPod container, where MediaMTX is listening on `127.0.0.1:8554`.

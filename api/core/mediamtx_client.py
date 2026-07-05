@@ -25,7 +25,10 @@ class MediaMTXError(RuntimeError):
 
 def add_path(name: str, source: str) -> None:
     """Register a new path that pulls from `source` (an RTSP URL)."""
-    resp = _client.post(f"/v3/config/paths/add/{name}", json={"source": source})
+    resp = _client.post(
+        f"/v3/config/paths/add/{name}",
+        json={"source": source, "rtspTransport": "tcp"},
+    )
     if resp.status_code >= 300:
         # Mask credentials in the logged URL
         safe = source.split("@")[-1] if "@" in source else source

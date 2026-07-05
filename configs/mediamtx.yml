@@ -36,4 +36,8 @@ hls: no
 
 logLevel: info
 
-paths: {}
+paths:
+  # Demo ingest path: a laptop can publish a local video into RunPod with
+  # FFmpeg, then the backend can read rtsp://127.0.0.1:8554/alpr_demo.
+  alpr_demo:
+    source: publisher

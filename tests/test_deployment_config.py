@@ -86,3 +86,16 @@ def test_runpod_cpu_reid_uses_cpu_onnxruntime_package():
 
     assert "onnxruntime==1.20.0" in requirements
     assert "onnxruntime-gpu" not in requirements
+
+
+def test_runpod_image_exposes_rtsp_ingest_port():
+    dockerfile = Path("Dockerfile.runpod").read_text()
+
+    assert "EXPOSE 8000 8889 8554" in dockerfile
+
+
+def test_mediamtx_allows_local_demo_rtsp_publisher_path():
+    config = Path("configs/mediamtx.yml").read_text()
+
+    assert "alpr_demo:" in config
+    assert "source: publisher" in config
