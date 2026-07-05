@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from api.core.config import normalize_ocr_backend
-from api.core.live_session import LiveSession
+from api.core.live_session import LiveSession, internal_mediamtx_path
 from api.core.preprocessing import normalize_preprocess_mode
 
 logger = logging.getLogger(__name__)
@@ -330,10 +330,16 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     session_id = _new_session_id()
-    path = f"live_{session_id[4:]}"  # MediaMTX path name
+    existing_path = internal_mediamtx_path(body.rtsp_url)
+    path = existing_path or f"live_{session_id[4:]}"  # MediaMTX path name
+    owns_mediamtx_path = existing_path is None
     mjpeg_q: asyncio.Queue = asyncio.Queue(maxsize=60)
 
-    sess = LiveSession(session_id=session_id, mediamtx_path=path)
+    sess = LiveSession(
+        session_id=session_id,
+        mediamtx_path=path,
+        owns_mediamtx_path=owns_mediamtx_path,
+    )
     try:
         sess.start(body.rtsp_url, mjpeg_queue=mjpeg_q)
     except Exception as exc:
@@ -344,6 +350,7 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
         "kind": "live",
         "live_session": sess,
         "mediamtx_path": path,
+        "owns_mediamtx_path": owns_mediamtx_path,
         "mjpeg_queue": mjpeg_q,
         "rtsp_url": body.rtsp_url,
         "ocr_backend": normalized_ocr_backend,

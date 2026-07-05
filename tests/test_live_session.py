@@ -95,6 +95,39 @@ def test_start_registers_mediamtx_path_and_spawns_thread(monkeypatch):
 
 
 @pytest.mark.unit
+def test_internal_mediamtx_path_detects_loopback_source():
+    from api.core.live_session import internal_mediamtx_path
+
+    assert internal_mediamtx_path("rtsp://127.0.0.1:8554/alpr_demo") == "alpr_demo"
+    assert internal_mediamtx_path("rtsp://localhost:8554/alpr_demo") == "alpr_demo"
+    assert internal_mediamtx_path("rtsp://10.0.0.5:8554/alpr_demo") is None
+
+
+@pytest.mark.unit
+def test_existing_mediamtx_path_skips_registration_and_removal(monkeypatch):
+    import asyncio
+    import api.core.live_session as ls_mod
+
+    added = []
+    removed = []
+    monkeypatch.setattr(ls_mod.mediamtx_client, "add_path", lambda name, url: added.append((name, url)))
+    monkeypatch.setattr(ls_mod.mediamtx_client, "remove_path", lambda name: removed.append(name))
+
+    sess = LiveSession(
+        session_id="existing_path",
+        mediamtx_path="alpr_demo",
+        owns_mediamtx_path=False,
+    )
+    sess._stop.set()
+
+    sess.start("rtsp://127.0.0.1:8554/alpr_demo", mjpeg_queue=asyncio.Queue())
+    sess.stop()
+
+    assert added == []
+    assert removed == []
+
+
+@pytest.mark.unit
 def test_stop_calls_mediamtx_remove_path(monkeypatch):
     """Lines 63-69: stop() calls mediamtx_client.remove_path."""
     import api.core.live_session as ls_mod

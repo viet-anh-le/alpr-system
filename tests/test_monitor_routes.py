@@ -107,6 +107,26 @@ async def test_monitor_live_connect_returns_urls(client, monkeypatch):
 
 
 @pytest.mark.integration
+async def test_monitor_live_connect_reuses_internal_mediamtx_source_path(client, monkeypatch):
+    """Internal MediaMTX paths should not be proxied through live_* paths."""
+    from api import routes_monitor
+    from api.core.live_session import LiveSession
+
+    monkeypatch.setattr(LiveSession, "start", lambda self, *a, **kw: None)
+
+    resp = await client.post(
+        "/monitor/live/connect",
+        json={"rtsp_url": "rtsp://127.0.0.1:8554/alpr_demo"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    sid = body["session_id"]
+    assert body["whep_url"].endswith("/alpr_demo/whep")
+    assert routes_monitor.monitor_sessions[sid]["mediamtx_path"] == "alpr_demo"
+
+
+@pytest.mark.integration
 async def test_monitor_live_mjpeg_returns_multipart(client, monkeypatch):
     from api import routes_monitor
     from api.core.live_session import LiveSession

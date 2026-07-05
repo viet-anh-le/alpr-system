@@ -12,6 +12,7 @@ import os
 import threading
 import time
 from typing import Callable
+from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -24,14 +25,47 @@ _INTERNAL_RTSP_BASE = os.environ.get("MEDIAMTX_INTERNAL_RTSP_BASE", "rtsp://loca
 _BUFFER_SECONDS = 10.0
 _RECONNECT_RETRIES = 3
 _RECONNECT_BACKOFF_SEC = 1.0
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _rtsp_port(parsed) -> int:
+    return parsed.port or 554
+
+
+def _normalized_host(host: str | None) -> str | None:
+    if host is None:
+        return None
+    lowered = host.lower()
+    return "loopback" if lowered in _LOOPBACK_HOSTS else lowered
+
+
+def internal_mediamtx_path(rtsp_url: str) -> str | None:
+    """Return the MediaMTX path when `rtsp_url` points at our internal server."""
+    parsed = urlparse(rtsp_url)
+    base = urlparse(_INTERNAL_RTSP_BASE)
+    if parsed.scheme != base.scheme:
+        return None
+    if _rtsp_port(parsed) != _rtsp_port(base):
+        return None
+    if _normalized_host(parsed.hostname) != _normalized_host(base.hostname):
+        return None
+    path = parsed.path.strip("/")
+    return path or None
 
 
 class LiveSession:
     """One live monitoring session. Owns the MediaMTX path and decoder thread."""
 
-    def __init__(self, session_id: str, mediamtx_path: str) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        mediamtx_path: str,
+        *,
+        owns_mediamtx_path: bool = True,
+    ) -> None:
         self.session_id = session_id
         self.mediamtx_path = mediamtx_path
+        self.owns_mediamtx_path = owns_mediamtx_path
         self.fps: float = 30.0
         self.frame_size: tuple[int, int] = (0, 0)
         self.frame_buffer: collections.deque = collections.deque()
@@ -53,7 +87,8 @@ class LiveSession:
     # ── Public API ──────────────────────────────────────────────────────────
     def start(self, rtsp_url: str, mjpeg_queue, on_error: Callable[[str], None] | None = None) -> None:
         """Register the MediaMTX path and spawn the decoder thread."""
-        mediamtx_client.add_path(self.mediamtx_path, rtsp_url)
+        if self.owns_mediamtx_path:
+            mediamtx_client.add_path(self.mediamtx_path, rtsp_url)
         self.mjpeg_queue = mjpeg_queue
         self._on_error = on_error
         self._thread = threading.Thread(target=self._decoder_loop, daemon=True)
@@ -63,6 +98,8 @@ class LiveSession:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=3.0)
+        if not self.owns_mediamtx_path:
+            return
         try:
             mediamtx_client.remove_path(self.mediamtx_path)
         except Exception:
