@@ -101,12 +101,13 @@ def consume_route_ocr_results(
             continue
         best_job = next(job for job, candidate in items if candidate is best)
         quality = best_job.quality
+        all_char_confident = _all_chars_confident(best.char_probs)
 
         if (
             quality.route == "direct"
             and best.method == "original"
             and best.is_valid
-            and best.confidence >= CONF_THRESHOLD
+            and all_char_confident
         ):
             tracker.buffer_crop(
                 tid,
@@ -147,6 +148,10 @@ def consume_route_ocr_results(
                 route=route,
                 router_result=router_fields,
             )
+
+
+def _all_chars_confident(char_probs: list[tuple[str, float]]) -> bool:
+    return bool(char_probs) and all(float(conf) >= CONF_THRESHOLD for _, conf in char_probs)
 
 
 def _accept_single_frame(

@@ -12,6 +12,14 @@ def _chars(text: str, conf: float = 0.95) -> list[tuple[str, float]]:
     return [(c, conf) for c in text]
 
 
+def _chars_with_confidences(
+    text: str,
+    confidences: list[float],
+) -> list[tuple[str, float]]:
+    assert len(text) == len(confidences)
+    return list(zip(text, confidences))
+
+
 def _buffer_text(tracker, tid: int) -> str:
     from api.core.plate_format import chars_to_display_text
 
@@ -50,7 +58,7 @@ def test_direct_route_uses_best_job_crop_when_rerank_selects_second_candidate() 
 
 
 @pytest.mark.unit
-def test_direct_route_previews_high_confidence_valid_original_ocr_without_finalising() -> None:
+def test_direct_route_previews_all_char_confident_valid_original_ocr_without_finalising() -> None:
     from api.core.quality_router import PlateQualityRouter
     from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
     from api.core.tracker import WebTrackletManager
@@ -88,7 +96,38 @@ def test_direct_route_previews_high_confidence_valid_original_ocr_without_finali
 
 
 @pytest.mark.unit
-def test_direct_route_previews_slot_corrected_ambiguous_ocr_without_finalising() -> None:
+def test_direct_route_buffers_low_char_confidence_ocr_without_immediate_emit() -> None:
+    from api.core.config import CONF_THRESHOLD
+    from api.core.plate_format import mean_confidence
+    from api.core.quality_router import PlateQualityRouter
+    from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
+    from api.core.tracker import WebTrackletManager
+
+    tracker = WebTrackletManager()
+    tracker._cls[1] = "car"
+    router = PlateQualityRouter(classifier=lambda crop: {"good": 0.96})
+    char_probs = _chars_with_confidences(
+        "30G-51827",
+        [0.96, 0.96, 0.96, 0.96, 0.96, 0.89, 0.96, 0.96, 0.96],
+    )
+
+    jobs, _active_tids = prepare_route_ocr_jobs([(1, _crop(), _crop())], tracker, router, 10)
+    events: list[dict] = []
+
+    assert mean_confidence(char_probs) >= CONF_THRESHOLD
+    assert any(conf < CONF_THRESHOLD for _, conf in char_probs)
+
+    consume_route_ocr_results(jobs, [(char_probs, False)], tracker, events.append)
+
+    assert events == []
+    assert 1 not in tracker._best
+    assert tracker._done.get(1) is not True
+    assert tracker._buffers[1].routes == ["tracklet_fusion"]
+    assert _buffer_text(tracker, 1) == "30G-51827"
+
+
+@pytest.mark.unit
+def test_direct_route_previews_all_char_confident_slot_corrected_ambiguous_ocr_without_finalising() -> None:
     from api.core.quality_router import PlateQualityRouter
     from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
     from api.core.tracker import WebTrackletManager
@@ -99,7 +138,7 @@ def test_direct_route_previews_slot_corrected_ambiguous_ocr_without_finalising()
 
     jobs, _active_tids = prepare_route_ocr_jobs([(1, _crop(), _crop())], tracker, router, 10)
     ocr_results = [
-        (_chars("30G-51B27"), True)
+        (_chars("30G-51B27", conf=0.99), True)
         if job.candidate_method == "original"
         else (_chars("BAD"), False)
         for job in jobs
@@ -125,12 +164,16 @@ def test_poor_route_buffers_for_tracklet_fusion_without_immediate_emit() -> None
     router = PlateQualityRouter(classifier=lambda crop: {"poor": 0.88})
 
     jobs, _ = prepare_route_ocr_jobs([(2, _crop(), _crop())], tracker, router, 11)
+    events: list[dict] = []
 
-    assert jobs == []
+    assert len(jobs) == 1
+    consume_route_ocr_results(jobs, [(_chars("30G-51827"), True)], tracker, events.append)
+
+    assert events == []
     assert tracker._done.get(2) is not True
     assert tracker._buffers[2].routes
     assert set(tracker._buffers[2].routes) == {"tracklet_fusion"}
-    assert tracker._buffers[2].char_prob_lists == [[]]
+    assert _buffer_text(tracker, 2) == "30G-51827"
 
 
 @pytest.mark.unit
