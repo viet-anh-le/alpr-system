@@ -1,12 +1,6 @@
-/**
- * API base URL.
- * In local dev this is empty (Vite proxy handles routing).
- * In production (Vercel → RunPod) this points directly at the RunPod backend
- * so we bypass Vercel rewrites and their 4.5 MB body-size limit.
- */
-export const API_BASE = import.meta.env.VITE_API_BASE_URL
-  ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')
-  : ''
+import { API_BASE } from './apiUrl'
+
+export { API_BASE, resolveApiUrl } from './apiUrl'
 
 let csrfToken = null
 

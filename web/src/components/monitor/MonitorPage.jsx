@@ -7,7 +7,7 @@ import UploadViewer from './UploadViewer'
 import EventsPanel from './EventsPanel'
 import useEventStream from '../../hooks/monitor/useEventStream'
 import { postMark } from '../../hooks/monitor/useMark'
-import { API_BASE } from '../../apiClient'
+import { API_BASE, resolveApiUrl } from '../../apiClient'
 
 function cleanupMonitorSession(session) {
   if (!session?.sessionId) return
@@ -121,7 +121,14 @@ export default function MonitorPage() {
         return
       }
       const data = await response.json()
-      setSession({ mode: 'live', sessionId: data.session_id, whepUrl: data.whep_url, mjpegUrl: data.mjpeg_url, rtspUrl, ocrBackend })
+      setSession({
+        mode: 'live',
+        sessionId: data.session_id,
+        whepUrl: resolveApiUrl(data.whep_url),
+        mjpegUrl: resolveApiUrl(data.mjpeg_url),
+        rtspUrl,
+        ocrBackend,
+      })
       setEvents({})
     } catch (err) {
       setError(`Không kết nối được camera: ${err.message}`)
@@ -147,7 +154,7 @@ export default function MonitorPage() {
       setSession({
         mode: 'upload',
         sessionId: data.session_id,
-        videoUrl: data.video_url,
+        videoUrl: resolveApiUrl(data.video_url),
         preprocessMode: data.preprocess_mode,
         ocrBackend: data.ocr_backend,
         file,
