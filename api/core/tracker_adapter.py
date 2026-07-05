@@ -103,6 +103,20 @@ class VehicleTracker:
         self._half = half
 
         # BotSort expects the backend model (ReID(...).model), not the ReID wrapper
+        def _preload_onnxruntime_cuda(device: str) -> None:
+            if device == "cpu":
+                return
+            try:
+                import torch  # noqa: F401
+                import onnxruntime as ort
+
+                if hasattr(ort, "preload_dlls"):
+                    ort.preload_dlls(directory="")
+                logger.info("ONNXRuntime providers: %s", ort.get_available_providers())
+            except Exception:
+                logger.exception("Could not preload ONNXRuntime CUDA libraries")
+
+        _preload_onnxruntime_cuda(self._device)
         reid_model = ReID(path=self._reid_weights, device=self._device, half=half)
         self._tracker = AlwaysReIDBotSort(
             reid_model=reid_model.model,
