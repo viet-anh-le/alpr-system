@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "LPRNet"))
 
 from api.core.association import TrajectoryAssociator
-from api.core.cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
+from api.core.cascade_plate import detect_plate_tracks_cascade
 from api.core.config import (
     ASSOCIATION_AGREEMENT_RATIO,
     ASSOCIATION_MATCH_FRAMES,
@@ -269,7 +269,6 @@ def run_eval(video_path: str) -> None:
         match_frames=ASSOCIATION_MATCH_FRAMES,
         agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
     )
-    plate_tracker = PlateTrackManager()
     vehicle_tracker = models.create_vehicle_tracker()
     quality_router = _resolve_quality_router(models)
 
@@ -294,7 +293,6 @@ def run_eval(video_path: str) -> None:
                 frame,
                 tracked,
                 models.plate,
-                plate_tracker,
             )
             matched = _associate_plate_crops(frame, tracked, plate_tracks, associator)
 

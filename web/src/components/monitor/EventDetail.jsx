@@ -8,7 +8,7 @@ const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 export default function EventDetail({ event }) {
   const vehicles = Object.values(event.vehicles || {})
   if (vehicles.length === 0) {
-    return <EmptyState title="Không có chứng cứ phương tiện" />
+    return <EmptyState title="Không có ảnh phương tiện" />
   }
 
   return (

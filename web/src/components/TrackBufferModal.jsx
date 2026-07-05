@@ -45,7 +45,7 @@ export default function TrackBufferModal({ vehicle, jobId, onClose }) {
       open={!!vehicle}
       onClose={onClose}
       title={`Kết quả #${titleTrackId}${titlePlate ? ` · ${titlePlate}` : ''}`}
-      description={record ? `${frames.length} ảnh chứng cứ · ${formatOcrMethod(record.ocr_method)} · ${Math.round((record.plate_text_confidence || 0) * 100)}% độ tin cậy` : 'Bộ đệm theo vết được lưu sau khi OCR hoàn tất.'}
+      description={record ? `${frames.length} ảnh đối chiếu · ${formatOcrMethod(record.ocr_method)} · ${Math.round((record.plate_text_confidence || 0) * 100)}% độ tin cậy` : 'Bộ đệm theo vết được lưu sau khi OCR hoàn tất.'}
       className="max-w-4xl"
     >
       <div className="max-h-[76vh] overflow-y-auto p-4">

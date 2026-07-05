@@ -56,7 +56,7 @@ export default function HistoryModal({ open, onClose }) {
       open={open}
       onClose={onClose}
       title="Lịch sử nhận dạng"
-      description="Các phiên đã lưu, ảnh cắt chứng cứ và độ tin cậy theo tài khoản."
+      description="Các phiên đã lưu, ảnh cắt đối chiếu và độ tin cậy theo tài khoản."
     >
       <div className="grid min-h-full lg:grid-cols-[320px_1fr]">
         <aside className="border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] lg:border-b-0 lg:border-r">
@@ -144,8 +144,8 @@ function HistoryRecord({ vehicle }) {
   return (
     <article className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       <div className="grid grid-cols-2 gap-px bg-[var(--color-border)]">
-        <HistoryImage src={vehicle.vehicle_thumbnail_url} alt="Chứng cứ phương tiện" />
-        <HistoryImage src={vehicle.best_plate_frame?.image_url} alt="Chứng cứ biển số" dark />
+        <HistoryImage src={vehicle.vehicle_thumbnail_url} alt="Ảnh phương tiện đối chiếu" />
+        <HistoryImage src={vehicle.best_plate_frame?.image_url} alt="Ảnh biển số đối chiếu" dark />
       </div>
       <div className="space-y-3 p-3">
         <div className="flex items-start justify-between gap-3">

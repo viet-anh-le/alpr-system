@@ -227,7 +227,7 @@ export default function SourcePanel({
         {source === "image" && !compact && (
           <EmptyState title="Ảnh tĩnh chưa được nối máy chủ">
             Giai đoạn này giữ API hiện có. Khi thêm POST /upload/image,
-            thẻ này sẽ dùng cùng kết quả từ bàn kiểm chứng.
+            thẻ này sẽ dùng cùng kết quả từ hệ thống xử lý.
           </EmptyState>
         )}
 

@@ -28,7 +28,7 @@ from .config import (
 from .models import ModelBundle, ocr_batch, preprocess_plate
 from .tracker import WebTrackletManager
 from api.core.association import TrajectoryAssociator
-from api.core.cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
+from api.core.cascade_plate import detect_plate_tracks_cascade
 
 # Max width for streamed annotated frames (keeps SSE payload small)
 _STREAM_W = 960
@@ -129,7 +129,6 @@ def run_job(
 
         tracker = WebTrackletManager()
         associator = TrajectoryAssociator(match_frames=5, agreement_ratio=0.6)
-        plate_tracker = PlateTrackManager()
         frame_idx = 0
         # Resolved once — absolute path avoids CWD sensitivity in thread pool
         tracker_cfg = str(Path(__file__).resolve().parents[1] / "configs/tracking/botsort.yaml")
@@ -191,7 +190,6 @@ def run_job(
                 frame,
                 tracked,
                 models.plate,
-                plate_tracker,
             )
             firm_matches = associator.process_frame(plate_tracks, tracked)
             for v_tid, p in firm_matches:

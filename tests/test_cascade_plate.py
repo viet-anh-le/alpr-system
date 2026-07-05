@@ -89,57 +89,125 @@ def test_deduplicate_plate_candidates_prefers_smallest_containing_vehicle() -> N
 
 
 @pytest.mark.unit
-def test_plate_track_manager_keeps_id_for_small_motion() -> None:
-    from api.core.cascade_plate import PlateTrackManager
+def test_cascade_plate_module_does_not_expose_plate_track_manager() -> None:
+    import api.core.cascade_plate as cascade_plate
 
-    manager = PlateTrackManager(iou_threshold=0.3, lost_buffer=3)
-    first = manager.update([{"box": [10, 10, 50, 30], "conf": 0.9}])
-    second = manager.update([{"box": [12, 11, 52, 31], "conf": 0.9}])
-
-    assert first[0]["id"] == second[0]["id"]
+    assert not hasattr(cascade_plate, "PlateTrackManager")
 
 
 @pytest.mark.unit
-def test_plate_track_manager_uses_new_id_for_far_plate() -> None:
-    from api.core.cascade_plate import PlateTrackManager
+def test_detect_plate_tracks_cascade_sets_plate_id_after_dedup(monkeypatch) -> None:
+    import api.core.cascade_plate as cascade_plate
 
-    manager = PlateTrackManager(iou_threshold=0.3, lost_buffer=3)
-    first = manager.update([{"box": [10, 10, 50, 30], "conf": 0.9}])
-    second = manager.update([{"box": [120, 80, 170, 100], "conf": 0.9}])
+    frame = _frame()
+    tracked = [{"id": 10, "box": [0, 0, 100, 80]}]
+    crop = cascade_plate.VehicleCrop(
+        vehicle_id=10,
+        vehicle_box=(0, 0, 100, 80),
+        crop_box=(0, 0, 100, 80),
+        offset=(0, 0),
+        image=frame,
+    )
+    raw_candidate = {
+        "box": [20, 30, 70, 50],
+        "pts": np.array([[20, 30], [70, 30], [70, 50], [20, 50]], dtype=np.float32),
+        "crop": np.full((20, 50, 3), 100, dtype=np.uint8),
+        "conf": 0.9,
+        "source_vehicle_id": 10,
+    }
 
-    assert first[0]["id"] != second[0]["id"]
+    class FakeModel:
+        def predict(self, images, verbose=False, half=False):
+            assert images == [frame]
+            assert verbose is False
+            assert half is False
+            return [object()]
+
+    def fake_deduplicate(candidates, seen_tracked):
+        assert candidates == [raw_candidate]
+        assert seen_tracked == tracked
+        return [{**raw_candidate, "source_vehicle_id": 20}]
+
+    monkeypatch.setattr(cascade_plate, "crop_vehicle_regions", lambda *_args, **_kwargs: [crop])
+    monkeypatch.setattr(
+        cascade_plate,
+        "_extract_obb_candidates",
+        lambda _result, _vehicle_crop, _frame: [raw_candidate],
+    )
+    monkeypatch.setattr(cascade_plate, "deduplicate_plate_candidates", fake_deduplicate)
+
+    tracks = cascade_plate.detect_plate_tracks_cascade(
+        frame,
+        tracked,
+        FakeModel(),
+        use_half=False,
+    )
+
+    assert tracks == [{**raw_candidate, "source_vehicle_id": 20, "id": 20}]
 
 
 @pytest.mark.unit
-def test_plate_track_manager_survives_short_disappearance() -> None:
-    from api.core.cascade_plate import PlateTrackManager
+def test_detect_plate_tracks_cascade_drops_candidate_without_deduped_source(monkeypatch) -> None:
+    import api.core.cascade_plate as cascade_plate
 
-    manager = PlateTrackManager(iou_threshold=0.3, lost_buffer=3)
-    first = manager.update([{"box": [10, 10, 50, 30], "conf": 0.9}])
-    manager.update([])
-    manager.update([])
-    reappeared = manager.update([{"box": [11, 10, 51, 30], "conf": 0.9}])
+    frame = _frame()
+    tracked = [{"id": 10, "box": [0, 0, 100, 80]}]
+    crop = cascade_plate.VehicleCrop(
+        vehicle_id=10,
+        vehicle_box=(0, 0, 100, 80),
+        crop_box=(0, 0, 100, 80),
+        offset=(0, 0),
+        image=frame,
+    )
+    raw_candidate = {
+        "box": [20, 30, 70, 50],
+        "crop": np.full((20, 50, 3), 100, dtype=np.uint8),
+        "conf": 0.9,
+        "source_vehicle_id": 10,
+    }
 
-    assert first[0]["id"] == reappeared[0]["id"]
+    class FakeModel:
+        def predict(self, images, verbose=False, half=False):
+            return [object()]
+
+    monkeypatch.setattr(cascade_plate, "crop_vehicle_regions", lambda *_args, **_kwargs: [crop])
+    monkeypatch.setattr(
+        cascade_plate,
+        "_extract_obb_candidates",
+        lambda _result, _vehicle_crop, _frame: [raw_candidate],
+    )
+    monkeypatch.setattr(
+        cascade_plate,
+        "deduplicate_plate_candidates",
+        lambda _candidates, _tracked: [{**raw_candidate, "source_vehicle_id": None}],
+    )
+
+    assert cascade_plate.detect_plate_tracks_cascade(
+        frame,
+        tracked,
+        FakeModel(),
+        use_half=False,
+    ) == []
 
 
 @pytest.mark.unit
-def test_plate_track_manager_rejects_owner_change_despite_overlap() -> None:
-    from api.core.cascade_plate import PlateTrackManager
+def test_extract_obb_candidates_skips_missing_obb_payloads() -> None:
+    from api.core.cascade_plate import VehicleCrop, _extract_obb_candidates
 
-    manager = PlateTrackManager(iou_threshold=0.3, lost_buffer=3)
-    first = manager.update([{"box": [10, 10, 70, 34], "conf": 0.9, "source_vehicle_id": 6}])
-    second = manager.update([{"box": [14, 11, 74, 35], "conf": 0.9, "source_vehicle_id": 10}])
+    frame = _frame()
+    crop = VehicleCrop(
+        vehicle_id=10,
+        vehicle_box=(0, 0, 100, 80),
+        crop_box=(0, 0, 100, 80),
+        offset=(0, 0),
+        image=frame,
+    )
+    missing_obb = type("MissingObbResult", (), {"obb": None})()
+    missing_points = type(
+        "MissingPointsResult",
+        (),
+        {"obb": type("Obb", (), {"xyxyxyxy": None})()},
+    )()
 
-    assert first[0]["id"] != second[0]["id"]
-
-
-@pytest.mark.unit
-def test_plate_track_manager_keeps_id_for_same_owner_low_iou_motion() -> None:
-    from api.core.cascade_plate import PlateTrackManager
-
-    manager = PlateTrackManager(iou_threshold=0.3, lost_buffer=3)
-    first = manager.update([{"box": [10, 10, 50, 30], "conf": 0.9, "source_vehicle_id": 6}])
-    second = manager.update([{"box": [36, 11, 76, 31], "conf": 0.9, "source_vehicle_id": 6}])
-
-    assert first[0]["id"] == second[0]["id"]
+    assert _extract_obb_candidates(missing_obb, crop, frame) == []
+    assert _extract_obb_candidates(missing_points, crop, frame) == []

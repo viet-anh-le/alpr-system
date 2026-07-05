@@ -61,7 +61,7 @@ export default function EventCard({ event }) {
             onClick={() => setExpanded((value) => !value)}
             className="mt-3 text-sm font-semibold text-cyan-100 hover:text-cyan-50"
           >
-            {expanded ? 'Ẩn chứng cứ' : 'Xem chứng cứ'}
+            {expanded ? 'Ẩn ảnh đối chiếu' : 'Xem ảnh đối chiếu'}
           </button>
           {expanded && <EventDetail event={event} />}
         </>

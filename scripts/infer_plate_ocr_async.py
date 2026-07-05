@@ -32,7 +32,6 @@ sys.path.insert(0, str(ROOT))
 
 from api.core import cascade_plate  # noqa: E402
 from api.core.cascade_plate import (  # noqa: E402
-    PlateTrackManager,
     VehicleCrop,
     _extract_obb_candidates,
 )
@@ -131,11 +130,17 @@ def _reader_worker(source: FileFrameSource, frame_q: queue.Queue, stop_event: th
         frame_q.put(_STOP)
 
 
+def _assign_plate_only_candidate_ids(candidates: list[dict], frame_idx: int) -> list[dict]:
+    return [
+        {**candidate, "id": frame_idx * 1000 + index}
+        for index, candidate in enumerate(candidates, start=1)
+    ]
+
+
 def _plate_ocr_worker(
     frame_q: queue.Queue,
     models: ModelBundle,
     tracker: WebTrackletManager,
-    plate_tracker: PlateTrackManager,
     emit,
     stop_event: threading.Event,
     frame_count_out: list[int],
@@ -176,7 +181,7 @@ def _plate_ocr_worker(
                     frame, conf=_PLATE_DET_CONF, verbose=False, half=use_half
                 )[0]
             candidates = _extract_obb_candidates(result, full_crop, frame)
-            plate_tracks = plate_tracker.update(candidates)
+            plate_tracks = _assign_plate_only_candidate_ids(candidates, frame_idx)
 
             matched: list[tuple[int, object, object]] = []
             seen: set[int] = set()
@@ -235,7 +240,6 @@ def process_plate_ocr_async(
     ocr_backend: str = "default",
 ) -> dict:
     tracker = WebTrackletManager()
-    plate_tracker = PlateTrackManager()
     stop_event = threading.Event()
     frame_q: queue.Queue = queue.Queue(maxsize=_FRAME_Q_SIZE)
     frame_count_out = [0]
@@ -253,7 +257,6 @@ def process_plate_ocr_async(
             frame_q,
             models,
             tracker,
-            plate_tracker,
             emit,
             stop_event,
             frame_count_out,

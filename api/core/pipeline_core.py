@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from .association import TrajectoryAssociator
-from .cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
+from .cascade_plate import detect_plate_tracks_cascade
 from .config import (
     ALPR_PREVIEW_FPS,
     ASSOCIATION_AGREEMENT_RATIO,
@@ -106,7 +106,6 @@ def process_frames(
         match_frames=ASSOCIATION_MATCH_FRAMES,
         agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
     )
-    plate_tracker = PlateTrackManager()
     model_router = getattr(models, "quality_router", None)
     quality_router = (
         model_router if isinstance(model_router, PlateQualityRouter) else PlateQualityRouter()
@@ -200,7 +199,6 @@ def process_frames(
             frame,
             tracked_for_ocr,
             models.plate,
-            plate_tracker,
             timings=timings,
         )
 

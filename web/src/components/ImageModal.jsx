@@ -5,7 +5,7 @@ export default function ImageModal({ src, alt, onClose }) {
     <Dialog
       open={!!src}
       onClose={onClose}
-      title="Ảnh chứng cứ"
+      title="Ảnh đối chiếu"
       description={alt || 'Ảnh cắt phục vụ kiểm chứng kết quả nhận dạng.'}
       className="max-w-5xl"
     >
@@ -13,7 +13,7 @@ export default function ImageModal({ src, alt, onClose }) {
         {src && (
           <img
             src={src}
-            alt={alt || 'Ảnh chứng cứ'}
+            alt={alt || 'Ảnh đối chiếu'}
             className="mx-auto max-h-[72vh] max-w-full select-none object-contain"
           />
         )}

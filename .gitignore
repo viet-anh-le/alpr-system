@@ -124,3 +124,7 @@ api/firebase-service-account.json
 node_modules/
 
 SOICT_DATN_Application_VIE_Template/
+
+DoAn.pdf
+
+docs/

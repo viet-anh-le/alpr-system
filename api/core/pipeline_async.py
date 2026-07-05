@@ -34,7 +34,7 @@ import numpy as np
 import torch
 
 from .association import TrajectoryAssociator
-from .cascade_plate import PlateTrackManager, detect_plate_tracks_cascade
+from .cascade_plate import detect_plate_tracks_cascade
 from .config import (
     ALPR_PREVIEW_FPS,
     ASSOCIATION_AGREEMENT_RATIO,
@@ -251,7 +251,6 @@ def _plate_ocr_worker(
     models: ModelBundle,
     tracker: WebTrackletManager,
     associator: TrajectoryAssociator,
-    plate_tracker: PlateTrackManager,
     emit: Callable[[dict], None],
     session_id: str,
     loop: asyncio.AbstractEventLoop | None,
@@ -326,7 +325,7 @@ def _plate_ocr_worker(
             active_tids: set[int] = set()
             tracked_for_ocr = [v for v in tracked if tracker.should_ocr(int(v["id"]))]
             plate_tracks = detect_plate_tracks_cascade(
-                frame, tracked_for_ocr, models.plate, plate_tracker, timings=timings
+                frame, tracked_for_ocr, models.plate, timings=timings
             )
 
             stage_start = time.perf_counter()
@@ -449,7 +448,6 @@ def process_frames_async(
         match_frames=ASSOCIATION_MATCH_FRAMES,
         agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
     )
-    plate_tracker = PlateTrackManager()
     vehicle_tracker = models.create_vehicle_tracker()
 
     stop_event = threading.Event()
@@ -492,7 +490,6 @@ def process_frames_async(
             models,
             tracker,
             associator,
-            plate_tracker,
             emit,
             session_id,
             loop,

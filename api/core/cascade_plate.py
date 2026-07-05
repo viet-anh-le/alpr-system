@@ -15,8 +15,6 @@ import numpy as np
 import torch
 
 from .config import (
-    CASCADE_PLATE_TRACK_BUFFER,
-    CASCADE_PLATE_TRACK_IOU,
     CASCADE_VEHICLE_PAD_MIN,
     CASCADE_VEHICLE_PAD_RATIO,
     MIN_PLATE_H,
@@ -126,25 +124,6 @@ def _box_center(box: list[int] | tuple[int, int, int, int]) -> tuple[float, floa
     return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
 
-def _box_size(box: list[int] | tuple[int, int, int, int]) -> tuple[float, float]:
-    x1, y1, x2, y2 = box
-    return (max(1.0, float(x2 - x1)), max(1.0, float(y2 - y1)))
-
-
-def _center_distance(a: tuple[float, float], b: tuple[float, float]) -> float:
-    dx = a[0] - b[0]
-    dy = a[1] - b[1]
-    return float((dx * dx + dy * dy) ** 0.5)
-
-
-def _size_delta(a: tuple[float, float], b: tuple[float, float]) -> float:
-    aw, ah = a
-    bw, bh = b
-    width_delta = abs(aw - bw) / max(aw, bw, 1.0)
-    height_delta = abs(ah - bh) / max(ah, bh, 1.0)
-    return (width_delta + height_delta) / 2.0
-
-
 def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -196,120 +175,18 @@ def deduplicate_plate_candidates(
     return deduped
 
 
-class PlateTrackManager:
-    """Assign stable global IDs to cascade plate detections."""
-
-    def __init__(
-        self,
-        *,
-        iou_threshold: float = CASCADE_PLATE_TRACK_IOU,
-        lost_buffer: int = CASCADE_PLATE_TRACK_BUFFER,
-        center_gate_scale: float = 2.5,
-        owner_bonus: float = 0.35,
-        motion_bonus: float = 0.25,
-        size_penalty_weight: float = 0.15,
-    ) -> None:
-        self.iou_threshold = iou_threshold
-        self.lost_buffer = lost_buffer
-        self.center_gate_scale = center_gate_scale
-        self.owner_bonus = owner_bonus
-        self.motion_bonus = motion_bonus
-        self.size_penalty_weight = size_penalty_weight
-        self._next_id = 1
-        self._tracks: dict[int, dict[str, Any]] = {}
-
-    def reset(self) -> None:
-        self._next_id = 1
-        self._tracks.clear()
-
-    def update(self, candidates: list[dict]) -> list[dict]:
-        matched_track_ids: set[int] = set()
-        updated: list[dict] = []
-
-        for candidate in sorted(candidates, key=lambda c: float(c.get("conf", 0.0)), reverse=True):
-            best_tid: int | None = None
-            best_score: float | None = None
-            for tid, track in self._tracks.items():
-                if tid in matched_track_ids:
-                    continue
-                score = self._match_score(candidate, track)
-                if score is not None and (best_score is None or score > best_score):
-                    best_score = score
-                    best_tid = tid
-
-            if best_tid is None:
-                best_tid = self._next_id
-                self._next_id += 1
-
-            matched_track_ids.add(best_tid)
-            self._tracks[best_tid] = self._build_track_state(candidate, self._tracks.get(best_tid))
-            updated.append({**candidate, "id": best_tid})
-
-        for tid in list(self._tracks):
-            if tid in matched_track_ids:
-                continue
-            self._tracks[tid]["lost"] += 1
-            if self._tracks[tid]["lost"] > self.lost_buffer:
-                del self._tracks[tid]
-
-        return updated
-
-    def _match_score(self, candidate: dict, track: dict[str, Any]) -> float | None:
-        candidate_box = candidate["box"]
-        track_box = track["box"]
-        iou = _box_iou(candidate_box, track_box)
-
-        candidate_owner = _optional_int(candidate.get("source_vehicle_id"))
-        track_owner = _optional_int(track.get("source_vehicle_id"))
-        if candidate_owner is not None and track_owner is not None and candidate_owner != track_owner:
-            return None
-
-        candidate_center = _box_center(candidate_box)
-        track_center = track.get("center", _box_center(track_box))
-        vx, vy = track.get("velocity", (0.0, 0.0))
-        predicted_center = (track_center[0] + vx, track_center[1] + vy)
-
-        candidate_size = _box_size(candidate_box)
-        track_size = track.get("size", _box_size(track_box))
-        center_gate = max(candidate_size[0], candidate_size[1], track_size[0], track_size[1])
-        center_gate *= self.center_gate_scale
-        center_dist = _center_distance(candidate_center, predicted_center)
-        motion_ok = center_dist <= center_gate
-
-        same_owner = candidate_owner is not None and candidate_owner == track_owner
-        owner_unknown = candidate_owner is None or track_owner is None
-        if iou < self.iou_threshold and not motion_ok:
-            return None
-        if iou < self.iou_threshold and not (same_owner or owner_unknown):
-            return None
-
-        motion_closeness = max(0.0, 1.0 - (center_dist / max(center_gate, 1.0)))
-        score = iou + (self.owner_bonus if same_owner else 0.0)
-        score += self.motion_bonus * motion_closeness
-        score -= self.size_penalty_weight * _size_delta(candidate_size, track_size)
-        return score
-
-    def _build_track_state(
-        self,
-        candidate: dict,
-        previous: dict[str, Any] | None,
-    ) -> dict[str, Any]:
-        box = list(candidate["box"])
-        center = _box_center(box)
-        size = _box_size(box)
-        previous_center = previous.get("center", center) if previous is not None else center
-        owner = _optional_int(candidate.get("source_vehicle_id"))
-        if owner is None and previous is not None:
-            owner = _optional_int(previous.get("source_vehicle_id"))
-
-        return {
-            "box": box,
-            "center": center,
-            "velocity": (center[0] - previous_center[0], center[1] - previous_center[1]),
-            "size": size,
-            "source_vehicle_id": owner,
-            "lost": 0,
-        }
+def _assign_ids_from_deduped_source(candidates: list[dict]) -> list[dict]:
+    tracks: list[dict] = []
+    for candidate in candidates:
+        source_vehicle_id = _optional_int(candidate.get("source_vehicle_id"))
+        if source_vehicle_id is None:
+            continue
+        tracks.append({
+            **candidate,
+            "source_vehicle_id": source_vehicle_id,
+            "id": source_vehicle_id,
+        })
+    return tracks
 
 
 def _extract_obb_candidates(
@@ -357,18 +234,16 @@ def detect_plate_tracks_cascade(
     frame: np.ndarray,
     tracked: list[dict],
     plate_model: Any,
-    plate_tracker: PlateTrackManager,
     *,
     use_half: bool | None = None,
     timings: dict[str, float] | None = None,
 ) -> list[dict]:
-    """Detect plates from tracked vehicle crops and return global plate tracks."""
+    """Detect plates from tracked vehicle crops and return source-keyed plate candidates."""
     start = time.perf_counter()
     vehicle_crops = crop_vehicle_regions(frame, tracked)
     if timings is not None:
         timings["crop_prep"] = timings.get("crop_prep", 0.0) + time.perf_counter() - start
     if not vehicle_crops:
-        plate_tracker.update([])
         return []
 
     images = [crop.image for crop in vehicle_crops]
@@ -387,7 +262,7 @@ def detect_plate_tracks_cascade(
         candidates.extend(_extract_obb_candidates(result, vehicle_crop, frame))
 
     deduped = deduplicate_plate_candidates(candidates, tracked)
-    plate_tracks = plate_tracker.update(deduped)
+    plate_tracks = _assign_ids_from_deduped_source(deduped)
     if timings is not None:
         timings["plate_postprocess"] = timings.get("plate_postprocess", 0.0) + time.perf_counter() - start
     return plate_tracks

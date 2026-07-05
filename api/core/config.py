@@ -211,8 +211,6 @@ ALPR_DEBUG_TIMINGS = _env_bool("ALPR_DEBUG_TIMINGS", False)
 PLATE_PAD = 8  # context padding around plate crop (px)
 CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops
 CASCADE_VEHICLE_PAD_MIN = 16  # min vehicle crop context padding (px)
-CASCADE_PLATE_TRACK_IOU = 0.30  # IoU threshold for cascade plate track continuity
-CASCADE_PLATE_TRACK_BUFFER = 15  # frames to retain unmatched cascade plate tracks
 ASSOCIATION_MATCH_FRAMES = _env_int("ASSOCIATION_MATCH_FRAMES", 2)
 ASSOCIATION_AGREEMENT_RATIO = _env_float("ASSOCIATION_AGREEMENT_RATIO", 0.6)
 
