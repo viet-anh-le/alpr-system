@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { API_BASE } from '../apiClient'
 
 export function useStream(jobId, {
   onVehicle,
@@ -14,7 +15,7 @@ export function useStream(jobId, {
   useEffect(() => {
     if (!jobId) return
 
-    const es = new EventSource(`/stream/${jobId}`)
+    const es = new EventSource(`${API_BASE}/stream/${jobId}`)
     esRef.current = es
 
     es.onmessage = (e) => {

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from api.core.config import (
     AUTH_COOKIE_NAME,
+    AUTH_COOKIE_SAMESITE,
     AUTH_COOKIE_SECURE,
     AUTH_SECRET_KEY,
     AUTH_SESSION_TTL_HOURS,
@@ -36,6 +37,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _JWT_ALG = "HS256"
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _SECRET = AUTH_SECRET_KEY or secrets.token_urlsafe(32)
+
+# SameSite=None requires Secure; enforce this at startup.
+_SAMESITE = AUTH_COOKIE_SAMESITE if AUTH_COOKIE_SAMESITE in {"lax", "strict", "none"} else "lax"
+_COOKIE_SECURE = True if _SAMESITE == "none" else AUTH_COOKIE_SECURE
 
 if not AUTH_SECRET_KEY:
     logger.warning("AUTH_SECRET_KEY is not set; using an ephemeral development secret.")
@@ -117,14 +122,14 @@ def _set_session_cookie(response: Response, token: str, expires_at: datetime) ->
         max_age=max_age,
         expires=expires_at,
         httponly=True,
-        secure=AUTH_COOKIE_SECURE,
-        samesite="lax",
+        secure=_COOKIE_SECURE,
+        samesite=_SAMESITE,
         path="/",
     )
 
 
 def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(AUTH_COOKIE_NAME, path="/", samesite="lax")
+    response.delete_cookie(AUTH_COOKIE_NAME, path="/", samesite=_SAMESITE)
 
 
 def _set_csrf_cookie(response: Response, token: str) -> None:
@@ -133,8 +138,8 @@ def _set_csrf_cookie(response: Response, token: str) -> None:
         token,
         max_age=AUTH_SESSION_TTL_HOURS * 3600,
         httponly=False,
-        secure=AUTH_COOKIE_SECURE,
-        samesite="lax",
+        secure=_COOKIE_SECURE,
+        samesite=_SAMESITE,
         path="/",
     )
 
@@ -251,7 +256,7 @@ async def logout(
         except jwt.PyJWTError:
             pass
     _clear_session_cookie(response)
-    response.delete_cookie(CSRF_COOKIE_NAME, path="/", samesite="lax")
+    response.delete_cookie(CSRF_COOKIE_NAME, path="/", samesite=_SAMESITE)
     return {"ok": True}
 
 

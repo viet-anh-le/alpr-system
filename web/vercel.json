@@ -1,38 +1,6 @@
 {
     "rewrites": [
         {
-            "source": "/auth/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/auth/:path*"
-        },
-        {
-            "source": "/upload",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/upload"
-        },
-        {
-            "source": "/stream/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/stream/:path*"
-        },
-        {
-            "source": "/records/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/records/:path*"
-        },
-        {
-            "source": "/sessions/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/sessions/:path*"
-        },
-        {
-            "source": "/jobs/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/jobs/:path*"
-        },
-        {
-            "source": "/monitor/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/monitor/:path*"
-        },
-        {
-            "source": "/events/:path*",
-            "destination": "https://obg997m4grbm3c-8000.proxy.runpod.net/events/:path*"
-        },
-        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

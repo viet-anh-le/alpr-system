@@ -42,6 +42,7 @@ AUTH_COOKIE_SECURE: bool = os.environ.get("AUTH_COOKIE_SECURE", "").strip().lowe
 }
 AUTH_SESSION_TTL_HOURS: int = int(os.environ.get("AUTH_SESSION_TTL_HOURS", "24"))
 CSRF_COOKIE_NAME: str = os.environ.get("CSRF_COOKIE_NAME", "alpr_csrf")
+AUTH_COOKIE_SAMESITE: str = os.environ.get("AUTH_COOKIE_SAMESITE", "lax").strip().lower()
 MAX_UPLOAD_MB: int = int(os.environ.get("MAX_UPLOAD_MB", "512"))
 
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { API_BASE } from '../../apiClient'
 
 /**
  * Subscribes to /monitor/{sessionId}/events/stream and calls onEvent
@@ -7,7 +8,7 @@ import { useEffect } from 'react'
 export default function useEventStream(sessionId, onEvent) {
   useEffect(() => {
     if (!sessionId) return undefined
-    const es = new EventSource(`/monitor/${sessionId}/events/stream`)
+    const es = new EventSource(`${API_BASE}/monitor/${sessionId}/events/stream`)
     es.onmessage = (msg) => {
       try {
         const ev = JSON.parse(msg.data)

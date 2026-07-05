@@ -7,13 +7,14 @@ import UploadViewer from './UploadViewer'
 import EventsPanel from './EventsPanel'
 import useEventStream from '../../hooks/monitor/useEventStream'
 import { postMark } from '../../hooks/monitor/useMark'
+import { API_BASE } from '../../apiClient'
 
 function cleanupMonitorSession(session) {
   if (!session?.sessionId) return
   const url = session.mode === 'live'
-    ? `/monitor/live/${session.sessionId}`
+    ? `${API_BASE}/monitor/live/${session.sessionId}`
     : session.mode === 'upload'
-      ? `/monitor/upload/${session.sessionId}`
+      ? `${API_BASE}/monitor/upload/${session.sessionId}`
       : null
   if (!url) return
   fetch(url, { method: 'DELETE', keepalive: true }).catch(() => {})
@@ -110,7 +111,7 @@ export default function MonitorPage() {
     setError(null)
     setPendingAction('live')
     try {
-      const response = await fetch('/monitor/live/connect', {
+      const response = await fetch(`${API_BASE}/monitor/live/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rtsp_url: rtspUrl, ocr_backend: ocrBackend }),
@@ -137,7 +138,7 @@ export default function MonitorPage() {
       formData.append('file', file)
       formData.append('preprocess_mode', preprocessMode)
       formData.append('ocr_backend', ocrBackend)
-      const response = await fetch('/monitor/upload', { method: 'POST', body: formData })
+      const response = await fetch(`${API_BASE}/monitor/upload`, { method: 'POST', body: formData })
       if (!response.ok) {
         setError(`Tải video giám sát thất bại: ${await response.text()}`)
         return

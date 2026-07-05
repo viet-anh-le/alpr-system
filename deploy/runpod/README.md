@@ -57,6 +57,7 @@ rsync -avP -e "ssh -p $RUNPOD_SSH_PORT" \
 PORT=8000
 WEB_ORIGIN=https://<vercel-project>.vercel.app
 AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAMESITE=none
 AUTH_SECRET_KEY=<new-long-random-secret>
 MONGODB_URI=<mongodb-atlas-uri>
 MONGODB_DB_NAME=alpr
@@ -89,11 +90,13 @@ If the optional quality-router model is not uploaded, leave `PLATE_QUALITY_ROUTE
 
 Deploy `web/` as the Vercel project root.
 
-Replace every `https://replace-with-runpod-8000.proxy.runpod.net` in `web/vercel.json` with the actual RunPod `8000/http` proxy URL.
+The frontend calls the RunPod backend directly via `VITE_API_BASE_URL`.
+Vercel rewrites are no longer used for API routes (avoids the 4.5 MB body-size limit).
 
 Frontend env:
 
 ```bash
+VITE_API_BASE_URL=https://<pod-id>-8000.proxy.runpod.net
 VITE_SUPABASE_URL=<supabase-url>
 VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
 ```

@@ -1,3 +1,13 @@
+/**
+ * API base URL.
+ * In local dev this is empty (Vite proxy handles routing).
+ * In production (Vercel → RunPod) this points directly at the RunPod backend
+ * so we bypass Vercel rewrites and their 4.5 MB body-size limit.
+ */
+export const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')
+  : ''
+
 let csrfToken = null
 
 export function resetCsrfToken() {
@@ -6,7 +16,7 @@ export function resetCsrfToken() {
 
 async function ensureCsrfToken() {
   if (csrfToken) return csrfToken
-  const res = await fetch('/auth/csrf', { credentials: 'include' })
+  const res = await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' })
   if (!res.ok) throw new Error('Không lấy được CSRF token')
   const data = await res.json()
   csrfToken = data.csrf_token
@@ -22,7 +32,7 @@ export async function apiFetch(path, options = {}) {
     headers.set('X-CSRF-Token', await ensureCsrfToken())
   }
 
-  return fetch(path, {
+  return fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
     credentials: 'include',
