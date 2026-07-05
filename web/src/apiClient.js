@@ -16,7 +16,12 @@ export function resetCsrfToken() {
 
 async function ensureCsrfToken() {
   if (csrfToken) return csrfToken
-  const res = await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' })
+  const res = await fetch(`${API_BASE}/auth/csrf`, { 
+    credentials: 'include',
+    headers: {
+      'ngrok-skip-browser-warning': '1'
+    }
+  })
   if (!res.ok) throw new Error('Không lấy được CSRF token')
   const data = await res.json()
   csrfToken = data.csrf_token
@@ -31,6 +36,9 @@ export async function apiFetch(path, options = {}) {
   if (needsCsrf) {
     headers.set('X-CSRF-Token', await ensureCsrfToken())
   }
+  
+  // Bỏ qua trang cảnh báo của ngrok nếu đang dùng ngrok url
+  headers.set('ngrok-skip-browser-warning', '1')
 
   return fetch(`${API_BASE}${path}`, {
     ...options,

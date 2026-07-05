@@ -129,7 +129,9 @@ def _set_session_cookie(response: Response, token: str, expires_at: datetime) ->
 
 
 def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(AUTH_COOKIE_NAME, path="/", samesite=_SAMESITE)
+    response.delete_cookie(
+        AUTH_COOKIE_NAME, path="/", samesite=_SAMESITE, secure=_COOKIE_SECURE, httponly=True
+    )
 
 
 def _set_csrf_cookie(response: Response, token: str) -> None:
@@ -256,7 +258,9 @@ async def logout(
         except jwt.PyJWTError:
             pass
     _clear_session_cookie(response)
-    response.delete_cookie(CSRF_COOKIE_NAME, path="/", samesite=_SAMESITE)
+    response.delete_cookie(
+        CSRF_COOKIE_NAME, path="/", samesite=_SAMESITE, secure=_COOKIE_SECURE
+    )
     return {"ok": True}
 
 
