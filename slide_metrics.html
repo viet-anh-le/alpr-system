@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Các Chỉ Số Đánh Giá Đa Lớp</title>
+    <!-- MathJax for rendering formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .slide-container {
+            width: 1280px;
+            height: 720px;
+            background-color: white;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background-color: #003366;
+            color: white;
+            padding: 20px 40px;
+            font-size: 36px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .header-line {
+            height: 6px;
+            background-color: #cc0000;
+            width: 100%;
+        }
+
+        /* Main Content */
+        .content {
+            display: flex;
+            flex: 1;
+            padding: 50px 60px;
+            gap: 40px;
+        }
+
+        /* Left Column - Formulas */
+        .formulas-col {
+            flex: 1.1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 45px;
+            font-size: 28px;
+        }
+
+        .formula-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .bullet {
+            margin-right: 15px;
+            font-size: 32px;
+            color: #cc0000;
+        }
+
+        /* Right Column - Confusion Matrix */
+        .matrix-col {
+            flex: 0.9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .matrix-wrapper {
+            border: 1px solid #ccc;
+            padding: 50px 40px;
+            position: relative;
+        }
+
+        /* Axes Labels */
+        .axis-label {
+            position: absolute;
+            font-size: 18px;
+            letter-spacing: 1px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .actual-label {
+            left: -35px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+        }
+
+        .predicted-label {
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Bracket styling for axes */
+        .bracket-y {
+            position: absolute;
+            left: 15px;
+            top: 40px;
+            bottom: 40px;
+            width: 10px;
+            border-left: 2px solid #555;
+            border-top: 2px solid #555;
+            border-bottom: 2px solid #555;
+        }
+
+        .bracket-x {
+            position: absolute;
+            bottom: 15px;
+            left: 40px;
+            right: 40px;
+            height: 10px;
+            border-bottom: 2px solid #555;
+            border-left: 2px solid #555;
+            border-right: 2px solid #555;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            width: 350px;
+            height: 350px;
+            gap: 2px;
+            background-color: white;
+            border: 1px solid #ddd;
+        }
+
+        .cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .bg-blue { 
+            background-color: #dbeafe; /* Light blue for diagonal */
+            font-weight: bold;
+            color: #1e40af;
+        } 
+        .bg-red { 
+            background-color: #fecaca;  /* Light red for off-diagonal */
+            color: #991b1b;
+        }  
+
+        /* Footer */
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            padding: 0 40px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .footer-line {
+            position: absolute;
+            bottom: 60px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #cc0000;
+        }
+
+        .page-num {
+            font-size: 18px;
+            font-weight: bold;
+            color: #003366;
+            margin-top: 10px;
+        }
+
+        .logo {
+            position: absolute;
+            bottom: 10px;
+            left: 40px;
+            width: 50px;
+            height: 70px;
+            background-color: #eab308;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: red;
+            font-weight: bold;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="slide-container">
+        <!-- Header -->
+        <div class="header">CÁC CHỈ SỐ ĐÁNH GIÁ (MULTI-CLASS)</div>
+        <div class="header-line"></div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Left: Formulas -->
+            <div class="formulas-col">
+                <div class="formula-item">
+                    <span class="bullet">•</span>
+                    <div>\( \text{Precision}_i = \frac{\text{TP}_i}{\text{TP}_i + \text{FP}_i} \)</div>
+                </div>
+                <div class="formula-item">
+                    <span class="bullet">•</span>
+                    <div>\( \text{Recall}_i = \frac{\text{TP}_i}{\text{TP}_i + \text{FN}_i} \)</div>
+                </div>
+                <div class="formula-item">
+                    <span class="bullet">•</span>
+                    <div>\( \text{Exact-Match} = \frac{1}{N} \sum_{k=1}^{N} \mathbb{I}(\hat{y}_k = y_k) \)</div>
+                </div>
+            </div>
+
+            <!-- Right: Confusion Matrix 3x3 -->
+            <div class="matrix-col">
+                <div class="matrix-wrapper">
+                    <!-- Brackets -->
+                    <div class="bracket-y"></div>
+                    <div class="bracket-x"></div>
+
+                    <!-- Axis Labels -->
+                    <div class="axis-label actual-label">ACTUAL LABEL</div>
+                    
+                    <!-- 3x3 Grid -->
+                    <div class="grid">
+                        <!-- Row 1 -->
+                        <div class="cell bg-blue">\( \text{TP}_1 \)</div>
+                        <div class="cell bg-red">\( E_{1,2} \)</div>
+                        <div class="cell bg-red">\( E_{1,3} \)</div>
+                        
+                        <!-- Row 2 -->
+                        <div class="cell bg-red">\( E_{2,1} \)</div>
+                        <div class="cell bg-blue">\( \text{TP}_2 \)</div>
+                        <div class="cell bg-red">\( E_{2,3} \)</div>
+                        
+                        <!-- Row 3 -->
+                        <div class="cell bg-red">\( E_{3,1} \)</div>
+                        <div class="cell bg-red">\( E_{3,2} \)</div>
+                        <div class="cell bg-blue">\( \text{TP}_3 \)</div>
+                    </div>
+
+                    <div class="axis-label predicted-label">PREDICTED LABEL</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-line"></div>
+        <div class="logo">LOGO HUST</div>
+        <div class="footer">
+            <div class="page-num">23</div>
+        </div>
+    </div>
+
+</body>
+</html>

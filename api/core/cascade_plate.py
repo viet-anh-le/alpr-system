@@ -4,6 +4,7 @@ The pipeline still associates plates to vehicles in global frame space.  This
 module only changes where plate inference runs: on tracked vehicle crops instead
 of the full frame.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -107,7 +108,9 @@ def _box_area(box: list[int] | tuple[int, int, int, int]) -> float:
     return float(max(0, x2 - x1) * max(0, y2 - y1))
 
 
-def _box_iou(a: list[int] | tuple[int, int, int, int], b: list[int] | tuple[int, int, int, int]) -> float:
+def _box_iou(
+    a: list[int] | tuple[int, int, int, int], b: list[int] | tuple[int, int, int, int]
+) -> float:
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     ix1 = max(ax1, bx1)
@@ -133,21 +136,63 @@ def _optional_int(value: Any) -> int | None:
         return None
 
 
-def _smallest_containing_vehicle_id(
+def _is_near_edge(
+    plate_box: list[int] | tuple[int, int, int, int],
+    vehicle_box: list[int] | tuple[int, int, int, int],
+    margin_ratio: float = 0.04,
+) -> bool:
+    px1, py1, px2, py2 = plate_box
+    vx1, vy1, vx2, vy2 = vehicle_box
+
+    vw = vx2 - vx1
+    vh = vy2 - vy1
+
+    pcx = (px1 + px2) / 2.0
+    pcy = (py1 + py2) / 2.0
+
+    margin_x = vw * margin_ratio
+    margin_y = vh * margin_ratio
+
+    if pcx < vx1 + margin_x or pcx > vx2 - margin_x:
+        return True
+    if pcy < vy1 + margin_y or pcy > vy2 - margin_y:
+        return True
+    return False
+
+
+def _best_containing_vehicle_id(
     box: list[int] | tuple[int, int, int, int],
     tracked: list[dict],
 ) -> int | None:
     cx, cy = _box_center(box)
-    best_id: int | None = None
-    best_area = float("inf")
+
+    valid_candidates = []
     for vehicle in tracked:
         x1, y1, x2, y2 = (int(v) for v in vehicle["box"])
-        if x1 <= cx <= x2 and y1 <= cy <= y2:
-            area = _box_area((x1, y1, x2, y2))
-            if area < best_area:
-                best_area = area
-                best_id = int(vehicle["id"])
-    return best_id
+        # Dynamic padding as used in crop_vehicle_regions
+        box_w = max(0, x2 - x1)
+        box_h = max(0, y2 - y1)
+        pad = max(int(round(max(box_w, box_h) * CASCADE_VEHICLE_PAD_RATIO)), CASCADE_VEHICLE_PAD_MIN)
+        
+        # Expand box by padding because plate detection runs on padded crops
+        px1, py1, px2, py2 = x1 - pad, y1 - pad, x2 + pad, y2 + pad
+        
+        if px1 <= cx <= px2 and py1 <= cy <= py2:
+            area = _box_area((px1, py1, px2, py2))
+            near_edge = _is_near_edge(box, (px1, py1, px2, py2))
+            valid_candidates.append(
+                {
+                    "id": int(vehicle["id"]),
+                    "area": area,
+                    "near_edge": near_edge,
+                }
+            )
+
+    if not valid_candidates:
+        return None
+
+    valid_candidates.sort(key=lambda c: (c["near_edge"], c["area"]))
+    return valid_candidates[0]["id"]
 
 
 def deduplicate_plate_candidates(
@@ -160,7 +205,8 @@ def deduplicate_plate_candidates(
     ordered = sorted(
         candidates,
         key=lambda candidate: (
-            _smallest_containing_vehicle_id(candidate["box"], tracked) != candidate.get("source_vehicle_id"),
+            _best_containing_vehicle_id(candidate["box"], tracked)
+            != candidate.get("source_vehicle_id"),
             -float(candidate.get("conf", 0.0)),
         ),
     )
@@ -168,7 +214,7 @@ def deduplicate_plate_candidates(
     for candidate in ordered:
         if any(_box_iou(candidate["box"], kept["box"]) >= iou_threshold for kept in deduped):
             continue
-        owner_id = _smallest_containing_vehicle_id(candidate["box"], tracked)
+        owner_id = _best_containing_vehicle_id(candidate["box"], tracked)
         if owner_id is not None:
             candidate = {**candidate, "source_vehicle_id": owner_id}
         deduped.append(candidate)
@@ -181,11 +227,13 @@ def _assign_ids_from_deduped_source(candidates: list[dict]) -> list[dict]:
         source_vehicle_id = _optional_int(candidate.get("source_vehicle_id"))
         if source_vehicle_id is None:
             continue
-        tracks.append({
-            **candidate,
-            "source_vehicle_id": source_vehicle_id,
-            "id": source_vehicle_id,
-        })
+        tracks.append(
+            {
+                **candidate,
+                "source_vehicle_id": source_vehicle_id,
+                "id": source_vehicle_id,
+            }
+        )
     return tracks
 
 
@@ -202,7 +250,11 @@ def _extract_obb_candidates(
         return []
 
     pts_list = obb.xyxyxyxy.cpu().numpy().astype(np.float32)
-    confs = obb.conf.cpu().numpy() if obb.conf is not None else np.ones((len(pts_list),), dtype=np.float32)
+    confs = (
+        obb.conf.cpu().numpy()
+        if obb.conf is not None
+        else np.ones((len(pts_list),), dtype=np.float32)
+    )
     candidates: list[dict] = []
 
     for crop_pts, det_conf in zip(pts_list, confs):
@@ -220,13 +272,15 @@ def _extract_obb_candidates(
         if not is_router_candidate(plate_crop):
             continue
 
-        candidates.append({
-            "box": [raw_x, raw_y, raw_x + raw_w, raw_y + raw_h],
-            "pts": global_pts,
-            "crop": plate_crop,
-            "conf": float(det_conf),
-            "source_vehicle_id": vehicle_crop.vehicle_id,
-        })
+        candidates.append(
+            {
+                "box": [raw_x, raw_y, raw_x + raw_w, raw_y + raw_h],
+                "pts": global_pts,
+                "crop": plate_crop,
+                "conf": float(det_conf),
+                "source_vehicle_id": vehicle_crop.vehicle_id,
+            }
+        )
     return candidates
 
 
@@ -264,5 +318,7 @@ def detect_plate_tracks_cascade(
     deduped = deduplicate_plate_candidates(candidates, tracked)
     plate_tracks = _assign_ids_from_deduped_source(deduped)
     if timings is not None:
-        timings["plate_postprocess"] = timings.get("plate_postprocess", 0.0) + time.perf_counter() - start
+        timings["plate_postprocess"] = (
+            timings.get("plate_postprocess", 0.0) + time.perf_counter() - start
+        )
     return plate_tracks
