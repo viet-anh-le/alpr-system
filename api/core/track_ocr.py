@@ -119,7 +119,15 @@ def finalise_track_ocr(
         sum(1 for _, score in scored_entries),
     )
     tracker._done[tid] = True
-    _store_best_plate_image(tid, tracker, entries, primary_result.char_probs)
+
+    valid_entries = [e for e in entries if e.char_probs]
+    primary_cluster_entries = [
+        valid_entries[idx]
+        for idx in primary_indices
+        if idx < len(valid_entries)
+    ]
+    
+    _store_best_plate_image(tid, tracker, primary_cluster_entries or entries, primary_result.char_probs)
     tracker.plate_changed(tid)
 
     # ── Store cluster plate images ─────────────────────────────────────────
@@ -348,27 +356,35 @@ def _entries_with_deferred_ocr(
     except Exception:
         return entries
 
-    grouped: dict[int, list[OcrCandidateResult]] = {}
+    grouped: dict[int, list[tuple[OcrCandidateResult, np.ndarray]]] = {}
     for (entry_idx, method, _crop), (char_probs, _all_confident) in zip(
         pending, ocr_results, strict=False
     ):
         correction = correct_ambiguous_chars(char_probs)
         grouped.setdefault(entry_idx, []).append(
-            OcrCandidateResult(
-                method,
-                correction.char_probs,
-                risk_penalty=correction.risk_penalty,
+            (
+                OcrCandidateResult(
+                    method,
+                    correction.char_probs,
+                    risk_penalty=correction.risk_penalty,
+                ),
+                _crop,
             )
         )
 
     replacements: dict[int, TrackBufferEntry] = {}
-    for entry_idx, candidates in grouped.items():
+    for entry_idx, candidate_tuples in grouped.items():
+        candidates = [c for c, _crop in candidate_tuples]
         best = rerank_ocr_candidates(candidates)
         if best is None:
             continue
+            
+        best_crop = next(_crop for c, _crop in candidate_tuples if c is best)
+        
         entry = pending_entries[entry_idx]
         replacements[id(entry)] = replace(
             entry,
+            crop=best_crop,
             char_probs=best.char_probs,
             ocr_conf=max(best.confidence, 0.10),
             candidate_method=best.method,
@@ -400,7 +416,7 @@ def _store_best_plate_image(
 ) -> None:
     if not entries:
         return
-    best_entry = entries[0]
+    best_entry = max(entries, key=lambda e: e.combined_score, default=entries[0])
     if char_probs:
         confidence = sum(p for _, p in char_probs) / len(char_probs)
         tracker.set_plate_img(tid, best_entry.crop, confidence)

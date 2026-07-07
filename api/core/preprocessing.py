@@ -91,7 +91,7 @@ def _glare(frame: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     saturation = hsv[:, :, 1]
     value = hsv[:, :, 2]
-    mask = ((value > 220) & (saturation < 90)).astype(np.uint8) * 255
+    mask = ((value > 220) & (saturation < 150)).astype(np.uint8) * 255
     mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
 
     if int(mask.sum()) == 0:

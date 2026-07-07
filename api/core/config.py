@@ -110,9 +110,7 @@ def normalize_ocr_backend(value: str) -> str:
         return "smalllpr_line_ctc"
     if backend == "vietnamese_yolov5":
         return "vietnamese_yolov5"
-    raise ValueError(
-        "OCR_BACKEND must be one of: default, smalllpr_line_ctc, vietnamese_yolov5"
-    )
+    raise ValueError("OCR_BACKEND must be one of: default, smalllpr_line_ctc, vietnamese_yolov5")
 
 
 SMALL_LPR_CKPT_PATH = _rooted_env_path(
@@ -236,8 +234,8 @@ LOST_THRESHOLD = 5  # consecutive missing strides before track is finalised
 TOP_K_FRAMES = 10  # how many top-quality OCR frames to pass to voting
 
 # ── Multi-cluster voting ──────────────────────────────────────────────────────
-MAX_CLUSTERS = 3 # max distinct plate clusters within one track buffer
-CLUSTER_SIMILARITY_THRESHOLD = 0.6 # min normalised Levenshtein similarity to merge clusters
+MAX_CLUSTERS = 3  # max distinct plate clusters within one track buffer
+CLUSTER_SIMILARITY_THRESHOLD = 0.6  # min normalised Levenshtein similarity to merge clusters
 
 # ── UI display labels ─────────────────────────────────────────────────────────
 VN_CLASS = {

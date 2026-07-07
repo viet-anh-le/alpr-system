@@ -1,0 +1,497 @@
+Processing hcm_night_24.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 50H-732.36           | 50H-732.36           (Cluster 0, 10 frames)
+2            | 50H[SEP]174.30       | 50H[SEP]124.30       (Cluster 0, 10 frames)
+3            | 59-T2[SEP]253.85     | 59-T2[SEP]253.85     (Cluster 0, 10 frames)
+13           | 49-K1[SEP]812.11     | 49-K1[SEP]812.12     (Cluster 0, 10 frames)
+16           | 72E-001.52           |                     
+17           | 54-U4[SEP]7912       |                     
+18           | 12-M4[SEP]2094       |                     
+21           | 50-Z1[SEP]2714       | 43-AC[SEP]209.63     (Cluster 0, 10 frames)
+22           | 43-AC[SEP]209.63     | 43-AC[SEP]209.63     (Cluster 0, 3 frames)
+Processing hcm_night_22.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 50E[SEP]195.00       | 50E[SEP]195.00       (Cluster 0, 10 frames)
+4            | 506-077              | 51D[SEP]960.77       (Cluster 0, 10 frames)
+12           | 50-H[SEP]046.13      |                     
+47           | 60-B1[SEP]003.00     |                     
+Processing rain_1.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 30E[SEP]017.16       | 30E[SEP]017.16       (Cluster 0, 10 frames)
+2            | TA-45-5              | 30A[SEP]206.32       (Cluster 0, 10 frames)
+8            | 60H-040.33           | 99A[SEP]200.44       (Cluster 0, 10 frames)
+10           | 30K-820.10           |                     
+13           | 60H-000.51           |                     
+16           | 60A[SEP]253.44       | 68A[SEP]200.44       (Cluster 0, 7 frames)
+21           | T-1-71               |                     
+Processing rain_6.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 30E[SEP]37.35        |                     
+2            | 34A[SEP]683.63       | 34A[SEP]683.83       (Cluster 0, 10 frames)
+3            | 30L-551.10           | 30L-551.11           (Cluster 0, 8 frames)
+6            | 602[SEP]1.77         |                     
+7            | 15E-159.44           |                     
+8            | 60A[SEP]512.20       | 29C[SEP]512.20       (Cluster 0, 10 frames)
+13           | 30F-881.42           | 30F-881.42           (Cluster 0, 8 frames)
+13 (split)   |                      | 51L-551.44           (Cluster 1, 2 frames)
+15           | 34A[SEP]663.43       | 34A[SEP]463.48       (Cluster 0, 10 frames)
+16           | 79A[SEP]088.42       |                     
+25           | 30M-125.44           | 30M-125.41           (Cluster 0, 10 frames)
+Processing rain_5.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 88A[SEP]271.10       | 88A[SEP]271.10       (Cluster 0, 10 frames)
+2            | 50H[SEP]522.44       |                     
+3            | 29-D1[SEP]051.43     | 29-D1[SEP]891.78     (Cluster 0, 10 frames)
+4            | 59-Y2[SEP]059.37     | 29-X5[SEP]606.15     (Cluster 0, 6 frames)
+4 (split)    |                      | 59-Y2[SEP]059.37     (Cluster 1, 4 frames)
+Processing rain_3.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 30G[SEP]980.91       | 30G[SEP]980.91       (Cluster 0, 10 frames)
+12           | 30G[SEP]980.91       | 30G[SEP]980.91       (Cluster 0, 10 frames)
+14           | 60ĐD[SEP]000.02      |                     
+22           | 30G[SEP]960.91       |                     
+23           | 17-A6[SEP]065.27     | 17-A6[SEP]061.27     (Cluster 0, 10 frames)
+24           | 30G[SEP]190.91       |                     
+Processing rain_2.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 29E[SEP]044.61       | 29E[SEP]044.66       (Cluster 0, 10 frames)
+3            | 60E[SEP]000.17       |                     
+4            | 69A[SEP]065.53       | 22A[SEP]194.65       (Cluster 0, 4 frames)
+5            | 30G[SEP]960.91       | 29-D1[SEP]684.01     (Cluster 0, 7 frames)
+5 (split)    |                      | 30G[SEP]960.91       (Cluster 1, 3 frames)
+22           | 30G[SEP]980.91       | 30G[SEP]980.91       (Cluster 0, 3 frames)
+27           | 29-D1[SEP]684.01     | 29-D1[SEP]684.01     (Cluster 0, 10 frames)
+34           | 30-N1[SEP]5939       |                     
+Processing rain_4.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 31A-582              | 31A-5282             (Cluster 0, 10 frames)
+3            | 30H[SEP]334.19       | 30H[SEP]334.19       (Cluster 0, 10 frames)
+5            | 29-K1[SEP]049.43     |                     
+6            | 17-B6[SEP]069.27     | 17-B6[SEP]069.27     (Cluster 0, 10 frames)
+8            | 30A[SEP]507.02       | 30A[SEP]577.72       (Cluster 0, 10 frames)
+13           | 17-B6[SEP]006.82     |                     
+14           | 35A-382              |                     
+18           | 60A-154.90           |                     
+19           | 17-B6[SEP]069.27     | 17-B6[SEP]069.27     (Cluster 0, 10 frames)
+Processing hn_night_27.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 60A[SEP]002.20       | 34A[SEP]380.10       (Cluster 0, 10 frames)
+3            | 29-BH[SEP]122.22     | 29-BH[SEP]122.22     (Cluster 0, 10 frames)
+5            | 29-BH[SEP]122.22     | 29-BH[SEP]122.22     (Cluster 0, 2 frames)
+7            | 29-P1[SEP]687.21     | 29-C1[SEP]681.08     (Cluster 0, 10 frames)
+8            | 60-H1[SEP]630.03     |                     
+12           | 29-C1[SEP]681.08     |                     
+13           | 29-F1[SEP]090.08     | 29-C1[SEP]681.08     (Cluster 0, 10 frames)
+15           | 60A[SEP]05.44        |                     
+19           | 29-H1[SEP]534.08     | 29-H1[SEP]534.08     (Cluster 0, 8 frames)
+20           | 60-F1[SEP]020.32     |                     
+Processing hn_night_23.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 21-B2[SEP]065.03     | 21-B2[SEP]065.03     (Cluster 0, 10 frames)
+7            | 7A[SEP]0.66          | 29-BC[SEP]063.17     (Cluster 0, 10 frames)
+39           | 29E[SEP]017.17       |                     
+51           | 29E[SEP]062.25       | 29F[SEP]069.50       (Cluster 0, 8 frames)
+53           | 51A-551.11           |                     
+62           | 10H-055.29           |                     
+68           | 60A[SEP]01.55        |                     
+Processing hn_night_07.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 60FA[SEP]024.15      |                     
+3            | 50H-000.57           |                     
+16           | 20D-096.15           |                     
+25           | 69A-000.43           |                     
+26           | 70-1[SEP]022.31      |                     
+27           | 20F-147.30           |                     
+29           | 30A[SEP]890.50       | 30A[SEP]990.50       (Cluster 0, 10 frames)
+30           | 30A[SEP]632.12       | 30H[SEP]580.12       (Cluster 0, 4 frames)
+35           | 60A[SEP]487.27       |                     
+Processing hn_night_12.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+11           | 30L[SEP]126.26       | 30L[SEP]126.26       (Cluster 0, 10 frames)
+12           | 30E[SEP]072.47       |                     
+14           | 19-B1[SEP]6921       | 19-R1[SEP]6771       (Cluster 0, 5 frames)
+14 (split)   |                      | 13-B1[SEP]5771       (Cluster 1, 5 frames)
+21           | 58-N9[SEP]4228       | 98-N9[SEP]4728       (Cluster 0, 10 frames)
+29           | 30L[SEP]096.93       | 30L[SEP]096.93       (Cluster 0, 10 frames)
+47           | 60A[SEP]003.22       |                     
+57           | 60-A1[SEP]022.11     |                     
+58           | 69-B1[SEP]172.22     | 89-C1[SEP]772.02     (Cluster 0, 10 frames)
+60           | 39A-461.17           | 18-E1[SEP]328.28     (Cluster 0, 10 frames)
+62           | 60-FA[SEP]004.14     |                     
+66           | 50-A1[SEP]3855       |                     
+67           | 14-H1[SEP]0251       |                     
+68           | 28-N1[SEP]134.80     | 29-N1[SEP]134.80     (Cluster 0, 2 frames)
+Processing hn_night_22.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 30A[SEP]824.37       | 30A[SEP]824.37       (Cluster 0, 10 frames)
+8            | 29H[SEP]504.55       | 29H[SEP]504.15       (Cluster 0, 10 frames)
+13           | 61A1[SEP]001.40      |                     
+14           | 60C[SEP]04.54        |                     
+29           | 29-K1[SEP]507.80     |                     
+31           | 69H1[SEP]050.56      |                     
+35           | 30F[SEP]643.26       | 30F[SEP]643.26       (Cluster 0, 10 frames)
+37           | 30F[SEP]643.26       | 44A-915.07           (Cluster 0, 8 frames)
+37 (split)   |                      | 30F[SEP]643.26       (Cluster 1, 2 frames)
+42           | 29-C1[SEP]122.19     |                     
+44           | 29-C1[SEP]582.39     |                     
+51           | 30F-980.02           | 30F-980.02           (Cluster 0, 10 frames)
+52           | 29-C1[SEP]542.00     | 29-C1[SEP]542.00     (Cluster 0, 4 frames)
+Processing hcm_night_07.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 51G-736.63           | 51G-736.63           (Cluster 0, 10 frames)
+4            | 50-N1[SEP]319.22     | 50-N1[SEP]319.22     (Cluster 0, 10 frames)
+5            | 50-L1[SEP]00.44      |                     
+6            | 50-N1[SEP]319.22     | 50-N1[SEP]319.22     (Cluster 0, 10 frames)
+8            | 50-N1[SEP]319.27     | 50-N1[SEP]319.22     (Cluster 0, 6 frames)
+15           | 59-M2[SEP]595.44     | 59-M2[SEP]595.44     (Cluster 0, 10 frames)
+18           | 5-L1[SEP]99.70       |                     
+21           | 60A-017.51           |                     
+26           | 59-P3[SEP]346.59     | 59-P3[SEP]346.59     (Cluster 0, 10 frames)
+30           | 59-A[SEP]94.77       |                     
+32           | 51G-736.63           | 51G-736.63           (Cluster 0, 9 frames)
+32 (split)   |                      | 59-K2[SEP]023.55     (Cluster 1, 1 frames)
+33           | 59-X1[SEP]997.92     | 59-X1[SEP]997.92     (Cluster 0, 4 frames)
+34           | 59-X1[SEP]997.92     | 59-X1[SEP]997.92     (Cluster 0, 10 frames)
+37           | 51G-36.53            | 59-K2[SEP]073.55     (Cluster 0, 10 frames)
+41           | 69-K1[SEP]021.22     |                     
+44           | 59-X7[SEP]997.92     | 60-B9[SEP]819.41     (Cluster 0, 7 frames)
+44 (split)   |                      | 59-X7[SEP]997.92     (Cluster 1, 3 frames)
+45           | 59-L2[SEP]585.03     | 50-L2[SEP]765.31     (Cluster 0, 8 frames)
+45 (split)   |                      | 59-L2[SEP]345.31     (Cluster 1, 2 frames)
+46           | 50H[SEP]008.64       |                     
+49           | 59-X1[SEP]997.92     | 59-X3[SEP]997.92     (Cluster 0, 10 frames)
+57           | 59-K1[SEP]515.01     |                     
+61           | 51L-34.63            |                     
+65           | 60-T4[SEP]5873       | 60-F4[SEP]5973       (Cluster 0, 3 frames)
+74           | 60-FA[SEP]5879       |                     
+Processing hn_night_02.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 98A[SEP]588.61       | 98A[SEP]588.61       (Cluster 0, 10 frames)
+2            | 60-A[SEP]033.23      |                     
+7            | 80D-001              | VT-65-10             (Cluster 0, 1 frames)
+9            | 29K[SEP]098.75       | 29K[SEP]098.75       (Cluster 0, 10 frames)
+11           | 60-A[SEP]144.78      | 29K[SEP]098.75       (Cluster 0, 6 frames)
+20           | 601[SEP]033.34       | 36-B3[SEP]077.44     (Cluster 0, 4 frames)
+21           | 98A[SEP]588.61       | 98A[SEP]588.61       (Cluster 0, 10 frames)
+31           | 30-B2[SEP]913        | 30-F2[SEP]4643       (Cluster 0, 10 frames)
+32           | 98A[SEP]588.61       | 98A[SEP]588.61       (Cluster 0, 10 frames)
+39           | 20H-02.21            |                     
+46           | 50-F1[SEP]01.77      |                     
+50           | 60L-005.26           |                     
+53           | 29H[SEP]547.74       | 29H[SEP]947.74       (Cluster 0, 10 frames)
+57           | 28A[SEP]388.61       |                     
+60           | 8A[SEP]580.51        |                     
+65           | 5A-005.51            |                     
+67           | 29A[SEP]388.61       |                     
+68           | 60-A1[SEP]000.23     |                     
+71           | 29A[SEP]550          | 29-H2[SEP]350.56     (Cluster 0, 10 frames)
+Processing hn_night_20.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 29G[SEP]005.66       | 29G[SEP]005.66       (Cluster 0, 10 frames)
+4            | 37E[SEP]002.61       | 37E[SEP]002.61       (Cluster 0, 10 frames)
+9            | 29-MĐ1[SEP]409.92    | 29-MĐ1[SEP]409.92    (Cluster 0, 2 frames)
+11           | 29-MĐ1[SEP]409.92    | 29-MĐ1[SEP]479.92    (Cluster 0, 10 frames)
+33           | 51K-301.16           |                     
+34           | 60A[SEP]015.57       |                     
+36           | 60-N8[SEP]1521       |                     
+38           | 29-L1[SEP]823.77     | 29-L1[SEP]823.77     (Cluster 0, 10 frames)
+40           | 70-F1[SEP]000.21     |                     
+41           | 60-Đ1[SEP]074.23     |                     
+42           | 79-F1[SEP]000.11     |                     
+44           | 29-F[SEP]467.11      | 29-F1[SEP]467.10     (Cluster 0, 10 frames)
+45           | 29K-103.18           | 29K-103.18           (Cluster 0, 10 frames)
+47           | 29-G2[SEP]600.31     |                     
+50           | 29-E1[SEP]954.59     |                     
+Processing hcm_night_02.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 6-A1[SEP]265.42      |                     
+3            | 53-X2[SEP]6725       |                     
+8            | 6-K1[SEP]22.41       | 66H[SEP]079.98       (Cluster 0, 10 frames)
+19           | 59-F1[SEP]071.24     | 59-F1[SEP]271.24     (Cluster 0, 10 frames)
+24           | 68-AK[SEP]079.58     |                     
+39           | 20-LA[SEP]003.51     |                     
+59           | 59-F2[SEP]042.46     | 59-X1[SEP]012.06     (Cluster 0, 5 frames)
+78           | 81-A1[SEP]003.00     | 81-AA[SEP]003.00     (Cluster 0, 10 frames)
+Processing đoạn_022.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 51H[SEP]068.14       |                     
+3            | 95-D1[SEP]154.53     | 95-D1[SEP]154.53     (Cluster 0, 10 frames)
+6            | 60-B8[SEP]435.52     | 60-B8[SEP]435.52     (Cluster 0, 10 frames)
+7            | 61F[SEP]005.90       | 51F[SEP]051.96       (Cluster 0, 10 frames)
+8            | 59-F1[SEP]608.39     | 59-F1[SEP]608.39     (Cluster 0, 10 frames)
+9            | 29-E1[SEP]347.76     | 59-E1[SEP]347.76     (Cluster 0, 10 frames)
+15           | 70D-01.15            | 70-G1[SEP]172.79     (Cluster 0, 10 frames)
+18           | 51F[SEP]592.93       | 51F[SEP]592.93       (Cluster 0, 10 frames)
+23           | 60-D1[SEP]004.00     |                     
+36           | 59-V7[SEP]756.96     | 59-H1[SEP]756.96     (Cluster 0, 10 frames)
+39           | 54-F3[SEP]8452       | 54-F3[SEP]8452       (Cluster 0, 10 frames)
+54           | 51F[SEP]781.92       | 51F[SEP]781.92       (Cluster 0, 10 frames)
+63           | 60-H1[SEP]0204       |                     
+64           | 51-L1[SEP]10.20      |                     
+68           | 59-F1[SEP]010.61     |                     
+73           | 64-AA[SEP]103.54     |                     
+75           | 51D[SEP]452.20       | 51D[SEP]452.20       (Cluster 0, 10 frames)
+87           | 59-H1[SEP]07.41      |                     
+Processing đoạn_002.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 85A[SEP]064.46       | 85A[SEP]064.46       (Cluster 0, 10 frames)
+6            | 50B1[SEP]02.14       |                     
+7            | 63-H3[SEP]6676       | 63-H3[SEP]6676       (Cluster 0, 10 frames)
+14           | 51G[SEP]299.65       | 51G[SEP]299.65       (Cluster 0, 10 frames)
+16           | 50-4[SEP]41          | 70A[SEP]137.78       (Cluster 0, 10 frames)
+37           | 69-B1[SEP]010.33     |                     
+58           | 61A[SEP]020.69       | 61A[SEP]020.69       (Cluster 0, 10 frames)
+70           | 78-L1[SEP]247.24     | 78-C1[SEP]247.24     (Cluster 0, 10 frames)
+72           | 64A[SEP]018.68       | 64A[SEP]018.68       (Cluster 0, 10 frames)
+109          | 50F[SEP]20.04        |                     
+Processing đoạn_017.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 51A[SEP]325.89       | 51A[SEP]325.89       (Cluster 0, 10 frames)
+3            | 59-V3[SEP]143.67     | 59-V3[SEP]143.67     (Cluster 0, 10 frames)
+5            | 54-T3[SEP]9411       | 54-T3[SEP]9411       (Cluster 0, 10 frames)
+8            | 60-FC[SEP]0006       |                     
+12           | 50-L1[SEP]011.57     |                     
+26           | 47-K1[SEP]255.46     |                     
+34           | 59-U2[SEP]420.69     | 59-U2[SEP]420.69     (Cluster 0, 10 frames)
+40           | 51F[SEP]592.93       | 51F[SEP]592.93       (Cluster 0, 10 frames)
+46           | 47-G1[SEP]291.40     | 47-G1[SEP]291.40     (Cluster 0, 1 frames)
+58           | 51K-065.41           | 52F-1674             (Cluster 0, 10 frames)
+60           | 47-G1[SEP]259.46     | 47-G1[SEP]259.46     (Cluster 0, 10 frames)
+69           | 60A[SEP]000.57       |                     
+70           | 50-1[SEP]3050        |                     
+75           | 60A[SEP]009.37       |                     
+78           | 60F1[SEP]000.15      |                     
+83           | 60-BA[SEP]230.10     |                     
+84           | 50D[SEP]020.58       |                     
+89           | 50-AD[SEP]09.34      |                     
+94           | 49-K1[SEP]180.04     |                     
+101          | 49-K1[SEP]080.60     |                     
+103          | 6-A1[SEP]000.33      |                     
+105          | 28-B1[SEP]832.54     |                     
+108          | 26-MĐ1[SEP]010.27    | 79-V1[SEP]537.31     (Cluster 0, 10 frames)
+110          | 65-A[SEP]04.47       |                     
+118          | 59-G1[SEP]585.53     | 59-G1[SEP]509.58     (Cluster 0, 7 frames)
+Processing đoạn_000.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+2            | 59-F1[SEP]382.95     | 51F[SEP]747.67       (Cluster 0, 6 frames)
+2 (split)    |                      | 59-F1[SEP]382.95     (Cluster 1, 4 frames)
+3            | 51-U7[SEP]5597       | 51-U7[SEP]5597       (Cluster 0, 10 frames)
+6            | 59-H1[SEP]867.79     | 59-H1[SEP]867.79     (Cluster 0, 10 frames)
+7            | 51A-11.11            |                     
+8            | 51-N2[SEP]5180       | 51-N2[SEP]5180       (Cluster 0, 10 frames)
+9            | 59-M1[SEP]270.56     | 59-N1[SEP]270.56     (Cluster 0, 10 frames)
+10           | 59-H1[SEP]858.60     | 59-H1[SEP]858.60     (Cluster 0, 10 frames)
+13           | 59-F1[SEP]382.95     | 59-F1[SEP]382.95     (Cluster 0, 10 frames)
+18           | 60-H1[SEP]G-62       |                     
+19           | 59-S3[SEP]272.07     | 59-S3[SEP]272.07     (Cluster 0, 10 frames)
+27           | 54-M4[SEP]4797       | 54-M4[SEP]4797       (Cluster 0, 10 frames)
+29           | 59A[SEP]2709         |                     
+41           | 59-L2[SEP]888.05     | 59-L2[SEP]888.05     (Cluster 0, 4 frames)
+42           | 59-H1[SEP]838.62     | 59-H1[SEP]838.62     (Cluster 0, 10 frames)
+44           | 59-L2[SEP]808.05     | 59-L2[SEP]808.05     (Cluster 0, 1 frames)
+52           | 59-N1[SEP]270.56     | 59-M1[SEP]270.56     (Cluster 0, 10 frames)
+55           | 37-FK[SEP]1096       |                     
+57           | 68-F1[SEP]297.63     | 68-F1[SEP]092.03     (Cluster 0, 5 frames)
+57 (split)   |                      | 68-S1[SEP]297.63     (Cluster 1, 4 frames)
+58           | 53-L4[SEP]3898       | 51-F4[SEP]1898       (Cluster 0, 9 frames)
+58 (split)   |                      | 71-B1[SEP]402.83     (Cluster 1, 1 frames)
+Processing đoạn_027.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 74-F1[SEP]090.02     | 74-F1[SEP]090.02     (Cluster 0, 10 frames)
+2            | 20L1[SEP]01.31       | 50-D2[SEP]8333       (Cluster 0, 10 frames)
+6            | 59-E1[SEP]965.22     | 59-E1[SEP]965.22     (Cluster 0, 10 frames)
+9            | 50-N2[SEP]048.50     | 50-N2[SEP]048.50     (Cluster 0, 10 frames)
+11           | 50Z2[SEP]8338        | 50D2[SEP]8333        (Cluster 0, 7 frames)
+12           | 54-S8[SEP]1028       | 54-S8[SEP]1028       (Cluster 0, 10 frames)
+14           | 28-F1[SEP]290.00     |                     
+15           | 76-N4[SEP]2074       | 76-X4[SEP]2974       (Cluster 0, 10 frames)
+17           | 59A[SEP]311-9        | 59-FA[SEP]301.89     (Cluster 0, 8 frames)
+20           | 50-Z2[SEP]933        | 50D2[SEP]8333        (Cluster 0, 10 frames)
+26           | 59-P1[SEP]553.32     | 59-P1[SEP]553.32     (Cluster 0, 10 frames)
+41           | 54-X2[SEP]2097       | 54-X2[SEP]2097       (Cluster 0, 10 frames)
+45           | 1F[SEP]000.57        |                     
+48           | 59-S3[SEP]420.69     | 59-S3[SEP]420.69     (Cluster 0, 10 frames)
+61           | 50BD-109.5           | 50-N2[SEP]048.50     (Cluster 0, 10 frames)
+66           | 54-X2[SEP]2097       | 54-X2[SEP]2097       (Cluster 0, 10 frames)
+67           | 51-K4[SEP]3471       | 51-K4[SEP]3471       (Cluster 0, 2 frames)
+72           | 51H-344.72           |                     
+73           | 54-S8[SEP]1028       | 54-S8[SEP]1028       (Cluster 0, 10 frames)
+78           | 54-X7[SEP]2097       | 54-X2[SEP]2097       (Cluster 0, 9 frames)
+83           | 59-S3[SEP]420.69     | 59-S3[SEP]420.69     (Cluster 0, 10 frames)
+85           | 64-S1[SEP]31229      |                     
+94           | 50-Z2[SEP]3273       | 50-Z2[SEP]8333       (Cluster 0, 9 frames)
+Processing đoạn_007.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 51G[SEP]578.55       | 51G[SEP]578.55       (Cluster 0, 10 frames)
+2            | 51D-228.96           | 51D-228.96           (Cluster 0, 10 frames)
+4            | 51B-128.39           | 51B-128.34           (Cluster 0, 10 frames)
+5            | 63-B1[SEP]202.85     | 41-B1[SEP]293.59     (Cluster 0, 10 frames)
+7            | 79-H1[SEP]092.64     | 79-H1[SEP]092.64     (Cluster 0, 10 frames)
+11           | 59-S2[SEP]903.65     | 59-S2[SEP]903.65     (Cluster 0, 5 frames)
+11 (split)   |                      | 59-F1[SEP]720.57     (Cluster 1, 5 frames)
+14           | 30A-173.21           | 54-T3[SEP]9411       (Cluster 0, 10 frames)
+25           | 68-C1[SEP]447.51     |                     
+26           | 59-S2[SEP]903.65     | 59-S2[SEP]903.65     (Cluster 0, 10 frames)
+36           | 62-Z1[SEP]04.08      | 82-E1[SEP]124.08     (Cluster 0, 8 frames)
+36 (split)   |                      | 62-E1[SEP]124.09     (Cluster 1, 2 frames)
+54           | 68-C1[SEP]475.94     | 68-C1[SEP]475.94     (Cluster 0, 10 frames)
+62           | 51B-17.4             |                     
+64           | 64-F5[SEP]8620       | 64-F5[SEP]8624       (Cluster 0, 5 frames)
+76           | 59A[SEP]033.01       |                     
+77           | 59-Y3[SEP]619.36     | 59-Y3[SEP]619.36     (Cluster 0, 10 frames)
+79           | 10-Đ1[SEP]000.23     |                     
+81           | 59-Y3[SEP]619.26     | 59-M2[SEP]321.73     (Cluster 0, 9 frames)
+82           | 59-S2[SEP]141.31     | 59-S2[SEP]141.31     (Cluster 0, 10 frames)
+85           | 59-N1[SEP]000.33     | 59-V1[SEP]238.23     (Cluster 0, 1 frames)
+95           | 59-F1[SEP]720.57     | 59-F1[SEP]720.57     (Cluster 0, 10 frames)
+101          | 69-A2[SEP]036.13     |                     
+105          | 54-P1[SEP]0039       |                     
+111          | 51A-1982             | 51A-1982             (Cluster 0, 10 frames)
+123          | 59-N2[SEP]321.73     | 59-N2[SEP]321.73     (Cluster 0, 10 frames)
+130          | 7-B1[SEP]034.16      | 77-B1[SEP]034.16     (Cluster 0, 2 frames)
+Processing đoạn_012.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 59-X[SEP]020.59      | 59-SA[SEP]020.59     (Cluster 0, 6 frames)
+5            | 59-D1[SEP]211.53     | 59-D1[SEP]211.53     (Cluster 0, 7 frames)
+7            | 59-S2[SEP]070.59     | 59-S2[SEP]020.59     (Cluster 0, 10 frames)
+14           | 59-P2[SEP]177.07     | 59-P2[SEP]177.07     (Cluster 0, 10 frames)
+15           | 59-B1[SEP]213.55     | 58-D1[SEP]217.55     (Cluster 0, 5 frames)
+15 (split)   |                      | 59-D1[SEP]213.59     (Cluster 1, 5 frames)
+16           | 59-L2[SEP]594.37     | 59-L2[SEP]594.37     (Cluster 0, 10 frames)
+18           | 43-A[SEP]021.S9      | 51-S1[SEP]767.59     (Cluster 0, 9 frames)
+18 (split)   |                      | 51K[SEP]767.55       (Cluster 1, 1 frames)
+25           | 51-T3[SEP]5413       | 54-T3[SEP]9411       (Cluster 0, 10 frames)
+26           | 47-A1[SEP]033.31     |                     
+27           | 66-B1[SEP]458.51     | 66-B1[SEP]458.51     (Cluster 0, 10 frames)
+35           | 60-A[SEP]25.59       | 59-S1[SEP]267.59     (Cluster 0, 10 frames)
+50           | 54-T3[SEP]9411       | 54-T3[SEP]9411       (Cluster 0, 10 frames)
+54           | 59-U1[SEP]428.51     | 59-U1[SEP]428.51     (Cluster 0, 10 frames)
+59           | 59-P2[SEP]177.07     | 59-P2[SEP]177.07     (Cluster 0, 10 frames)
+70           | 66-B1[SEP]458.51     | 66-B1[SEP]458.51     (Cluster 0, 10 frames)
+74           | 50A-101.19           | 59-L2[SEP]594.37     (Cluster 0, 8 frames)
+74 (split)   |                      | 59-K1[SEP]232.20     (Cluster 1, 2 frames)
+77           | 66-B1[SEP]458.51     | 66-B1[SEP]458.51     (Cluster 0, 2 frames)
+81           | 59H[SEP]410.00       |                     
+89           | 59-E1[SEP]090.29     |                     
+95           | 59-L2[SEP]594.37     | 59-L2[SEP]594.37     (Cluster 0, 10 frames)
+102          | 59-B2[SEP]020.53     | 50A[SEP]022.32       (Cluster 0, 1 frames)
+110          | 59-S1[SEP]767.58     | 59-S1[SEP]767.58     (Cluster 0, 1 frames)
+111          | 53-D2[SEP]020.53     |                     
+121          | 59-A[SEP]77551       |                     
+128          | 69-B1[SEP]072.22     |                     
+137          | 59-S1[SEP]767.59     | 59-S1[SEP]767.59     (Cluster 0, 10 frames)
+143          | 69-F1[SEP]600.55     | 66-B1[SEP]453.51     (Cluster 0, 8 frames)
+143 (split)  |                      | 68I[SEP]458.51       (Cluster 1, 2 frames)
+145          | 59-P2[SEP]177.07     | 59-P2[SEP]177.07     (Cluster 0, 10 frames)
+172          | 59-S1[SEP]767.55     | 59-S1[SEP]767.59     (Cluster 0, 10 frames)
+177          | 59-X2[SEP]003.85     |                     
+179          | 9D-097.72            |                     
+189          | 39-Z2[SEP]3411       | 54-T7[SEP]9411       (Cluster 0, 6 frames)
+194          | 428[SEP]1507         |                     
+Processing hn_oto_19.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 29E-000.05           | 29E-330.05           (Cluster 0, 10 frames)
+2            | 20-1[SEP]481.62      |                     
+5            | 14K[SEP]170.85       | 14K[SEP]170.85       (Cluster 0, 10 frames)
+12           | 30-F1[SEP]388.26     | 30A[SEP]438.26       (Cluster 0, 10 frames)
+Processing hn_oto_18.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 29K-113.45           | 29K-113.45           (Cluster 0, 9 frames)
+8            | 50-ĐA[SEP]070.43     |                     
+12           | 30G[SEP]5118.22      | 30G[SEP]518.27       (Cluster 0, 10 frames)
+24           | 99H-027.24           | 99H-027.24           (Cluster 0, 10 frames)
+26           | 60-B[SEP]020.47      |                     
+33           | 43A[SEP]160.35       |                     
+36           | 29-M1[SEP]909.73     | 29-M1[SEP]999.73     (Cluster 0, 9 frames)
+36 (split)   |                      | 23-D1[SEP]402.21     (Cluster 1, 1 frames)
+42           | 23-D1[SEP]402.21     | 23-D1[SEP]402.21     (Cluster 0, 10 frames)
+75           | 20F[SEP]315.33       | 20F[SEP]375.13       (Cluster 0, 10 frames)
+79           | 30F-416.64           | 30F-416.54           (Cluster 0, 10 frames)
+Processing hn_oto_09.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 90A[SEP]193.85       | 90A[SEP]193.85       (Cluster 0, 8 frames)
+2            | 29C[SEP]499.54       |                     
+5            | 30K-414.48           | 30K-414.48           (Cluster 0, 9 frames)
+12           | 30B-031.12           |                     
+17           | 34H[SEP]008.25       |                     
+19           | 90A[SEP]193.85       | 90A[SEP]193.85       (Cluster 0, 1 frames)
+22           | 99-91.11             | 99-N1[SEP]2354       (Cluster 0, 10 frames)
+28           | 29E[SEP]499.54       | 29E[SEP]499.54       (Cluster 0, 2 frames)
+30           | 29E[SEP]499.54       | 29E[SEP]499.54       (Cluster 0, 10 frames)
+32           | 30L-414.61           | 30L-414.61           (Cluster 0, 9 frames)
+33           | 30K-699.69           | 34-D1[SEP]397.98     (Cluster 0, 6 frames)
+33 (split)   |                      | 30K-699.69           (Cluster 1, 4 frames)
+37           | 29-T2[SEP]016.15     | 29-X2[SEP]016.54     (Cluster 0, 10 frames)
+38           | 30H[SEP]521.18       | 30H[SEP]821.16       (Cluster 0, 9 frames)
+51           | 10G-379.29           |                     
+53           | 50-B1[SEP]00N.30     |                     
+58           | 30B-803.43           |                     
+67           | 18B[SEP]110.56       |                     
+79           | 30H-319.94           | 30H-319.94           (Cluster 0, 9 frames)
+91           | 30Z-0449             | 30Z-0449             (Cluster 0, 10 frames)
+100          | 30E-156.74           | 30E-156.74           (Cluster 0, 10 frames)
+Processing hn_oto_11.mp4 ...
+
+Track        | Best Single Frame    | Multi-frame CTM     
+-------------------------------------------------------------------
+1            | 30L-434.18           | 30L-434.18           (Cluster 0, 10 frames)
+2            | 30M[SEP]20.31        | 30M[SEP]2031         (Cluster 0, 10 frames)
+27           | 19F-002.00           |                     
+32           | 51A-08.19            | 30B[SEP]269.42       (Cluster 0, 10 frames)
+46           | 29K-216.95           | 29K-216.95           (Cluster 0, 10 frames)
+47           | 29-Đ1[SEP]404.72     | 29-D1[SEP]435.72     (Cluster 0, 10 frames)
+57           | 14H[SEP]083.09       | 14H[SEP]083.09       (Cluster 0, 10 frames)

@@ -32,6 +32,7 @@ from api.core.ocr_ctm import fuse_ocr_outputs_ctm
 from api.core.quality_router import PlateQualityRouter
 from api.core.quality_scorer import quality_score
 from api.core.route_ocr import consume_route_ocr_results, prepare_route_ocr_jobs
+from api.core.track_ocr import _entries_with_deferred_ocr
 from api.core.tracker import WebTrackletManager
 from api.core.video_processor import crop_vehicle
 
@@ -119,6 +120,7 @@ def ocr_best_single_frames(
 
 def fuse_multiframe_results(
     tracker: WebTrackletManager,
+    models: object,
     *,
     top_k: int = TOP_K_FRAMES,
 ) -> dict[int, list[MultiFrameResult]]:
@@ -127,6 +129,8 @@ def fuse_multiframe_results(
     fused_tracks: dict[int, list[MultiFrameResult]] = {}
     for tid, buffer in sorted(tracker._buffers.items()):
         entries = buffer.top_k_entries(k=top_k)
+        entries = _entries_with_deferred_ocr(entries, models)
+
         scored_entries = [
             (entry.char_probs, entry.combined_score)
             for entry in entries
@@ -334,7 +338,7 @@ def run_eval(video_path: str) -> None:
         models.ocr,
         models.device,
     )
-    multiframe_results = fuse_multiframe_results(multiframe_tracker)
+    multiframe_results = fuse_multiframe_results(multiframe_tracker, models)
     print_evaluation_table(single_candidates, single_results, multiframe_results)
 
 

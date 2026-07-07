@@ -169,17 +169,10 @@ def _best_containing_vehicle_id(
     valid_candidates = []
     for vehicle in tracked:
         x1, y1, x2, y2 = (int(v) for v in vehicle["box"])
-        # Dynamic padding as used in crop_vehicle_regions
-        box_w = max(0, x2 - x1)
-        box_h = max(0, y2 - y1)
-        pad = max(int(round(max(box_w, box_h) * CASCADE_VEHICLE_PAD_RATIO)), CASCADE_VEHICLE_PAD_MIN)
-        
-        # Expand box by padding because plate detection runs on padded crops
-        px1, py1, px2, py2 = x1 - pad, y1 - pad, x2 + pad, y2 + pad
-        
-        if px1 <= cx <= px2 and py1 <= cy <= py2:
-            area = _box_area((px1, py1, px2, py2))
-            near_edge = _is_near_edge(box, (px1, py1, px2, py2))
+
+        if x1 <= cx <= x2 and y1 <= cy <= y2:
+            area = _box_area((x1, y1, x2, y2))
+            near_edge = _is_near_edge(box, (x1, y1, x2, y2))
             valid_candidates.append(
                 {
                     "id": int(vehicle["id"]),
