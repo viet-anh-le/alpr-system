@@ -24,7 +24,7 @@
 *.lai
 *.la
 *.a
-*.lib
+*.libs
 
 # Executables
 *.exe
@@ -44,7 +44,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
