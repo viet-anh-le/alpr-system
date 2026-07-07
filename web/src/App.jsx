@@ -114,7 +114,16 @@ function DashboardPage() {
         setProcessedVideoExpected(preprocessMode !== "none");
 
         try {
-            const upload = await uploadVideo(file, preprocessMode, ocrBackend);
+            const upload = await uploadVideo(
+                file,
+                preprocessMode,
+                ocrBackend,
+                (frac) => {
+                    if (activeSessionRef.current !== sessionId) return;
+                    const pct = Math.round(frac * 100);
+                    setProgress({ frame: pct, total: 100, pct });
+                },
+            );
             if (activeSessionRef.current !== sessionId) return;
             setProcessedVideoExpected(upload.processedVideoExpected);
             setJobId(upload.jobId);
@@ -359,7 +368,7 @@ function AuthPage({ mode }) {
                     <p className="mt-4 max-w-xl text-base leading-7 text-[var(--color-text-muted)]">
                         Sản phẩm nhận dạng biển số xe, quản lý theo phiên, lịch
                         sử nhận dạng, ảnh đối chiếu và bộ đệm theo vết phương
-                        tiện.
+                        tiện theo từng tài khoản.
                     </p>
                     <div className="mt-8 grid gap-3 sm:grid-cols-3">
                         <AuthMetric

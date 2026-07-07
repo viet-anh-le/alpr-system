@@ -8,6 +8,7 @@ import EventsPanel from "./EventsPanel";
 import useEventStream from "../../hooks/monitor/useEventStream";
 import { postMark } from "../../hooks/monitor/useMark";
 import { API_BASE, resolveApiUrl } from "../../apiClient";
+import { SINGLE_UPLOAD_MAX, uploadInChunks } from "../../lib/chunkedUpload";
 
 function cleanupMonitorSession(session) {
     if (!session?.sessionId) return;
@@ -168,19 +169,40 @@ export default function MonitorPage() {
         setError(null);
         setPendingAction("upload");
         try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("preprocess_mode", preprocessMode);
-            formData.append("ocr_backend", ocrBackend);
-            const response = await fetch(`${API_BASE}/monitor/upload`, {
-                method: "POST",
-                body: formData,
-            });
-            if (!response.ok) {
-                setError(`Tải video thất bại: ${await response.text()}`);
-                return;
+            const poster = (path, options) =>
+                fetch(`${API_BASE}${path}`, options);
+            let data;
+            if (file.size > SINGLE_UPLOAD_MAX) {
+                data = await uploadInChunks({
+                    file,
+                    poster,
+                    paths: {
+                        chunk: "/monitor/upload/chunk",
+                        complete: "/monitor/upload/complete",
+                        abort: "/monitor/upload/chunk",
+                    },
+                    fields: {
+                        preprocess_mode: preprocessMode,
+                        ocr_backend: ocrBackend,
+                    },
+                });
+            } else {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("preprocess_mode", preprocessMode);
+                formData.append("ocr_backend", ocrBackend);
+                const response = await poster("/monitor/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+                if (!response.ok) {
+                    setError(
+                        `Tải video giám sát thất bại: ${await response.text()}`,
+                    );
+                    return;
+                }
+                data = await response.json();
             }
-            const data = await response.json();
             setSession({
                 mode: "upload",
                 sessionId: data.session_id,
@@ -274,7 +296,9 @@ export default function MonitorPage() {
                     <section className="surface-panel p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="section-label">Phiên đang chạy</p>
+                                <p className="section-label">
+                                    Phiên giám sát đang chạy
+                                </p>
                                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                                     {session.mode === "live"
                                         ? session.rtspUrl
