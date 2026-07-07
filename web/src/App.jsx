@@ -359,7 +359,7 @@ function AuthPage({ mode }) {
                     <p className="mt-4 max-w-xl text-base leading-7 text-[var(--color-text-muted)]">
                         Sản phẩm nhận dạng biển số xe, quản lý theo phiên, lịch
                         sử nhận dạng, ảnh đối chiếu và bộ đệm theo vết phương
-                        tiện theo từng tài khoản.
+                        tiện.
                     </p>
                     <div className="mt-8 grid gap-3 sm:grid-cols-3">
                         <AuthMetric
