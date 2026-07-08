@@ -22,7 +22,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Upload
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from api.core.config import normalize_ocr_backend
+from api.core.chunk_upload import ChunkUploadStore
+from api.core.config import MAX_UPLOAD_MB, normalize_ocr_backend
 from api.core.live_session import LiveSession, internal_mediamtx_path
 from api.core.preprocessing import normalize_preprocess_mode
 
@@ -37,6 +38,9 @@ _sessions_lock = threading.Lock()
 
 _WEBRTC_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_WEBRTC_BASE", "http://localhost:8889")
 _MJPEG_PUBLIC_BASE = os.environ.get("MEDIAMTX_PUBLIC_MJPEG_BASE", "")  # relative if blank
+# Small MJPEG buffer keeps live latency low: a full queue drops new frames
+# rather than accumulating a multi-second backlog. ~5 frames ≈ <0.5s at 12 fps.
+_MJPEG_QUEUE_SIZE = int(os.environ.get("MJPEG_QUEUE_SIZE", "5"))
 
 # Single-worker pool — only one mark analyzes at a time to avoid GPU contention.
 _event_executor = ThreadPoolExecutor(max_workers=1)
@@ -205,6 +209,7 @@ async def _monitor_upload_cleanup_loop() -> None:
     while True:
         cleanup_expired_upload_sessions()
         cleanup_stale_upload_files()
+        _monitor_chunk_store.cleanup_expired()
         await asyncio.sleep(MONITOR_CLEANUP_INTERVAL_SEC)
 
 
@@ -237,9 +242,59 @@ def cleanup_all_upload_sessions() -> None:
         ]
     for session_id in upload_session_ids:
         cleanup_upload_session(session_id, force=True)
+    _monitor_chunk_store.cleanup_all()
 
 
 # ── Upload mode ───────────────────────────────────────────────────────────────
+
+
+# Chunk parts for large monitor uploads (single POST is capped by Cloudflare's
+# ~100 MB body limit). Reassembled into MONITOR_UPLOAD_DIR, then treated exactly
+# like a normal monitor upload — so the file is deleted on session disconnect /
+# TTL cleanup just like the single-POST path.
+_ALLOWED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
+_monitor_chunk_store = ChunkUploadStore(
+    MONITOR_UPLOAD_DIR / "chunks", ttl_sec=MONITOR_UPLOAD_TTL_SEC
+)
+
+
+def _video_suffix(filename: str | None) -> str:
+    raw = Path(filename or "").suffix.lower()
+    return raw if raw in _ALLOWED_VIDEO_SUFFIXES else ".mp4"
+
+
+def _safe_remove(path: str | None) -> None:
+    if path:
+        Path(path).unlink(missing_ok=True)
+
+
+def _register_upload_session(
+    tmp_path: str,
+    filename: str,
+    normalized_mode: str,
+    normalized_ocr_backend: str,
+) -> dict:
+    """Register a monitor upload session for an already-written video file."""
+    session_id = _new_session_id()
+    now = _now()
+    monitor_sessions[session_id] = {
+        "kind": "upload",
+        "path": tmp_path,
+        "filename": filename or "video.mp4",
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": normalized_ocr_backend,
+        "created_at": now,
+        "last_access_at": now,
+        "active_events": 0,
+        "cleanup_requested": False,
+    }
+    event_queues[session_id] = asyncio.Queue()
+    return {
+        "session_id": session_id,
+        "video_url": f"/monitor/upload/{session_id}/video",
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": normalized_ocr_backend,
+    }
 
 
 @router.post("/monitor/upload")
@@ -255,10 +310,7 @@ async def monitor_upload(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    session_id = _new_session_id()
-    _ALLOWED_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
-    raw_suffix = Path(file.filename or "").suffix.lower()
-    suffix = raw_suffix if raw_suffix in _ALLOWED_SUFFIXES else ".mp4"
+    suffix = _video_suffix(file.filename)
     MONITOR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         delete=False,
@@ -270,25 +322,101 @@ async def monitor_upload(
             f.write(chunk)
         tmp_path = f.name
 
-    now = _now()
-    monitor_sessions[session_id] = {
-        "kind": "upload",
-        "path": tmp_path,
-        "filename": file.filename or "video.mp4",
-        "preprocess_mode": normalized_mode,
-        "ocr_backend": normalized_ocr_backend,
-        "created_at": now,
-        "last_access_at": now,
-        "active_events": 0,
-        "cleanup_requested": False,
-    }
-    event_queues[session_id] = asyncio.Queue()
+    return _register_upload_session(
+        tmp_path, file.filename or "video.mp4", normalized_mode, normalized_ocr_backend
+    )
+
+
+@router.post("/monitor/upload/chunk")
+async def monitor_upload_chunk(
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    filename: str = Form("video.mp4"),
+    chunk: UploadFile = File(...),
+) -> dict:
+    """Receive one chunk of a large monitor-mode video (see _monitor_chunk_store)."""
+    _monitor_chunk_store.cleanup_expired()
+    err = _monitor_chunk_store.validate_params(upload_id, chunk_index, total_chunks)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+
+    meta = _monitor_chunk_store.begin_or_get(
+        upload_id, owner="", filename=filename or "video.mp4", suffix=_video_suffix(filename)
+    )
+    data = await chunk.read()
+    if not _monitor_chunk_store.write_chunk(meta, chunk_index, data, MAX_UPLOAD_MB * 1024 * 1024):
+        _monitor_chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB"
+        )
     return {
-        "session_id": session_id,
-        "video_url": f"/monitor/upload/{session_id}/video",
-        "preprocess_mode": normalized_mode,
-        "ocr_backend": normalized_ocr_backend,
+        "upload_id": upload_id,
+        "received": _monitor_chunk_store.received_count(meta),
+        "total_chunks": total_chunks,
     }
+
+
+@router.post("/monitor/upload/complete")
+async def monitor_upload_complete(
+    upload_id: str = Form(...),
+    total_chunks: int = Form(...),
+    preprocess_mode: str = Form("none"),
+    ocr_backend: str = Form("default"),
+) -> dict:
+    """Reassemble monitor upload chunks and open the playback session."""
+    try:
+        normalized_mode = normalize_preprocess_mode(preprocess_mode)
+        normalized_ocr_backend = _runtime_ocr_backend(ocr_backend)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    meta = _monitor_chunk_store.get(upload_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Upload không tồn tại hoặc đã hết hạn")
+
+    missing = _monitor_chunk_store.missing_chunks(meta, total_chunks)
+    if missing:
+        _monitor_chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Thiếu {len(missing)} mảnh (vd chunk {missing[0]}) — hãy tải lại",
+        )
+
+    MONITOR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=meta["suffix"], prefix=MONITOR_UPLOAD_PREFIX,
+            dir=MONITOR_UPLOAD_DIR,
+        ) as f:
+            tmp_path = f.name
+            written = _monitor_chunk_store.assemble_into(meta, total_chunks, f, max_bytes)
+        if written == 0:
+            raise HTTPException(status_code=400, detail="Video rỗng")
+    except ValueError:
+        _safe_remove(tmp_path)
+        _monitor_chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB"
+        )
+    except BaseException:
+        _safe_remove(tmp_path)
+        _monitor_chunk_store.discard(upload_id)
+        raise
+
+    _monitor_chunk_store.discard(upload_id)
+    return _register_upload_session(
+        tmp_path, meta["filename"], normalized_mode, normalized_ocr_backend
+    )
+
+
+@router.delete("/monitor/upload/chunk/{upload_id}")
+async def monitor_abort_chunk_upload(upload_id: str) -> dict:
+    """Explicitly discard an in-progress monitor chunk upload."""
+    _monitor_chunk_store.discard(upload_id)
+    return {"ok": True}
 
 
 @router.delete("/monitor/upload/{session_id}")
@@ -333,7 +461,7 @@ async def monitor_live_connect(body: ConnectBody) -> dict:
     existing_path = internal_mediamtx_path(body.rtsp_url)
     path = existing_path or f"live_{session_id[4:]}"  # MediaMTX path name
     owns_mediamtx_path = existing_path is None
-    mjpeg_q: asyncio.Queue = asyncio.Queue(maxsize=60)
+    mjpeg_q: asyncio.Queue = asyncio.Queue(maxsize=_MJPEG_QUEUE_SIZE)
 
     sess = LiveSession(
         session_id=session_id,

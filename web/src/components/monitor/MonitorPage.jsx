@@ -196,9 +196,7 @@ export default function MonitorPage() {
                     body: formData,
                 });
                 if (!response.ok) {
-                    setError(
-                        `Tải video giám sát thất bại: ${await response.text()}`,
-                    );
+                    setError(`Tải video thất bại: ${await response.text()}`);
                     return;
                 }
                 data = await response.json();
@@ -296,9 +294,7 @@ export default function MonitorPage() {
                     <section className="surface-panel p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="section-label">
-                                    Phiên giám sát đang chạy
-                                </p>
+                                <p className="section-label">Phiên đang chạy</p>
                                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                                     {session.mode === "live"
                                         ? session.rtspUrl

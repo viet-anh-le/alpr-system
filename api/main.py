@@ -32,6 +32,7 @@ from api.core.config import (
     WEB_ORIGIN,
     normalize_ocr_backend,
 )
+from api.core.chunk_upload import ChunkUploadStore
 from api.core.models import ModelBundle, load_models
 from api.core.pipeline import run_job
 from api.core.preprocessed_video import (
@@ -61,6 +62,18 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".webm", ".mov", ".mkv"}
 MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", "2"))
 _job_semaphore: asyncio.Semaphore | None = None  # created after event loop exists
 
+# ── Chunked upload ────────────────────────────────────────────────────────────
+# Proxies in front of the API cap request bodies (Cloudflare free = 100 MB), so a
+# single POST /upload can't carry large videos. The client splits the file into
+# sub-limit chunks; the server reassembles them on local disk, then runs the same
+# job. The reassembled file is deleted by run_job's finally when the processing
+# session ends; chunk parts are cleaned by the store (see api/core/chunk_upload).
+_CHUNK_UPLOAD_TTL_SEC = int(os.environ.get("CHUNK_UPLOAD_TTL_SEC", str(60 * 60)))
+_chunk_store = ChunkUploadStore(
+    Path(os.environ.get("CHUNK_UPLOAD_DIR", tempfile.gettempdir())) / "alpr_chunk_uploads",
+    ttl_sec=_CHUNK_UPLOAD_TTL_SEC,
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,6 +91,7 @@ async def lifespan(app: FastAPI):
         await stop_preprocessed_video_cleanup_task()
         routes_monitor.cleanup_all_upload_sessions()
         clear_preprocessed_video_artifacts()
+        _chunk_store.cleanup_all()
         await close_db()
         routes_monitor._event_executor.shutdown(wait=False, cancel_futures=True)
 
@@ -126,14 +140,17 @@ def _validate_video_file(file: UploadFile, data: bytes) -> str:
     return suffix
 
 
-@app.post("/upload")
-async def upload(
-    request: Request,
-    file: UploadFile = File(...),
-    preprocess_mode: str = Form("none"),
-    ocr_backend: str = Form("default"),
-    current_user: User = Depends(get_current_user_with_csrf),
-) -> dict:
+def _safe_unlink(path: str | None) -> None:
+    if not path:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+def _normalize_modes(preprocess_mode: str, ocr_backend: str) -> tuple[str, str]:
+    """Normalize preprocess + OCR backend, mapping ValueError to HTTP 400."""
     try:
         normalized_mode = normalize_preprocess_mode(preprocess_mode)
         normalized_ocr_backend = normalize_ocr_backend(ocr_backend)
@@ -142,32 +159,45 @@ async def upload(
     runtime_ocr_backend = (
         "default" if ocr_backend.strip().lower() == "default" else normalized_ocr_backend
     )
-    cleanup_expired_preprocessed_video_artifacts()
+    return normalized_mode, runtime_ocr_backend
 
-    job_id      = uuid.uuid4().hex[:8]
-    queue       = asyncio.Queue()
-    mjpeg_queue = None
-    _jobs[job_id]         = queue
-    _job_owners[job_id]   = _user_id(current_user)
-    if mjpeg_queue is not None:
-        _mjpeg_queues[job_id] = mjpeg_queue
 
-    file_bytes = await file.read()
-    suffix = _validate_video_file(file, file_bytes)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-        f.write(file_bytes)
-        tmp = f.name
+def _validate_video_suffix(filename: str | None) -> str:
+    suffix = Path(filename or "video.mp4").suffix.lower() or ".mp4"
+    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Định dạng video không được hỗ trợ")
+    return suffix
 
-    # ── GPU semaphore: lazy init (needs running event loop) ────────────────
+
+def _launch_video_job(
+    request: Request,
+    current_user: User,
+    tmp: str,
+    filename: str,
+    normalized_mode: str,
+    runtime_ocr_backend: str,
+) -> dict:
+    """Register + launch a processing job for an already-assembled temp video.
+
+    On a queue-full rejection the temp file is removed immediately; otherwise
+    run_job deletes it in its finally when the processing session ends.
+    """
     global _job_semaphore
     if _job_semaphore is None:
         _job_semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
 
     if _job_semaphore.locked():
+        _safe_unlink(tmp)
         raise HTTPException(
             status_code=429,
             detail=f"Server đang xử lý tối đa {MAX_CONCURRENT_JOBS} video. Vui lòng thử lại sau.",
         )
+
+    job_id = uuid.uuid4().hex[:8]
+    queue: asyncio.Queue = asyncio.Queue()
+    mjpeg_queue = None
+    _jobs[job_id] = queue
+    _job_owners[job_id] = _user_id(current_user)
 
     loop = asyncio.get_event_loop()
 
@@ -175,8 +205,8 @@ async def upload(
         async with _job_semaphore:
             await loop.run_in_executor(
                 None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
-                file.filename or "video.mp4", mjpeg_queue, normalized_mode, runtime_ocr_backend,
-                _user_id(current_user), _job_owners
+                filename, mjpeg_queue, normalized_mode, runtime_ocr_backend,
+                _user_id(current_user), _job_owners,
             )
 
     asyncio.ensure_future(_run_with_semaphore())
@@ -186,6 +216,139 @@ async def upload(
         "ocr_backend": runtime_ocr_backend,
         "processed_video_expected": normalized_mode != "none",
     }
+
+
+@app.post("/upload")
+async def upload(
+    request: Request,
+    file: UploadFile = File(...),
+    preprocess_mode: str = Form("none"),
+    ocr_backend: str = Form("default"),
+    current_user: User = Depends(get_current_user_with_csrf),
+) -> dict:
+    normalized_mode, runtime_ocr_backend = _normalize_modes(preprocess_mode, ocr_backend)
+    cleanup_expired_preprocessed_video_artifacts()
+
+    file_bytes = await file.read()
+    suffix = _validate_video_file(file, file_bytes)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+        f.write(file_bytes)
+        tmp = f.name
+
+    return _launch_video_job(
+        request, current_user, tmp, file.filename or "video.mp4",
+        normalized_mode, runtime_ocr_backend,
+    )
+
+
+@app.post("/upload/chunk")
+async def upload_chunk(
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    filename: str = Form("video.mp4"),
+    chunk: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_with_csrf),
+) -> dict:
+    """Receive one chunk of a large video and persist it on disk.
+
+    The client sizes each chunk to stay under the fronting proxy's body limit
+    (Cloudflare free = 100 MB). Parts are written per-index so retries are
+    idempotent, then reassembled by /upload/complete.
+    """
+    _chunk_store.cleanup_expired()
+
+    err = _chunk_store.validate_params(upload_id, chunk_index, total_chunks)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+
+    owner = _user_id(current_user)
+    existing = _chunk_store.get(upload_id)
+    if existing is not None and existing["owner"] != owner:
+        raise HTTPException(status_code=403, detail="Không có quyền với upload này")
+    suffix = _validate_video_suffix(filename)
+    meta = _chunk_store.begin_or_get(upload_id, owner, filename or "video.mp4", suffix)
+
+    data = await chunk.read()
+    if not _chunk_store.write_chunk(meta, chunk_index, data, MAX_UPLOAD_MB * 1024 * 1024):
+        _chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB"
+        )
+
+    return {
+        "upload_id": upload_id,
+        "received": _chunk_store.received_count(meta),
+        "total_chunks": total_chunks,
+    }
+
+
+@app.post("/upload/complete")
+async def upload_complete(
+    request: Request,
+    upload_id: str = Form(...),
+    total_chunks: int = Form(...),
+    preprocess_mode: str = Form("none"),
+    ocr_backend: str = Form("default"),
+    current_user: User = Depends(get_current_user_with_csrf),
+) -> dict:
+    """Reassemble uploaded chunks into one video on disk and start processing."""
+    normalized_mode, runtime_ocr_backend = _normalize_modes(preprocess_mode, ocr_backend)
+    cleanup_expired_preprocessed_video_artifacts()
+
+    meta = _chunk_store.get(upload_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Upload không tồn tại hoặc đã hết hạn")
+    if meta["owner"] != _user_id(current_user):
+        raise HTTPException(status_code=403, detail="Không có quyền với upload này")
+
+    missing = _chunk_store.missing_chunks(meta, total_chunks)
+    if missing:
+        _chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Thiếu {len(missing)} mảnh (vd chunk {missing[0]}) — hãy tải lại",
+        )
+
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    tmp: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=meta["suffix"]) as f:
+            tmp = f.name
+            written = _chunk_store.assemble_into(meta, total_chunks, f, max_bytes)
+        if written == 0:
+            raise HTTPException(status_code=400, detail="Video rỗng")
+    except ValueError:
+        _safe_unlink(tmp)
+        _chunk_store.discard(upload_id)
+        raise HTTPException(
+            status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB"
+        )
+    except BaseException:
+        _safe_unlink(tmp)
+        _chunk_store.discard(upload_id)
+        raise
+
+    # Parts are no longer needed once reassembled into `tmp`.
+    _chunk_store.discard(upload_id)
+
+    return _launch_video_job(
+        request, current_user, tmp, meta["filename"],
+        normalized_mode, runtime_ocr_backend,
+    )
+
+
+@app.delete("/upload/chunk/{upload_id}")
+async def abort_chunk_upload(
+    upload_id: str,
+    current_user: User = Depends(get_current_user_with_csrf),
+) -> dict:
+    """Explicitly discard an in-progress chunk upload (client cancels / leaves)."""
+    meta = _chunk_store.get(upload_id)
+    if meta is not None and meta["owner"] != _user_id(current_user):
+        raise HTTPException(status_code=403, detail="Không có quyền với upload này")
+    _chunk_store.discard(upload_id)
+    return {"ok": True}
 
 
 @app.get("/records/{job_id}/{track_id}")

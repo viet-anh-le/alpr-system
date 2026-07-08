@@ -27,6 +27,14 @@ _RECONNECT_RETRIES = 3
 _RECONNECT_BACKOFF_SEC = 1.0
 _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
+# ── MJPEG fallback tuning (env-overridable) ──────────────────────────────────
+# MJPEG sends a full JPEG per frame (no inter-frame compression), so high-res or
+# high-fps sources saturate bandwidth and stutter. Downscale + cap fps + lower
+# quality for the MJPEG copy only; the detection buffer keeps the full-res frame.
+_MJPEG_MAX_WIDTH = int(os.environ.get("MJPEG_MAX_WIDTH", "960"))  # 0 = no downscale
+_MJPEG_FPS = float(os.environ.get("MJPEG_FPS", "12"))  # 0 = every frame
+_MJPEG_QUALITY = int(os.environ.get("MJPEG_QUALITY", "70"))
+
 
 def _rtsp_port(parsed) -> int:
     return parsed.port or 554
@@ -134,19 +142,15 @@ class LiveSession:
 
             idx = 0
             attempts = 0
+            mjpeg_stride = max(1, round(fps / _MJPEG_FPS)) if _MJPEG_FPS > 0 else 1
             while not self._stop.is_set():
                 ret, frame = cap.read()
                 if not ret:
                     break
                 ts = idx / fps
                 self._push_frame(idx, frame, ts)
-                if self.mjpeg_queue is not None:
-                    ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                    if ok and not self.mjpeg_queue.full():
-                        try:
-                            self.mjpeg_queue.put_nowait(bytes(jpg))
-                        except Exception:
-                            pass
+                if self.mjpeg_queue is not None and idx % mjpeg_stride == 0:
+                    self._enqueue_mjpeg(frame)
                 idx += 1
 
             cap.release()
@@ -156,6 +160,29 @@ class LiveSession:
                 self._fail("RTSP stream lost (retry budget exhausted)")
                 return
             time.sleep(_RECONNECT_BACKOFF_SEC)
+
+    def _enqueue_mjpeg(self, frame: np.ndarray) -> None:
+        """Downscale + JPEG-encode a frame for the MJPEG fallback queue.
+
+        Drops the frame when the consumer is behind (full queue) so latency
+        stays bounded instead of building an ever-growing backlog.
+        """
+        if self.mjpeg_queue is None or self.mjpeg_queue.full():
+            return
+        mframe = frame
+        h, w = frame.shape[:2]
+        if _MJPEG_MAX_WIDTH and w > _MJPEG_MAX_WIDTH:
+            new_h = max(1, round(h * _MJPEG_MAX_WIDTH / w))
+            mframe = cv2.resize(
+                frame, (_MJPEG_MAX_WIDTH, new_h), interpolation=cv2.INTER_AREA
+            )
+        ok, jpg = cv2.imencode(".jpg", mframe, [cv2.IMWRITE_JPEG_QUALITY, _MJPEG_QUALITY])
+        if not ok:
+            return
+        try:
+            self.mjpeg_queue.put_nowait(bytes(jpg))
+        except Exception:
+            pass
 
     def _fail(self, msg: str) -> None:
         logger.error("LiveSession[%s]: %s", self.session_id, msg)
