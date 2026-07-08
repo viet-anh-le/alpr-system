@@ -208,26 +208,11 @@ def deduplicate_plate_candidates(
         if any(_box_iou(candidate["box"], kept["box"]) >= iou_threshold for kept in deduped):
             continue
         owner_id = _best_containing_vehicle_id(candidate["box"], tracked)
-        if owner_id is not None:
-            candidate = {**candidate, "source_vehicle_id": owner_id}
+        if owner_id is None:
+            continue
+        candidate = {**candidate, "source_vehicle_id": owner_id, "id": owner_id}
         deduped.append(candidate)
     return deduped
-
-
-def _assign_ids_from_deduped_source(candidates: list[dict]) -> list[dict]:
-    tracks: list[dict] = []
-    for candidate in candidates:
-        source_vehicle_id = _optional_int(candidate.get("source_vehicle_id"))
-        if source_vehicle_id is None:
-            continue
-        tracks.append(
-            {
-                **candidate,
-                "source_vehicle_id": source_vehicle_id,
-                "id": source_vehicle_id,
-            }
-        )
-    return tracks
 
 
 def _extract_obb_candidates(
@@ -277,7 +262,7 @@ def _extract_obb_candidates(
     return candidates
 
 
-def detect_plate_tracks_cascade(
+def detect_plates_cascade(
     frame: np.ndarray,
     tracked: list[dict],
     plate_model: Any,
@@ -308,10 +293,9 @@ def detect_plate_tracks_cascade(
     for result, vehicle_crop in zip(results, vehicle_crops):
         candidates.extend(_extract_obb_candidates(result, vehicle_crop, frame))
 
-    deduped = deduplicate_plate_candidates(candidates, tracked)
-    plate_tracks = _assign_ids_from_deduped_source(deduped)
+    detected_plates = deduplicate_plate_candidates(candidates, tracked)
     if timings is not None:
         timings["plate_postprocess"] = (
             timings.get("plate_postprocess", 0.0) + time.perf_counter() - start
         )
-    return plate_tracks
+    return detected_plates

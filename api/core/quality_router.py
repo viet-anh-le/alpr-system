@@ -20,46 +20,12 @@ RouteName = Literal["direct", "tracklet_fusion", "unreadable_wait"]
 _LEGIBILITY_NAMES: tuple[Legibility, ...] = ("illegible", "poor", "good", "perfect")
 
 
-@dataclass(frozen=True)
-class DegradationTags:
-    low_res: bool = False
-    motion_blur: bool = False
-    low_light: bool = False
-    low_contrast: bool = False
-    rain_or_haze: bool = False
-    faulty_color: bool = False
-    occluded: bool = False
-
-    def any_active(self) -> bool:
-        return any(self.as_dict().values())
-
-    def as_dict(self) -> dict[str, bool]:
-        return {
-            "low_res": self.low_res,
-            "motion_blur": self.motion_blur,
-            "low_light": self.low_light,
-            "low_contrast": self.low_contrast,
-            "rain_or_haze": self.rain_or_haze,
-            "faulty_color": self.faulty_color,
-            "occluded": self.occluded,
-        }
-
-    @classmethod
-    def merge(cls, tags: list["DegradationTags"]) -> "DegradationTags":
-        if not tags:
-            return cls()
-        merged: dict[str, bool] = {}
-        for key in cls.__dataclass_fields__:
-            merged[key] = any(getattr(tag, key) for tag in tags)
-        return cls(**merged)
-
 
 @dataclass(frozen=True)
 class PlateQualityResult:
     legibility: Legibility
     quality_bin: QualityBin
     router_conf: float
-    tags: DegradationTags
     route: RouteName
     quality_numeric: float
 
@@ -68,35 +34,25 @@ class PlateQualityResult:
             "route": self.route,
             "legibility": self.legibility,
             "quality_bin": self.quality_bin,
-            "degradation_tags": self.tags.as_dict(),
             "router_conf": round(float(self.router_conf), 4),
             "quality_score": round(float(self.quality_numeric), 4),
         }
 
 
 ClassifierFn = Callable[[np.ndarray], Mapping[str | int, float]]
-DiagnoserFn = Callable[[np.ndarray], DegradationTags]
 
 
 class PlateQualityRouter:
-    """Route rectified plate crops to direct OCR, fusion, or unreadable wait.
-
-    A trained classifier can be supplied as a callable returning class scores
-    for the LPLCv2 classes. When no classifier is available, deterministic
-    visual diagnostics provide a conservative fallback for local inference and
-    tests.
-    """
+    """Route rectified plate crops to direct OCR, fusion, or unreadable wait."""
 
     def __init__(
         self,
         *,
         classifier: ClassifierFn | None = None,
-        diagnoser: DiagnoserFn | None = None,
         model_path: str | os.PathLike[str] | None = None,
         device: str | None = None,
     ) -> None:
         self.classifier = classifier
-        self.diagnoser = diagnoser
         self.model_path = Path(model_path) if model_path else None
         self.device = device
         self._model = None
@@ -110,16 +66,15 @@ class PlateQualityRouter:
 
     def route(self, crop_bgr: np.ndarray) -> PlateQualityResult:
         q = quality_score(crop_bgr) if crop_bgr.size else 0.0
-        tags = self.diagnoser(crop_bgr) if self.diagnoser else diagnose_degradation(crop_bgr)
         scores = self._predict_scores(crop_bgr)
 
         if scores:
             legibility, conf = _best_legibility(scores)
         else:
-            legibility, conf = _heuristic_legibility(q, tags)
+            legibility, conf = "illegible", 0.0
 
         quality_bin: QualityBin = "suitable" if legibility in {"perfect", "good"} else "unsuitable"
-        if legibility == "illegible" or tags.occluded:
+        if legibility == "illegible":
             route: RouteName = "unreadable_wait"
         elif quality_bin == "suitable":
             route = "direct"
@@ -130,7 +85,6 @@ class PlateQualityRouter:
             legibility=legibility,
             quality_bin=quality_bin,
             router_conf=float(conf),
-            tags=tags,
             route=route,
             quality_numeric=float(q),
         )
@@ -162,37 +116,7 @@ class PlateQualityRouter:
             return {}
 
 
-def diagnose_degradation(crop_bgr: np.ndarray) -> DegradationTags:
-    if crop_bgr.size == 0:
-        return DegradationTags(occluded=True)
 
-    h, w = crop_bgr.shape[:2]
-    gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-    brightness = float(gray.mean())
-    contrast = float(gray.std())
-    lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-
-    channel_means = crop_bgr.reshape(-1, 3).mean(axis=0)
-    color_spread = float(channel_means.max() - channel_means.min())
-    saturation = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)[:, :, 1]
-
-    low_res = h < MIN_PLATE_H * 2 or w < MIN_PLATE_W * 2 or (h * w) < (MIN_PLATE_H * MIN_PLATE_W * 2)
-    low_light = brightness < 70.0
-    low_contrast = contrast < 24.0
-    motion_blur = lap_var < BLUR_THRESHOLD
-    rain_or_haze = brightness > 125.0 and contrast < 34.0 and float(saturation.mean()) < 70.0
-    faulty_color = color_spread > 55.0
-    occluded = brightness < 18.0 and contrast < 8.0
-
-    return DegradationTags(
-        low_res=low_res,
-        motion_blur=motion_blur,
-        low_light=low_light,
-        low_contrast=low_contrast,
-        rain_or_haze=rain_or_haze,
-        faulty_color=faulty_color,
-        occluded=occluded,
-    )
 
 
 def _normalize_scores(scores: Mapping[str | int, float]) -> dict[str, float]:
@@ -215,13 +139,3 @@ def _best_legibility(scores: Mapping[str | int, float]) -> tuple[Legibility, flo
     return label, float(normalized[label])  # type: ignore[return-value]
 
 
-def _heuristic_legibility(q: float, tags: DegradationTags) -> tuple[Legibility, float]:
-    if tags.occluded or q < 0.08:
-        return "illegible", max(0.50, 1.0 - q)
-    if tags.low_res or tags.motion_blur or tags.low_light or tags.low_contrast:
-        return "poor", max(0.50, 1.0 - q)
-    if q >= 0.70:
-        return "perfect", min(0.99, q)
-    if q >= 0.35:
-        return "good", max(0.55, q)
-    return "poor", max(0.50, 1.0 - q)

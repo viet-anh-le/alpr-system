@@ -471,10 +471,10 @@ def small_lpr_ctc_ocr_batch(
     device: torch.device,
 ) -> list[tuple[list[tuple[str, float]], bool]]:
     model = wrapper.model.to(device).eval()
-    logits = model(images.to(device, non_blocking=True))
-    probs = torch.softmax(logits, dim=-1)
-    token_ids = probs.argmax(dim=-1)
-    token_probs = probs.max(dim=-1).values
+    logits = model(images.to(device, non_blocking=True)) 
+    probs = torch.softmax(logits, dim=-1) 
+    token_ids = probs.argmax(dim=-1) 
+    token_probs = probs.max(dim=-1).values 
 
     results: list[tuple[list[tuple[str, float]], bool]] = []
     for seq_ids, seq_probs in zip(token_ids, token_probs, strict=False):

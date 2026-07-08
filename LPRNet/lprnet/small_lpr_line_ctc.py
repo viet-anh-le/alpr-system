@@ -96,9 +96,7 @@ class SmallLPRLineCTC(nn.Module):
         self.pos_enc_2d = LearnablePositional2D(max_h=8, max_w=16, d_model=d_model)
         self.enc_norm = nn.LayerNorm(d_model)
 
-        self.global_head = (
-            nn.Linear(d_model, vocab_size) if self.use_global_head else None
-        )
+        self.global_head = nn.Linear(d_model, vocab_size) if self.use_global_head else None
         self.one_line_head = nn.Linear(d_model, vocab_size)
         self.top_head = nn.Linear(d_model, vocab_size)
         self.bottom_head = nn.Linear(d_model, vocab_size)

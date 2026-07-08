@@ -33,12 +33,9 @@ from typing import Callable
 import numpy as np
 import torch
 
-from .association import TrajectoryAssociator
-from .cascade_plate import detect_plate_tracks_cascade
+from .cascade_plate import detect_plates_cascade
 from .config import (
     ALPR_PREVIEW_FPS,
-    ASSOCIATION_AGREEMENT_RATIO,
-    ASSOCIATION_MATCH_FRAMES,
     FRAME_STRIDE,
     VEHICLE_CLASSES,
 )
@@ -89,8 +86,15 @@ def _finalise_track_ocr(
     user_id: str | None = None,
 ) -> None:
     _finalise_track_ocr_impl(
-        tid, tracker, models, emit, session_id, loop, record_save, ocr_backend=ocr_backend,
-        user_id=user_id
+        tid,
+        tracker,
+        models,
+        emit,
+        session_id,
+        loop,
+        record_save,
+        ocr_backend=ocr_backend,
+        user_id=user_id,
     )
 
 
@@ -150,9 +154,6 @@ def _vehicle_worker(
                          High → reader / disk I/O is the bottleneck.
       ``s2_put_stall`` — time blocked pushing to crop_q because Stage 3 is full.
                          High → Stage 3 (plate/OCR) is the bottleneck.
-
-    NOTE: BoT-SORT requires strictly sequential frame order — this must be
-    a *single* thread (no parallel workers here).
     """
 
     def _add_timing(name: str, started_at: float) -> None:
@@ -174,11 +175,9 @@ def _vehicle_worker(
                 break
 
             src_idx, frame, _ts = item
-            frame_idx = src_idx + 1  # 1-based, matches pipeline_core convention
+            frame_idx = src_idx + 1  
             vehicle_frame = (
-                frame
-                if preprocess_mode == "none"
-                else apply_preprocessing(frame, preprocess_mode)
+                frame if preprocess_mode == "none" else apply_preprocessing(frame, preprocess_mode)
             )
             if preprocessed_frame_recorder is not None:
                 try:
@@ -188,7 +187,9 @@ def _vehicle_worker(
 
             # ── Vehicle detection ─────────────────────────────────────────────
             stage_start = time.perf_counter()
-            v_pred = models.vehicle.predict(vehicle_frame, classes=VEHICLE_CLASSES, verbose=False)[0]
+            v_pred = models.vehicle.predict(vehicle_frame, classes=VEHICLE_CLASSES, verbose=False)[
+                0
+            ]
             _add_timing("vehicle_detect", stage_start)
 
             if v_pred.boxes is not None and len(v_pred.boxes) > 0:
@@ -227,7 +228,9 @@ def _vehicle_worker(
 
             # Forward to Stage 3 — measure stall if crop_q is full (Stage 3 slow)
             _put_t = time.perf_counter()
-            crop_q.put((frame_idx, processed_count, frame, vehicle_frame, tracked, currently_tracked))
+            crop_q.put(
+                (frame_idx, processed_count, frame, vehicle_frame, tracked, currently_tracked)
+            )
             _add_timing("s2_put_stall", _put_t)
 
     except Exception:
@@ -250,7 +253,6 @@ def _plate_ocr_worker(
     crop_q: queue.Queue,
     models: ModelBundle,
     tracker: WebTrackletManager,
-    associator: TrajectoryAssociator,
     emit: Callable[[dict], None],
     session_id: str,
     loop: asyncio.AbstractEventLoop | None,
@@ -324,20 +326,21 @@ def _plate_ocr_worker(
             # ── Cascade plate detection ───────────────────────────────────────
             active_tids: set[int] = set()
             tracked_for_ocr = [v for v in tracked if tracker.should_ocr(int(v["id"]))]
-            plate_tracks = detect_plate_tracks_cascade(
+            detected_plates = detect_plates_cascade(
                 frame, tracked_for_ocr, models.plate, timings=timings
             )
 
             stage_start = time.perf_counter()
-            firm_matches = associator.process_frame(plate_tracks, tracked_for_ocr)
-            _add_timing("association", stage_start)
-
+            visible_vehicles = {int(v["id"]): v["box"] for v in tracked_for_ocr}
+            
             matched: list[tuple[int, np.ndarray, np.ndarray]] = []
-            for v_tid, p in firm_matches:
-                v_box = associator.vehicle_cache.get(v_tid)
-                if v_box is not None:
-                    vehicle_crop = _crop_vehicle(frame, v_box)
+            for p in detected_plates:
+                v_tid = p.get("id")
+                if v_tid is not None and v_tid in visible_vehicles:
+                    vehicle_crop = _crop_vehicle(frame, visible_vehicles[v_tid])
                     matched.append((v_tid, p["crop"], vehicle_crop))
+                    
+            _add_timing("association", stage_start)
 
             # ── Batch OCR ─────────────────────────────────────────────────────
             stage_start = time.perf_counter()
@@ -374,10 +377,7 @@ def _plate_ocr_worker(
             # ── SSE preview frame ────────────────────────────────────────────
             if preview_stride > 0:
                 preview_seen += 1
-            if (
-                preview_stride > 0
-                and preview_seen % preview_stride == 0
-            ):
+            if preview_stride > 0 and preview_seen % preview_stride == 0:
                 box_dicts = [
                     {
                         "id": v["id"],
@@ -444,10 +444,6 @@ def process_frames_async(
 
     # Shared state
     tracker = WebTrackletManager()
-    associator = TrajectoryAssociator(
-        match_frames=ASSOCIATION_MATCH_FRAMES,
-        agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
-    )
     vehicle_tracker = models.create_vehicle_tracker()
 
     stop_event = threading.Event()
@@ -489,7 +485,6 @@ def process_frames_async(
             crop_q,
             models,
             tracker,
-            associator,
             emit,
             session_id,
             loop,
@@ -528,8 +523,7 @@ def process_frames_async(
     for tid in list(tracker._buffers):
         if tracker.should_ocr(tid) and tracker.ready_for_track_ocr(tid):
             _finalise_track_ocr(
-                tid, tracker, models, emit, session_id, loop, record_save, ocr_backend,
-                user_id
+                tid, tracker, models, emit, session_id, loop, record_save, ocr_backend, user_id
             )
 
     # ── Final snapshot ────────────────────────────────────────────────────────

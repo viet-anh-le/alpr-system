@@ -44,6 +44,8 @@ class SmallLPRLineCTCLightning(L.LightningModule):
             use_pos_enc=bool(getattr(args, "use_pos_enc", True)),
             use_global_head=self.use_global_head,
         )
+        self._line_prior_strength_init = float(getattr(args, "line_prior_strength", 1.0))
+        self._line_prior_warmup_epochs = int(getattr(args, "line_prior_warmup_epochs", 15))
         self.ctc = nn.CTCLoss(blank=0, zero_infinity=True)
         self.global_loss_weight = float(getattr(args, "global_loss_weight", 1.0))
         self.one_line_loss_weight = float(getattr(args, "one_line_loss_weight", 1.0))
@@ -59,6 +61,11 @@ class SmallLPRLineCTCLightning(L.LightningModule):
             raise ValueError("Disabling the global head requires global_loss_weight=0.")
         if not self.use_global_head and self.decode_mode == "global":
             raise ValueError("decode_mode='global' requires the global head to be enabled.")
+
+    def on_train_epoch_start(self) -> None:
+        warmup = max(1, self._line_prior_warmup_epochs)
+        factor = max(0.0, 1.0 - self.current_epoch / warmup)
+        self.model.line_prior_strength = self._line_prior_strength_init * factor
 
     def forward(self, images: torch.Tensor) -> dict[str, torch.Tensor]:
         return self.model(images)
@@ -385,7 +392,9 @@ def _select_ctc_targets(
     )
 
 
-def _exact_match_accuracy(preds: List[str], targets: List[str], device: torch.device) -> torch.Tensor:
+def _exact_match_accuracy(
+    preds: List[str], targets: List[str], device: torch.device
+) -> torch.Tensor:
     if not preds:
         return torch.tensor(0.0, dtype=torch.float32, device=device)
     correct = sum(pred == target for pred, target in zip(preds, targets, strict=False))

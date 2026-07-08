@@ -26,7 +26,7 @@ from .ocr_ambiguity import correct_ambiguous_chars
 from .ocr_candidates import OcrCandidateResult, build_candidate_crops, rerank_ocr_candidates
 from .ocr_cluster import cluster_ocr_results
 from .ocr_ctm import CTMFusionResult, fuse_ocr_outputs_ctm
-from .quality_router import DegradationTags
+
 from .tracker import TrackBufferEntry, WebTrackletManager
 
 logger = logging.getLogger(__name__)
@@ -334,7 +334,7 @@ def _entries_with_deferred_ocr(
     for entry in entries:
         if entry.char_probs or entry.route == "unreadable_wait":
             continue
-        for method, crop in build_candidate_crops(entry.crop, _tags_from_entry(entry)):
+        for method, crop in build_candidate_crops(entry.crop):
             pending.append((len(pending_entries), method, crop))
             pending_entries.append(entry)
 
@@ -396,16 +396,7 @@ def _entries_with_deferred_ocr(
 # ── Shared helpers (unchanged) ────────────────────────────────────────────────
 
 
-def _tags_from_entry(entry: TrackBufferEntry) -> DegradationTags:
-    raw_tags = entry.router_result.get("degradation_tags", {})
-    if not isinstance(raw_tags, dict):
-        raw_tags = {}
-    return DegradationTags(
-        **{
-            key: bool(raw_tags.get(key, False))
-            for key in DegradationTags.__dataclass_fields__
-        }
-    )
+
 
 
 def _store_best_plate_image(

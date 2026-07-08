@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-# Project root: api/core/ → api/ → ALPR_Vietnamese/
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -230,7 +229,7 @@ MIN_FRAME_VOTES = 2  # OCR frames required before marking a vehicle done
 # ── Track buffer & lifecycle ──────────────────────────────────────────────────
 MAX_BUFFER = 10  # max plate crops stored per track
 MIN_FRAMES_FOR_OCR = 2  # min buffered frames before final track-level OCR vote
-LOST_THRESHOLD = 5  # consecutive missing strides before track is finalised
+LOST_THRESHOLD = 30  # consecutive missing strides before track is finalised
 TOP_K_FRAMES = 10  # how many top-quality OCR frames to pass to voting
 
 # ── Multi-cluster voting ──────────────────────────────────────────────────────
