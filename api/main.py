@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
@@ -33,15 +34,8 @@ from api.core.config import (
     normalize_ocr_backend,
 )
 from api.core.chunk_upload import ChunkUploadStore
-from api.core.models import ModelBundle, load_models
-from api.core.pipeline import run_job
-from api.core.preprocessed_video import (
-    clear_preprocessed_video_artifacts,
-    cleanup_expired_preprocessed_video_artifacts,
-    get_preprocessed_video_artifact,
-    start_preprocessed_video_cleanup_task,
-    stop_preprocessed_video_cleanup_task,
-)
+from api.core.models import load_models
+from api.core import jobstore
 from api.core.preprocessing import normalize_preprocess_mode
 from api.database.models import User
 from api.database.mongodb import close_db, init_db
@@ -49,18 +43,16 @@ import api.routes_monitor as routes_monitor
 
 logger = logging.getLogger(__name__)
 
-_jobs:         dict[str, asyncio.Queue] = {}   # SSE event queues
-_mjpeg_queues: dict[str, asyncio.Queue] = {}   # MJPEG frame queues
-_job_owners:   dict[str, str] = {}              # job_id → user_id
+_mjpeg_queues: dict[str, asyncio.Queue] = {}   # MJPEG frame queues (live monitor)
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".webm", ".mov", ".mkv"}
 
-# ── GPU concurrency limiter ───────────────────────────────────────────────────
-# Each ALPR video job consumes significant VRAM.  Limit concurrent jobs to
-# avoid CUDA OOM on a single GPU (e.g. RunPod RTX 3090 / 24 GB).
-MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", "2"))
-_job_semaphore: asyncio.Semaphore | None = None  # created after event loop exists
+# ── Shared upload directory ───────────────────────────────────────────────────
+# Assembled/received videos are handed to a separate worker container, so they
+# must live on a volume both containers mount (not the process-local temp dir).
+UPLOAD_DIR = Path(os.environ.get("ALPR_UPLOAD_DIR", tempfile.gettempdir())) / "alpr_uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Chunked upload ────────────────────────────────────────────────────────────
 # Proxies in front of the API cap request bodies (Cloudflare free = 100 MB), so a
@@ -77,9 +69,16 @@ _chunk_store = ChunkUploadStore(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.models = load_models()
+    # Batch video jobs run in the worker; models are only needed here for the
+    # live-monitor feature. Loading them is best-effort so the web API stays
+    # available (uploads still enqueue) even if the GPU/models are unavailable.
+    app.state.models = None
+    if os.environ.get("ALPR_API_LOAD_MODELS", "true").strip().lower() in {"1", "true", "yes", "on"}:
+        try:
+            app.state.models = load_models()
+        except Exception:
+            logger.exception("load_models failed — live-monitor disabled; uploads unaffected.")
     routes_monitor.start_monitor_cleanup_task()
-    start_preprocessed_video_cleanup_task()
     if MONGODB_URI:
         await init_db(MONGODB_URI, MONGODB_DB_NAME)
     else:
@@ -88,10 +87,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await routes_monitor.stop_monitor_cleanup_task()
-        await stop_preprocessed_video_cleanup_task()
         routes_monitor.cleanup_all_upload_sessions()
-        clear_preprocessed_video_artifacts()
         _chunk_store.cleanup_all()
+        await jobstore.close_redis()
         await close_db()
         routes_monitor._event_executor.shutdown(wait=False, cancel_futures=True)
 
@@ -108,6 +106,22 @@ app.add_middleware(
 )
 
 
+# ── Health probes ─────────────────────────────────────────────────────────────
+@app.get("/health")
+async def health() -> dict:
+    """Liveness: process is up. No dependencies — used to auto-restart a hung API."""
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready() -> dict:
+    """Readiness: Redis (queue/SSE substrate) reachable. 503 if not, so the proxy
+    stops routing traffic until dependencies recover."""
+    if not await jobstore.ping():
+        raise HTTPException(status_code=503, detail="redis unavailable")
+    return {"status": "ready"}
+
+
 # ── API routes ────────────────────────────────────────────────────────────────
 
 def _serialize_model(model) -> dict:
@@ -120,7 +134,8 @@ def _user_id(user: User) -> str:
     return str(user.id)
 
 
-def _validate_video_file(file: UploadFile, data: bytes) -> str:
+def _validate_video_meta(file: UploadFile) -> str:
+    """Validate extension + content-type without reading the body."""
     suffix = Path(file.filename or "video.mp4").suffix.lower() or ".mp4"
     if suffix not in ALLOWED_VIDEO_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Định dạng video không được hỗ trợ")
@@ -131,13 +146,33 @@ def _validate_video_file(file: UploadFile, data: bytes) -> str:
         or content_type in {"application/octet-stream", "application/x-matroska"}
     ):
         raise HTTPException(status_code=400, detail="File upload phải là video")
-
-    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
-    if len(data) > max_bytes:
-        raise HTTPException(status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB")
-    if not data:
-        raise HTTPException(status_code=400, detail="Video rỗng")
     return suffix
+
+
+async def _stream_upload_to_shared(file: UploadFile, suffix: str) -> str:
+    """Stream an upload to the shared volume in bounded chunks (no full-file
+    buffering in RAM), enforcing the size cap as bytes arrive."""
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    written = 0
+    fd, tmp = tempfile.mkstemp(suffix=suffix, dir=str(UPLOAD_DIR))
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > max_bytes:
+                    raise HTTPException(
+                        status_code=413, detail=f"Video vượt quá giới hạn {MAX_UPLOAD_MB} MB"
+                    )
+                out.write(chunk)
+        if written == 0:
+            raise HTTPException(status_code=400, detail="Video rỗng")
+    except BaseException:
+        _safe_unlink(tmp)
+        raise
+    return tmp
 
 
 def _safe_unlink(path: str | None) -> None:
@@ -169,47 +204,42 @@ def _validate_video_suffix(filename: str | None) -> str:
     return suffix
 
 
-def _launch_video_job(
-    request: Request,
+async def _enqueue_video_job(
     current_user: User,
     tmp: str,
     filename: str,
     normalized_mode: str,
     runtime_ocr_backend: str,
 ) -> dict:
-    """Register + launch a processing job for an already-assembled temp video.
+    """Enqueue an already-assembled video for the GPU worker(s).
 
-    On a queue-full rejection the temp file is removed immediately; otherwise
-    run_job deletes it in its finally when the processing session ends.
+    The video lives on the shared upload volume; a worker reads it, runs the
+    pipeline, and unlinks it when done. A per-user in-flight cap prevents one
+    user from monopolising the workers — over the cap we reject with 429 and
+    remove the temp file immediately. Unlike the old in-process semaphore, jobs
+    under the cap always queue (never hard-rejected for server busyness), so a
+    long video never blocks other users' requests.
     """
-    global _job_semaphore
-    if _job_semaphore is None:
-        _job_semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
-
-    if _job_semaphore.locked():
+    user_id = _user_id(current_user)
+    active = await jobstore.user_active_count(user_id)
+    if active >= jobstore.MAX_INFLIGHT_PER_USER:
         _safe_unlink(tmp)
         raise HTTPException(
             status_code=429,
-            detail=f"Server đang xử lý tối đa {MAX_CONCURRENT_JOBS} video. Vui lòng thử lại sau.",
+            detail=(
+                f"Bạn đang có {active} video trong hàng đợi/đang xử lý "
+                f"(tối đa {jobstore.MAX_INFLIGHT_PER_USER}). Vui lòng chờ hoàn tất."
+            ),
         )
-
     job_id = uuid.uuid4().hex[:8]
-    queue: asyncio.Queue = asyncio.Queue()
-    mjpeg_queue = None
-    _jobs[job_id] = queue
-    _job_owners[job_id] = _user_id(current_user)
-
-    loop = asyncio.get_event_loop()
-
-    async def _run_with_semaphore() -> None:
-        async with _job_semaphore:
-            await loop.run_in_executor(
-                None, run_job, tmp, job_id, queue, loop, request.app.state.models, _jobs,
-                filename, mjpeg_queue, normalized_mode, runtime_ocr_backend,
-                _user_id(current_user), _job_owners,
-            )
-
-    asyncio.ensure_future(_run_with_semaphore())
+    await jobstore.enqueue_job(job_id, user_id, {
+        "job_id": job_id,
+        "video_path": tmp,
+        "filename": filename,
+        "preprocess_mode": normalized_mode,
+        "ocr_backend": runtime_ocr_backend,
+        "user_id": user_id,
+    })
     return {
         "job_id": job_id,
         "preprocess_mode": normalized_mode,
@@ -220,23 +250,16 @@ def _launch_video_job(
 
 @app.post("/upload")
 async def upload(
-    request: Request,
     file: UploadFile = File(...),
     preprocess_mode: str = Form("none"),
     ocr_backend: str = Form("default"),
     current_user: User = Depends(get_current_user_with_csrf),
 ) -> dict:
     normalized_mode, runtime_ocr_backend = _normalize_modes(preprocess_mode, ocr_backend)
-    cleanup_expired_preprocessed_video_artifacts()
-
-    file_bytes = await file.read()
-    suffix = _validate_video_file(file, file_bytes)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-        f.write(file_bytes)
-        tmp = f.name
-
-    return _launch_video_job(
-        request, current_user, tmp, file.filename or "video.mp4",
+    suffix = _validate_video_meta(file)
+    tmp = await _stream_upload_to_shared(file, suffix)
+    return await _enqueue_video_job(
+        current_user, tmp, file.filename or "video.mp4",
         normalized_mode, runtime_ocr_backend,
     )
 
@@ -294,7 +317,6 @@ async def upload_complete(
 ) -> dict:
     """Reassemble uploaded chunks into one video on disk and start processing."""
     normalized_mode, runtime_ocr_backend = _normalize_modes(preprocess_mode, ocr_backend)
-    cleanup_expired_preprocessed_video_artifacts()
 
     meta = _chunk_store.get(upload_id)
     if meta is None:
@@ -313,7 +335,9 @@ async def upload_complete(
     max_bytes = MAX_UPLOAD_MB * 1024 * 1024
     tmp: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=meta["suffix"]) as f:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=meta["suffix"], dir=str(UPLOAD_DIR)
+        ) as f:
             tmp = f.name
             written = _chunk_store.assemble_into(meta, total_chunks, f, max_bytes)
         if written == 0:
@@ -332,8 +356,8 @@ async def upload_complete(
     # Parts are no longer needed once reassembled into `tmp`.
     _chunk_store.discard(upload_id)
 
-    return _launch_video_job(
-        request, current_user, tmp, meta["filename"],
+    return await _enqueue_video_job(
+        current_user, tmp, meta["filename"],
         normalized_mode, runtime_ocr_backend,
     )
 
@@ -374,11 +398,11 @@ async def get_preprocessed_video(
     job_id: str,
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
-    artifact = get_preprocessed_video_artifact(job_id, _user_id(current_user))
+    artifact = await jobstore.get_artifact(job_id, _user_id(current_user))
     if artifact is None:
         raise HTTPException(status_code=404, detail="Artifact not found")
     return FileResponse(
-        artifact.path,
+        artifact["path"],
         media_type="video/mp4",
         filename=f"{job_id}-preprocessed.mp4",
     )
@@ -386,21 +410,16 @@ async def get_preprocessed_video(
 
 @app.get("/stream/{job_id}")
 async def stream(job_id: str, current_user: User = Depends(get_current_user)) -> StreamingResponse:
-    queue = _jobs.get(job_id)
-    if queue is None:
-        return HTMLResponse("Job not found", status_code=404)
-    if _job_owners.get(job_id) != _user_id(current_user):
+    owner = await jobstore.get_owner(job_id)
+    if owner is None or owner != _user_id(current_user):
         return HTMLResponse("Job not found", status_code=404)
 
     async def gen():
-        while True:
-            try:
-                ev = await asyncio.wait_for(queue.get(), timeout=60.0)
-                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
-                if ev.get("type") in ("complete", "error"):
-                    break
-            except asyncio.TimeoutError:
-                yield 'data: {"type":"ping"}\n\n'
+        # jobstore.stream_events replays the full history (so a browser that
+        # connects after the worker started still gets every event), then blocks
+        # for live events, emitting pings on idle and stopping after complete/error.
+        async for data in jobstore.stream_events(job_id):
+            yield f"data: {data}\n\n"
 
     return StreamingResponse(
         gen(),
@@ -414,7 +433,7 @@ async def stream_mjpeg(job_id: str, current_user: User = Depends(get_current_use
     mjpeg_queue = _mjpeg_queues.get(job_id)
     if mjpeg_queue is None:
         return HTMLResponse("Job not found", status_code=404)
-    if _job_owners.get(job_id) != _user_id(current_user):
+    if await jobstore.get_owner(job_id) != _user_id(current_user):
         return HTMLResponse("Job not found", status_code=404)
 
     async def gen():
@@ -449,14 +468,86 @@ app.include_router(auth_router)
 @app.get("/sessions")
 async def list_sessions(
     limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    from api.database.mongodb import is_db_configured, list_sessions_for_user
+    from api.database.mongodb import count_sessions_for_user, is_db_configured, list_sessions_for_user
 
     if not is_db_configured():
         raise HTTPException(status_code=503, detail="Database not configured")
-    items = await list_sessions_for_user(_user_id(current_user), limit=limit)
-    return {"items": [_serialize_model(item) for item in items]}
+    user_id = _user_id(current_user)
+    items = await list_sessions_for_user(user_id, limit=limit, offset=offset)
+    total = await count_sessions_for_user(user_id)
+    return {
+        "items": [_serialize_model(item) for item in items],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+_HISTORY_FILTER_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+_VEHICLE_CLASS_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _validate_history_filter(name: str, value: str | None, pattern: re.Pattern[str]) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if not pattern.fullmatch(stripped):
+        raise HTTPException(status_code=400, detail=f"Invalid {name}")
+    return stripped
+
+
+@app.get("/records")
+async def list_records(
+    limit: int = Query(24, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    session_id: str | None = Query(None, min_length=1, max_length=128),
+    plate: str | None = Query(None, min_length=1, max_length=32),
+    vehicle_class: str | None = Query(None, min_length=1, max_length=40),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    from api.database.mongodb import (
+        count_records_for_user,
+        is_db_configured,
+        list_records_for_user,
+        summarize_records_for_user,
+    )
+
+    if not is_db_configured():
+        raise HTTPException(status_code=503, detail="Database not configured")
+
+    safe_session_id = _validate_history_filter("session_id", session_id, _HISTORY_FILTER_PATTERN)
+    safe_vehicle_class = _validate_history_filter(
+        "vehicle_class",
+        vehicle_class,
+        _VEHICLE_CLASS_PATTERN,
+    )
+    safe_plate = plate.strip() if plate else None
+    user_id = _user_id(current_user)
+    filters = {
+        "session_id": safe_session_id,
+        "plate": safe_plate,
+        "vehicle_class": safe_vehicle_class,
+    }
+    items = await list_records_for_user(
+        user_id,
+        limit=limit,
+        offset=offset,
+        **filters,
+    )
+    total = await count_records_for_user(user_id, **filters)
+    summary = await summarize_records_for_user(user_id, **filters)
+    return {
+        "items": [_serialize_model(item) for item in items],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "summary": summary,
+    }
 
 
 @app.get("/sessions/{session_id}")

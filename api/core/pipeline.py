@@ -80,6 +80,36 @@ def _session_update(session_id: str, patch: dict, loop: asyncio.AbstractEventLoo
         logger.exception("MongoDB: failed to update session %s", session_id)
 
 
+class _FrozenTrackerView:
+    """Read-only snapshot of ONE track's persistence state, captured synchronously
+    before the track is released so the async DB save never touches the live
+    (possibly already-cleaned-up) tracker.
+
+    Exposes exactly the attributes/methods that ``_record_save`` reads; the
+    captured TrackBuffer / image objects stay alive via these references even
+    after ``WebTrackletManager.release_track()`` pops them from the tracker dicts.
+    """
+
+    def __init__(self, tracker: WebTrackletManager, tid: int) -> None:
+        buf = tracker._buffers.get(tid)
+        self._buffers = {tid: buf} if buf is not None else {}
+        vimg = tracker._vehicle_img.get(tid)
+        self._vehicle_img = {tid: vimg} if vimg is not None else {}
+        self._cls = {tid: tracker._cls.get(tid, "vehicle")}
+        self._clusters = list(tracker.cluster_results(tid))
+        self._vehicle_track_id = tracker.vehicle_track_id(tid)
+        self._plate_track_id = tracker.plate_track_id(tid)
+
+    def cluster_results(self, tid: int) -> list[dict]:
+        return self._clusters
+
+    def vehicle_track_id(self, tid: int) -> int | None:
+        return self._vehicle_track_id
+
+    def plate_track_id(self, tid: int) -> int | None:
+        return self._plate_track_id
+
+
 def _record_save(
     session_id: str,
     tid: int,
@@ -93,6 +123,8 @@ def _record_save(
     """
     Build a RecognitionRecord from finalized tracker state and fire-and-forget
     save it to MongoDB.  Never raises — all errors are logged.
+
+    ``tracker`` may be a live WebTrackletManager or a _FrozenTrackerView snapshot.
 
     All images are uploaded to Supabase Storage; only public URLs are stored
     in MongoDB (no base64 blobs).
@@ -260,14 +292,16 @@ def _record_save_later(
     loop: asyncio.AbstractEventLoop,
     user_id: str | None = None,
 ) -> None:
-    """Schedule evidence persistence without blocking the inference worker."""
+    """Snapshot the tracker synchronously (before the track is released), then
+    persist evidence off the inference worker using that snapshot."""
+    frozen = _FrozenTrackerView(tracker, tid)
     try:
         loop.run_in_executor(
             None,
             _record_save,
             session_id,
             tid,
-            tracker,
+            frozen,
             char_probs,
             ocr_method,
             vote_summary,

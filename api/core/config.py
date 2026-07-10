@@ -95,6 +95,9 @@ PLATE_MODEL_PATH = _rooted_env_path(
 )
 REID_MODEL_PATH = _rooted_env_path("REID_MODEL_PATH", "weights/tracking/vehicle_reid.onnx")
 REID_DEVICE = os.environ.get("REID_DEVICE", "auto").strip().lower()
+# Vehicle tracker backend: "botsort" (BoT-SORT + ReID + CMC, accurate) or
+# "bytetrack" (IoU + Kalman only — much faster, no ReID/CMC). Switch via env var.
+VEHICLE_TRACKER_TYPE = os.environ.get("VEHICLE_TRACKER_TYPE", "bytetrack").strip().lower()
 
 OCR_BACKEND = os.environ.get("OCR_BACKEND", "smalllpr_line_ctc").strip().lower()
 
@@ -228,11 +231,10 @@ LAP_MAX = 500.0  # Laplacian variance ceiling for quality score normalisation
 MIN_FRAME_VOTES = 2  # OCR frames required before marking a vehicle done
 
 # ── Track buffer & lifecycle ──────────────────────────────────────────────────
-MAX_BUFFER = 10  # max plate crops stored per track
+MAX_BUFFER = 30  # max plate crops stored per track (also bounds the voting set)
 MIN_FRAMES_FOR_OCR = 2  # min buffered frames before final track-level OCR vote
-LOST_THRESHOLD = 5  # consecutive missing strides before track is finalised
-TOP_K_FRAMES = 10  # how many top-quality OCR frames to pass to voting
-
+LOST_THRESHOLD = 30  # consecutive missing strides before track is finalised
+TOP_K_FRAMES = 10
 # ── Multi-cluster voting ──────────────────────────────────────────────────────
 MAX_CLUSTERS = 3  # max distinct plate clusters within one track buffer
 CLUSTER_SIMILARITY_THRESHOLD = 0.6  # min normalised Levenshtein similarity to merge clusters

@@ -449,6 +449,7 @@ def process_frames_async(
         agreement_ratio=ASSOCIATION_AGREEMENT_RATIO,
     )
     vehicle_tracker = models.create_vehicle_tracker()
+    vehicle_tracker.reset()  # reset boxmot's process-global track-id counter per session
 
     stop_event = threading.Event()
     frame_q: queue.Queue = queue.Queue(maxsize=_FRAME_Q_SIZE)
@@ -552,11 +553,12 @@ def process_frames_async(
         if len(cluster_data) > 1:
             event["clusters"] = cluster_data
         emit(event)
+        tracker.release_track(tid, recognized=True)
 
     if timings is not None:
         timings["total"] = time.perf_counter() - total_start
 
     return {
-        "total_vehicles": len(tracker._best),
+        "total_vehicles": tracker.recognized_vehicle_count(),
         "processed_frames": frame_count_out[0],
     }

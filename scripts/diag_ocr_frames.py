@@ -32,7 +32,6 @@ from api.core.config import (
     MIN_PLATE_H,
     MIN_PLATE_W,
     PLATE_DET_CONF,
-    TOP_K_FRAMES,
     VEHICLE_CLASSES,
 )
 from api.core.gates import is_sharp
@@ -74,7 +73,7 @@ def run(video_path: str) -> None:
     print(f"\n{'='*70}")
     print(f"Video: {video_path}")
     print(f"Thresholds: PLATE_DET_CONF={PLATE_DET_CONF}, CONF_THRESHOLD={CONF_THRESHOLD}")
-    print(f"TOP_K_FRAMES={TOP_K_FRAMES}, FRAME_STRIDE={FRAME_STRIDE}")
+    print(f"FRAME_STRIDE={FRAME_STRIDE} (voting over all buffered crops)")
     print(f"{'='*70}\n")
 
     models = load_models()
@@ -252,7 +251,7 @@ def _finalise(
 ) -> None:
     from api.core.tracker import WebTrackletManager
 
-    crops, scores, prob_lists_cached = tracker._buffers[tid].top_k(k=TOP_K_FRAMES)
+    crops, scores, prob_lists_cached = tracker._buffers[tid].top_k()
     if not crops:
         return
 
@@ -279,7 +278,7 @@ def _finalise(
 
     print(f"\n  ── FINALISE track {tid} ──────────────────────────────────────────")
     print(f"     Method: {method}")
-    print(f"     Top-{TOP_K_FRAMES} crops passed to vote (frames: {frames_in_buf}):")
+    print(f"     All buffered crops passed to vote (frames: {frames_in_buf}):")
     for i, (text, pl) in enumerate(vote_texts):
         min_p = min((p for _, p in pl), default=0.0)
         print(f"       [{i}] '{text}'  min_char_conf={min_p:.3f}")

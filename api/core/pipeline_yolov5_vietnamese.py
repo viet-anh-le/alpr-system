@@ -35,6 +35,10 @@ CHAR_DET_CONF = 0.05
 CHAR_DET_IOU = 0.01
 ROTATION_MIN_DEG = 3.0
 ROTATION_MAX_DEG = 25.0
+# Fair-comparison normalization: resize each plate crop to a fixed height before
+# character detection so char-box coordinates stay comparable across a track
+# (Che et al. evaluated on pre-cropped, consistent-size plate tracks).
+CHAR_INPUT_HEIGHT = 96
 
 
 def load_vn_character_names() -> list[str]:
@@ -185,6 +189,30 @@ def detect_char_track_box(
     return np.array(track_box, dtype=object)
 
 
+def _normalize_plate_scale(bgr: np.ndarray, target_h: int = CHAR_INPUT_HEIGHT) -> np.ndarray:
+    """Resize a plate crop to a fixed height (aspect preserved) so the character
+    detector sees a consistent scale every frame, keeping char-box coordinates
+    stable across a track for matching_char."""
+    h, w = bgr.shape[:2]
+    if h <= 0 or w <= 0:
+        return bgr
+    scale = target_h / float(h)
+    new_w = max(1, int(round(w * scale)))
+    interp = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
+    return cv2.resize(bgr, (new_w, target_h), interpolation=interp)
+
+
+def _char_confidence(track_box) -> float:
+    """Support share of the winning character among its accumulated votes."""
+    conf_list = np.array(track_box[4], dtype=float).flatten()
+    if conf_list.size == 0:
+        return 0.0
+    cls_list = np.array([str(c) for c in np.array(track_box[5]).flatten()])
+    sums = np.array([conf_list[cls_list == u].sum() for u in np.unique(cls_list)])
+    total = float(conf_list.sum()) or 1.0
+    return round(float(sums.max()) / total, 3)
+
+
 def get_final_plate_text(track_boxs, Hs, Ws):
     old_char = np.zeros((0, 0))
     arr_track = old_char
@@ -198,7 +226,7 @@ def get_final_plate_text(track_boxs, Hs, Ws):
         arr_track = np.array(arr_track)
         
     if len(arr_track) == 0:
-        return ""
+        return "", []
         
     Hm = np.mean(np.array(Hs)) if len(Hs)>0 else 0
     Wm = np.mean(np.array(Ws)) if len(Ws)>0 else 0
@@ -224,10 +252,91 @@ def get_final_plate_text(track_boxs, Hs, Ws):
         except Exception:
             pass
             
+    # Per-character evidence for the web UI (char + support-share confidence).
+    char_probs = [
+        [str(process_plate.get_maximum_conf_char(a)), _char_confidence(a)]
+        for a in arr_track
+    ]
+    # Removed the Brazilian first-3-chars-are-letters rule (LLL-DDDD): Vietnamese
+    # plates start with 2 DIGITS (province) + 1 letter, so it corrupts the province.
     re = re.replace("-", "")
-    if len(re) >= 3:
-        re = re[0:3].replace("0", "O").replace("1", "I") + re[3:]
-    return re
+    return re, char_probs
+
+
+def _persist_vn_record(
+    session_id: str,
+    tid: int,
+    plate_text: str,
+    char_probs: list,
+    crop_entries: list[dict],
+    best_crop,
+    veh_crop,
+    loop,
+    user_id,
+) -> None:
+    """Persist a Vietnamese-YOLOv5 track as a RecognitionRecord so the
+    /records/{job}/{track} endpoint can serve it. Mirrors pipeline._record_save
+    but builds the record from this pipeline's own state (no WebTrackletManager)."""
+    if loop is None:
+        return
+    try:
+        from api.database.mongodb import is_db_configured, upsert_record
+        from api.database.models import PlateFrame as DBFrame, RecognitionRecord as DBRecord
+        from .database import upload_image as _storage_upload
+
+        if not is_db_configured():
+            return
+
+        def _upload(img, path, quality=85):
+            if img is None:
+                return None
+            ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+            return _storage_upload("evidence", path, bytes(jpg)) if ok else None
+
+        track_frames = [
+            DBFrame(
+                frame_index=int(e.get("frame_index", i)),
+                quality_score=1.0,
+                image_url=_upload(e.get("crop"), f"{session_id}/track_{tid}_frame_{i}.jpg"),
+                ocr_confidence=1.0,
+            )
+            for i, e in enumerate(crop_entries)
+        ]
+        if not track_frames:
+            return
+
+        best_frame = DBFrame(
+            frame_index=track_frames[0].frame_index,
+            quality_score=1.0,
+            image_url=_upload(best_crop, f"{session_id}/plate_{tid}.jpg", quality=90)
+            or track_frames[0].image_url,
+            ocr_text=plate_text,
+            ocr_confidence=1.0,
+        )
+        plate_conf = (
+            sum(float(p) for _, p in char_probs) / len(char_probs) if char_probs else 0.0
+        )
+        record = DBRecord(
+            session_id=session_id,
+            user_id=user_id,
+            track_id=int(tid),
+            vehicle_track_id=int(tid),
+            plate_track_id=int(tid),
+            vehicle_class="plate",
+            best_plate_frame=best_frame,
+            track_buffer=track_frames,
+            vehicle_thumbnail_url=_upload(veh_crop, f"{session_id}/vehicle_{tid}.jpg"),
+            plate_text=plate_text,
+            plate_text_confidence=round(plate_conf, 4),
+            ocr_vote_summary={},
+            clusters=[],
+            ocr_method="vietnamese_char_ctm",
+            first_seen_frame=min(f.frame_index for f in track_frames),
+            last_seen_frame=max(f.frame_index for f in track_frames),
+        )
+        asyncio.run_coroutine_threadsafe(upsert_record(record), loop)
+    except Exception:
+        logger.exception("VN pipeline: failed to save record for track %d", tid)
 
 
 def process_frames_yolov5_vietnamese(
@@ -245,7 +354,7 @@ def process_frames_yolov5_vietnamese(
     preprocess_mode: str = "none",
     preprocessed_frame_recorder: object | None = None,
 ) -> dict:
-    del record_save, user_id
+    del record_save  # incompatible callback (WebTrackletManager); VN persists via _persist_vn_record
     total_start = time.perf_counter()
     
     def _add_timing(name: str, started_at: float) -> None:
@@ -294,6 +403,7 @@ def process_frames_yolov5_vietnamese(
     # tid -> list of track_box arrays
     plate_char_history: dict[int, list[np.ndarray]] = {}
     plate_dims_history: dict[int, dict[str, list[int]]] = {}
+    plate_crop_history: dict[int, list[dict]] = {}  # tid -> [{frame_index, crop}]
     plate_rotation_alpha: dict[int, float] = {}
     done_tids: set[int] = set()
     best_results: dict[int, str] = {}
@@ -306,6 +416,43 @@ def process_frames_yolov5_vietnamese(
         _, buf = cv2.imencode(".jpg", img)
         import base64
         return base64.b64encode(buf).decode("utf-8")
+
+    def build_track_buffer(tid: int) -> list[dict]:
+        """Per-frame evidence crops for the web track-buffer viewer."""
+        return [
+            {
+                "frame_index": int(e["frame_index"]),
+                "image_b64": encode_img(e["crop"]),
+                "route": "vietnamese_char",
+                "ocr_confidence": 1.0,
+                "quality_score": 1.0,
+                "candidate_method": "char_detection",
+            }
+            for e in plate_crop_history.get(tid, [])
+        ]
+
+    def schedule_record_save(tid: int, plate_text: str, char_probs: list) -> None:
+        """Persist the track to MongoDB (off the inference thread) so
+        /records/{job}/{track} can serve it later."""
+        if loop is None:
+            return
+        best = best_plate_crop.get(tid, (0, None, None))
+        try:
+            loop.run_in_executor(
+                None,
+                _persist_vn_record,
+                session_id,
+                tid,
+                plate_text,
+                char_probs,
+                list(plate_crop_history.get(tid, [])),
+                best[1],
+                best[2],
+                loop,
+                user_id,
+            )
+        except RuntimeError:
+            logger.exception("VN: failed to schedule record save for track %d", tid)
 
     for src_idx, frame, _ts in source.iter_frames():
         frame_idx = src_idx + 1
@@ -390,8 +537,10 @@ def process_frames_yolov5_vietnamese(
 
                 alpha = plate_rotation_alpha.setdefault(tid, 0.0)
                 rotated_crop = rotate_plate_crop(plate_crop, math.degrees(alpha))
+                # Normalize scale so char-box coords stay comparable across frames.
+                norm_crop = _normalize_plate_scale(rotated_crop)
                 track_box = detect_char_track_box(
-                    rotated_crop,
+                    norm_crop,
                     char_model=char_model,
                     char_names=char_names,
                     device=models.device,
@@ -401,14 +550,19 @@ def process_frames_yolov5_vietnamese(
                     if tid not in plate_char_history:
                         plate_char_history[tid] = []
                         plate_dims_history[tid] = {"H": [], "W": []}
+                        plate_crop_history[tid] = []
                     plate_char_history[tid].append(track_box)
-                    plate_dims_history[tid]["H"].append(rotated_crop.shape[0])
-                    plate_dims_history[tid]["W"].append(rotated_crop.shape[1])
+                    plate_dims_history[tid]["H"].append(norm_crop.shape[0])
+                    plate_dims_history[tid]["W"].append(norm_crop.shape[1])
+                    if len(plate_crop_history[tid]) < 30:
+                        plate_crop_history[tid].append(
+                            {"frame_index": frame_idx, "crop": rotated_crop.copy()}
+                        )
 
         # Finalize lost tracks
         for tid in previously_tracked - currently_tracked:
             if tid in plate_char_history and tid not in done_tids:
-                plate_text = get_final_plate_text(
+                plate_text, char_probs = get_final_plate_text(
                     plate_char_history[tid],
                     plate_dims_history[tid]['H'],
                     plate_dims_history[tid]['W']
@@ -424,13 +578,15 @@ def process_frames_yolov5_vietnamese(
                         "cls": "plate",
                         "plate": plate_text,
                         "done": True,
-                        "chars": [],
-                        "plate_b64": plate_b64_str, 
+                        "chars": char_probs,
+                        "track_buffer": build_track_buffer(tid),
+                        "plate_b64": plate_b64_str,
                         "vehicle_b64": veh_b64_str,
                         "ocr_frames": len(plate_char_history[tid]),
                         "confidence": 1.0,
                         "final": True,
                     })
+                    schedule_record_save(tid, plate_text, char_probs)
                 done_tids.add(tid)
 
         if processed_seen % 10 == 0 or (total and processed_seen >= total):
@@ -472,7 +628,7 @@ def process_frames_yolov5_vietnamese(
     # Finalize remaining
     for tid in currently_tracked:
         if tid in plate_char_history and tid not in done_tids:
-            plate_text = get_final_plate_text(
+            plate_text, char_probs = get_final_plate_text(
                 plate_char_history[tid],
                 plate_dims_history[tid]['H'],
                 plate_dims_history[tid]['W']
@@ -488,13 +644,15 @@ def process_frames_yolov5_vietnamese(
                     "cls": "plate",
                     "plate": plate_text,
                     "done": True,
-                    "chars": [],
+                    "chars": char_probs,
+                    "track_buffer": build_track_buffer(tid),
                     "plate_b64": plate_b64_str,
                     "vehicle_b64": veh_b64_str,
                     "ocr_frames": len(plate_char_history[tid]),
                     "confidence": 1.0,
                     "final": True,
                 })
+                schedule_record_save(tid, plate_text, char_probs)
 
     if timings is not None:
         timings["total"] = time.perf_counter() - total_start

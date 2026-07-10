@@ -299,7 +299,7 @@ def detect_plate_tracks_cascade(
 
     start = time.perf_counter()
     with torch.inference_mode():
-        results = plate_model.predict(images, verbose=False, half=use_half)
+        results = plate_model.predict(images, verbose=False, quantize=16)
     if timings is not None:
         timings["plate_cascade"] = timings.get("plate_cascade", 0.0) + time.perf_counter() - start
 

@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from .ocr_ctm import ALNUM_TEMPLATES, LITERAL_TOKENS, SLOT_CLASSES, TEMPLATES, PlateTemplate
 
 DIGIT_TO_LETTER = {
-    "0": "O",
-    "1": "I",
+    "0": "D",
     "2": "Z",
     "5": "S",
     "6": "G",

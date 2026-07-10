@@ -14,6 +14,7 @@ Usage in FastAPI lifespan:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from bson import ObjectId
@@ -218,13 +219,24 @@ async def get_session_for_user(session_id: str, user_id: str) -> RecognitionSess
     return RecognitionSession.model_validate(doc) if doc else None
 
 
-async def list_sessions_for_user(user_id: str, limit: int = 50) -> list[RecognitionSession]:
+async def count_sessions_for_user(user_id: str) -> int:
+    db = get_db()
+    return int(await db[SESSIONS_COL].count_documents({"user_id": user_id}))
+
+
+async def list_sessions_for_user(
+    user_id: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[RecognitionSession]:
     db = get_db()
     safe_limit = max(1, min(int(limit), 100))
+    safe_offset = max(0, int(offset))
     cursor = (
         db[SESSIONS_COL]
         .find({"user_id": user_id})
         .sort("created_at", DESCENDING)
+        .skip(safe_offset)
         .limit(safe_limit)
     )
     return [RecognitionSession.model_validate(doc) async for doc in cursor]
@@ -298,6 +310,129 @@ async def get_records_for_session_for_user(
     )
     return [RecognitionRecord.model_validate(doc) async for doc in cursor]
 
+def _records_query(
+    user_id: str,
+    *,
+    session_id: str | None = None,
+    plate: str | None = None,
+    vehicle_class: str | None = None,
+) -> dict[str, Any]:
+    query: dict[str, Any] = {"user_id": user_id}
+    if session_id:
+        query["session_id"] = session_id
+    if vehicle_class:
+        query["vehicle_class"] = vehicle_class
+    if plate:
+        query["plate_text"] = {
+            "$regex": re.escape(plate.strip()),
+            "$options": "i",
+        }
+    return query
+
+
+async def list_records_for_user(
+    user_id: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    session_id: str | None = None,
+    plate: str | None = None,
+    vehicle_class: str | None = None,
+) -> list[RecognitionRecord]:
+    db = get_db()
+    safe_limit = max(1, min(int(limit), 100))
+    safe_offset = max(0, int(offset))
+    cursor = (
+        db[RECORDS_COL]
+        .find(
+            _records_query(
+                user_id,
+                session_id=session_id,
+                plate=plate,
+                vehicle_class=vehicle_class,
+            )
+        )
+        .sort([("created_at", DESCENDING), ("session_id", ASCENDING), ("track_id", ASCENDING)])
+        .skip(safe_offset)
+        .limit(safe_limit)
+    )
+    return [RecognitionRecord.model_validate(doc) async for doc in cursor]
+
+
+async def count_records_for_user(
+    user_id: str,
+    *,
+    session_id: str | None = None,
+    plate: str | None = None,
+    vehicle_class: str | None = None,
+) -> int:
+    db = get_db()
+    return int(await db[RECORDS_COL].count_documents(
+        _records_query(
+            user_id,
+            session_id=session_id,
+            plate=plate,
+            vehicle_class=vehicle_class,
+        )
+    ))
+
+
+async def summarize_records_for_user(
+    user_id: str,
+    *,
+    session_id: str | None = None,
+    plate: str | None = None,
+    vehicle_class: str | None = None,
+    top_limit: int = 8,
+) -> dict[str, Any]:
+    db = get_db()
+    query = _records_query(
+        user_id,
+        session_id=session_id,
+        plate=plate,
+        vehicle_class=vehicle_class,
+    )
+    safe_top_limit = max(1, min(int(top_limit), 20))
+    total_records = int(await db[RECORDS_COL].count_documents(query))
+    vehicle_counts_raw = await db[RECORDS_COL].aggregate([
+        {"$match": query},
+        {"$group": {"_id": "$vehicle_class", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1, "_id": 1}},
+    ]).to_list(length=None)
+    top_plates_raw = await db[RECORDS_COL].aggregate([
+        {"$match": query},
+        {
+            "$group": {
+                "_id": "$plate_text",
+                "count": {"$sum": 1},
+                "avg_confidence": {"$avg": "$plate_text_confidence"},
+            }
+        },
+        {"$sort": {"count": -1, "_id": 1}},
+        {"$limit": safe_top_limit},
+    ]).to_list(length=None)
+    unique_plates = await db[RECORDS_COL].aggregate([
+        {"$match": query},
+        {"$group": {"_id": "$plate_text"}},
+        {"$count": "value"},
+    ]).to_list(length=1)
+
+    return {
+        "total_records": total_records,
+        "unique_plates": int(unique_plates[0]["value"]) if unique_plates else 0,
+        "vehicle_counts": [
+            {"vehicle_class": item["_id"], "count": int(item["count"])}
+            for item in vehicle_counts_raw
+        ],
+        "top_plates": [
+            {
+                "plate_text": item["_id"],
+                "count": int(item["count"]),
+                "avg_confidence": round(float(item.get("avg_confidence") or 0.0), 4),
+            }
+            for item in top_plates_raw
+        ],
+    }
 
 async def search_by_plate(plate_text: str) -> list[RecognitionRecord]:
     """

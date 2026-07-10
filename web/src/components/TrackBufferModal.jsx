@@ -14,16 +14,23 @@ const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 export default function TrackBufferModal({ vehicle, jobId, onClose }) {
   const initialRecord = buildInlineRecord(vehicle, jobId)
   const [record, setRecord] = useState(initialRecord)
-  const [loading, setLoading] = useState(!initialRecord)
+  const [loading, setLoading] = useState(Boolean(vehicle && !initialRecord && jobId))
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!vehicle || !jobId) return
+    if (!vehicle) return
     const inlineRecord = buildInlineRecord(vehicle, jobId)
     const trackId = getTrackRecordId(vehicle)
     setRecord(inlineRecord)
-    setLoading(!inlineRecord)
     setError(null)
+
+    if (!jobId) {
+      setLoading(false)
+      if (!inlineRecord) setError('Không có dữ liệu bộ đệm cho kết quả này.')
+      return
+    }
+
+    setLoading(!inlineRecord)
 
     apiFetch(`/records/${jobId}/${trackId}`)
       .then((response) => {
