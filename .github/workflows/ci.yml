@@ -1,0 +1,34 @@
+name: ci
+
+# CI gate for the backend. Runs static analysis that catches deploy-breaking
+# bugs (missing imports / undefined names / syntax errors) WITHOUT installing the
+# heavy runtime deps (torch, etc.) or building the ~20GB image. A green run here
+# means it is safe to deploy via scripts/deploy.sh on the server.
+on:
+  push:
+    branches: [dockerize-backend]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ruff
+        run: pip install ruff==0.6.9
+
+      # F821 = undefined name (this is what would have caught the `re.compile`
+      # used without `import re`). E9 = syntax errors. F822 = undefined name in
+      # __all__. Scoped to api/ — the actively-developed, deploy-critical code.
+      - name: Undefined-name + syntax gate
+        run: ruff check --select E9,F821,F822 api
+
+      - name: Byte-compile all api modules
+        run: python -m compileall -q api
