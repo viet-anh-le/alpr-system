@@ -14,6 +14,7 @@ import logging
 from collections import Counter
 from dataclasses import replace
 from typing import Callable
+import torch
 
 import numpy as np
 
