@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ALPR — Nhận dạng Biển số Xe Việt Nam</title>
+    <link id="app-favicon" rel="icon" type="image/svg+xml" href="/brand/logo.svg" />
+    <script>
+      (() => {
+        const favicon = document.getElementById("app-favicon");
+        const probe = new Image();
+        probe.onerror = () => {
+          favicon.href = "/brand/logo.png";
+          favicon.type = "image/png";
+        };
+        probe.src = "/brand/logo.svg";
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"

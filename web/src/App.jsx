@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 
 import HistoryModal from "./components/HistoryModal";
+import BrandLogo from "./components/BrandLogo";
 import MonitorPage from "./components/monitor/MonitorPage";
 import {
     Badge,
@@ -245,10 +246,14 @@ function AppTopbar({
     return (
         <header className="app-topbar">
             <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center">
-                <div className="flex min-w-0 items-center gap-3">
-                    <div className="brand-mark">
-                        <PlateGlyph />
-                    </div>
+                <a
+                    href="/"
+                    className="brand-home-link flex min-w-0 items-center gap-3"
+                    aria-label="Về trang chủ"
+                >
+                    <span className="brand-mark">
+                        <BrandLogo />
+                    </span>
                     <div className="min-w-0">
                         <h1 className="truncate text-sm font-bold text-[var(--color-text)] sm:text-base">
                             Hệ thống ALPR Việt Nam
@@ -257,7 +262,7 @@ function AppTopbar({
                             Phát hiện · Theo vết · OCR · Kiểm chứng kết quả
                         </p>
                     </div>
-                </div>
+                </a>
 
                 <SegmentedControl
                     value={mode}
@@ -356,9 +361,13 @@ function AuthPage({ mode }) {
         <main className="app-shell flex min-h-screen items-center justify-center px-4 py-10">
             <div className="grid w-full max-w-5xl gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                 <section className="surface-panel overflow-hidden p-6 sm:p-8">
-                    <div className="brand-mark mb-6">
-                        <PlateGlyph />
-                    </div>
+                    <a
+                        href="/"
+                        className="brand-mark mb-6"
+                        aria-label="Về trang chủ"
+                    >
+                        <BrandLogo />
+                    </a>
                     <p className="section-label">Cổng truy cập bảo mật</p>
                     <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight text-[var(--color-text)]">
                         {isRegister
@@ -508,21 +517,6 @@ function PublicAuthRoute({ mode }) {
     if (loading) return <LoadingScreen />;
     if (user) return <Navigate to="/dashboard" replace />;
     return <AuthPage mode={mode} />;
-}
-
-function PlateGlyph() {
-    return (
-        <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-        >
-            <rect x="3" y="7" width="18" height="10" rx="2" />
-            <path d="M7 11h4M14 11h3M7 14h10" strokeLinecap="round" />
-        </svg>
-    );
 }
 
 export default function App() {

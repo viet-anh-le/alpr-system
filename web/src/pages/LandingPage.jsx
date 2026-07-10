@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth";
+import BrandLogo from "../components/BrandLogo";
 import { Badge, Button } from "../components/ui";
 
 const pipelineSteps = [
@@ -52,14 +53,18 @@ export default function LandingPage() {
         <main className="app-shell min-h-screen">
             <header className="app-topbar">
                 <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-                    <Link to="/" className="flex min-w-0 items-center gap-3">
+                    <a
+                        href="/"
+                        className="brand-home-link flex min-w-0 items-center gap-3"
+                        aria-label="Về trang chủ"
+                    >
                         <span className="brand-mark">
-                            <PlateGlyph />
+                            <BrandLogo />
                         </span>
                         <span className="truncate text-sm font-bold sm:text-base">
                             ALPR Việt Nam
                         </span>
-                    </Link>
+                    </a>
                     <nav className="ml-auto hidden items-center gap-5 text-sm font-semibold text-[var(--color-text-muted)] md:flex">
                         <a
                             href="#pipeline"
@@ -302,20 +307,5 @@ function HeroProductPreview() {
                 </div>
             </div>
         </div>
-    );
-}
-
-function PlateGlyph() {
-    return (
-        <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-        >
-            <rect x="3" y="7" width="18" height="10" rx="2" />
-            <path d="M7 11h4M14 11h3M7 14h10" strokeLinecap="round" />
-        </svg>
     );
 }

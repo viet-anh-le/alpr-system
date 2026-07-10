@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import PlateDisplay from "../PlateDisplay";
+import TrackBufferModal from "../TrackBufferModal";
 import { Badge, Button, Progress, cx } from "../ui";
 import {
     VEHICLE_LABEL,
@@ -8,8 +9,11 @@ import {
     cleanPlateText,
     confidenceTone,
 } from "../workbench/constants";
-import EventDetail from "./EventDetail";
-import { getEventVehicles, getVehicleClusters } from "./eventDisplay";
+import {
+    buildEventInspectionVehicle,
+    getEventVehicles,
+    getVehicleClusters,
+} from "./eventDisplay";
 
 function fmtTime(iso) {
     if (!iso) return "--:--";
@@ -17,7 +21,7 @@ function fmtTime(iso) {
 }
 
 export default function EventCard({ event }) {
-    const [expanded, setExpanded] = useState(false);
+    const [selectedVehicle, setSelectedVehicle] = useState(null);
     const { id, status, markedAt, windowStartSec, windowEndSec, pct, error } =
         event;
     const vehicleList = getEventVehicles(event);
@@ -67,7 +71,7 @@ export default function EventCard({ event }) {
                                 vehicle.id
                             }
                             vehicle={vehicle}
-                            onInspect={() => setExpanded(true)}
+                            onInspect={setSelectedVehicle}
                         />
                     ))}
                 </div>
@@ -79,17 +83,11 @@ export default function EventCard({ event }) {
                 </div>
             )}
 
-            {hasVehicles && (
-                <>
-                    <button
-                        type="button"
-                        onClick={() => setExpanded((value) => !value)}
-                        className="mt-3 text-sm font-semibold text-cyan-100 hover:text-cyan-50"
-                    >
-                        {expanded ? "Ẩn các bộ đệm" : "Xem các bộ đệm"}
-                    </button>
-                    {expanded && <EventDetail event={event} />}
-                </>
+            {selectedVehicle && (
+                <TrackBufferModal
+                    vehicle={selectedVehicle}
+                    onClose={() => setSelectedVehicle(null)}
+                />
             )}
         </article>
     );
@@ -157,7 +155,13 @@ function EventResultCard({ vehicle, onInspect }) {
                         tone={tone === "neutral" ? "info" : tone}
                     />
                 </div>
-                <Button size="sm" variant="secondary" onClick={onInspect}>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                        onInspect(buildEventInspectionVehicle(vehicle))
+                    }
+                >
                     Kiểm tra
                 </Button>
             </div>
@@ -217,7 +221,14 @@ function EventResultCard({ vehicle, onInspect }) {
                                             <Button
                                                 size="sm"
                                                 variant="secondary"
-                                                onClick={onInspect}
+                                                onClick={() =>
+                                                    onInspect(
+                                                        buildEventInspectionVehicle(
+                                                            vehicle,
+                                                            cluster,
+                                                        ),
+                                                    )
+                                                }
                                             >
                                                 Kiểm tra
                                             </Button>
