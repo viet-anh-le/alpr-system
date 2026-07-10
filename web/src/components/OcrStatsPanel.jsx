@@ -3,8 +3,8 @@ import PlateDisplay from './PlateDisplay'
 import ImageModal from './ImageModal'
 import TrackBufferModal from './TrackBufferModal'
 
-const CLS_LABEL = { car: 'Ô tô', motorcycle: 'Xe máy', bus: 'Xe buýt', truck: 'Xe tải' }
-const CLS_ICON  = { car: '🚗',   motorcycle: '🏍️',    bus: '🚌',      truck: '🚛'      }
+const CLS_LABEL = { car: 'Ô tô', motorbike: 'Motorbike', bus: 'Xe buýt', truck: 'Xe tải' }
+const CLS_ICON  = { car: '🚗',   motorbike: '🏍️',      bus: '🚌',      truck: '🚛'      }
 
 const displayPlateText = (text) => (text || '').replaceAll('[SEP]', ' ')
 

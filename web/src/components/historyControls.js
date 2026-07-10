@@ -1,4 +1,11 @@
-export const ALL_SESSIONS = 'all'
+export const HISTORY_VEHICLE_FILTER_OPTIONS = [
+  { value: 'all', label: 'Tất cả phương tiện' },
+  { value: 'car', label: 'Ô tô' },
+  { value: 'motorbike', label: 'Motorbike' },
+  { value: 'bus', label: 'Xe buýt' },
+  { value: 'truck', label: 'Xe tải' },
+  { value: 'vehicle', label: 'Phương tiện' },
+]
 
 export function displayPlateText(text) {
   return (text || '').replaceAll('[SEP]', ' ').trim()
@@ -17,7 +24,7 @@ export function buildSessionsPath({ page = 1, limit = 20 } = {}) {
 export function buildRecordsPath({
   page = 1,
   limit = 12,
-  sessionId = ALL_SESSIONS,
+  sessionId = '',
   plate = '',
   vehicleClass = '',
 } = {}) {
@@ -27,7 +34,7 @@ export function buildRecordsPath({
     limit: String(safeLimit),
     offset: String((safePage - 1) * safeLimit),
   })
-  if (sessionId && sessionId !== ALL_SESSIONS) params.set('session_id', sessionId)
+  if (sessionId) params.set('session_id', sessionId)
   if (plate.trim()) params.set('plate', plate.trim())
   if (vehicleClass && vehicleClass !== 'all') params.set('vehicle_class', vehicleClass)
   return `/records?${params.toString()}`
@@ -61,8 +68,6 @@ export function normalizeHistorySummary(summary = {}) {
     topPlates: Array.isArray(summary.top_plates)
       ? summary.top_plates.map((item) => ({
           plateText: displayPlateText(item.plate_text),
-          count: Number(item.count) || 0,
-          avgConfidence: Number(item.avg_confidence) || 0,
         }))
       : [],
   }

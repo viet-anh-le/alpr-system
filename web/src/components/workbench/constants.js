@@ -15,8 +15,7 @@ export const OCR_OPTIONS = [
 export const VEHICLE_LABEL = {
   vehicle: 'Phương tiện',
   car: 'Ô tô',
-  motorcycle: 'Xe máy',
-  motorbike_rider: 'Xe máy',
+  motorbike: 'Motorbike',
   bus: 'Xe buýt',
   truck: 'Xe tải',
 }

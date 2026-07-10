@@ -3,8 +3,8 @@ import PlateDisplay from './PlateDisplay'
 import ImageModal from './ImageModal'
 import TrackBufferModal from './TrackBufferModal'
 
-const CLS_LABEL = { car: 'Ô tô', motorcycle: 'Xe máy', motorbike_rider: 'Xe máy', bus: 'Xe buýt', truck: 'Xe tải' }
-const CLS_ICON = { car: '🚗', motorcycle: '🏍️', motorbike_rider: '🏍️', bus: '🚌', truck: '🚛' }
+const CLS_LABEL = { car: 'Ô tô', motorbike: 'Motorbike', bus: 'Xe buýt', truck: 'Xe tải' }
+const CLS_ICON = { car: '🚗', motorbike: '🏍️', bus: '🚌', truck: '🚛' }
 const CLUSTER_COLORS = [
   { bg: 'bg-blue-900/40', border: 'border-blue-600', badge: 'bg-blue-600', label: 'Cụm' },
   { bg: 'bg-amber-900/40', border: 'border-amber-600', badge: 'bg-amber-600', label: 'Cụm' },

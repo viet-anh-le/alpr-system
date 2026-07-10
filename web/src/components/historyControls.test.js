@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
-  ALL_SESSIONS,
+  HISTORY_VEHICLE_FILTER_OPTIONS,
   buildRecordsPath,
   buildSessionsPath,
   displayPlateText,
@@ -11,16 +11,26 @@ import {
 } from './historyControls.js'
 
 describe('history controls helpers', () => {
-  it('builds a paginated global records query with plate and vehicle filters', () => {
+  it('builds a paginated session records query with plate and motorbike filters', () => {
     const path = buildRecordsPath({
       page: 3,
       limit: 12,
-      sessionId: ALL_SESSIONS,
+      sessionId: 'job-1',
       plate: '  30a  ',
-      vehicleClass: 'car',
+      vehicleClass: 'motorbike',
     })
 
-    assert.equal(path, '/records?limit=12&offset=24&plate=30a&vehicle_class=car')
+    assert.equal(path, '/records?limit=12&offset=24&session_id=job-1&plate=30a&vehicle_class=motorbike')
+  })
+
+  it('offers only the canonical motorbike vehicle filter', () => {
+    const values = HISTORY_VEHICLE_FILTER_OPTIONS.map((option) => option.value)
+    const motorbike = HISTORY_VEHICLE_FILTER_OPTIONS.find((option) => option.value === 'motorbike')
+
+    assert.equal(motorbike?.label, 'Motorbike')
+    assert.equal(values.includes('motorbike'), true)
+    assert.equal(values.includes('motorcycle'), false)
+    assert.equal(values.includes('motorbike_rider'), false)
   })
 
   it('builds a session-scoped records query', () => {
@@ -49,7 +59,7 @@ describe('history controls helpers', () => {
     })
   })
 
-  it('normalizes summary plate values for display and hover titles', () => {
+  it('normalizes summary plate values without count or confidence display data', () => {
     const summary = normalizeHistorySummary({
       total_records: 3,
       unique_plates: 2,
@@ -62,7 +72,7 @@ describe('history controls helpers', () => {
     assert.equal(summary.totalRecords, 3)
     assert.equal(summary.uniquePlates, 2)
     assert.deepEqual(summary.topPlates, [
-      { plateText: '30A 12345', count: 2, avgConfidence: 0.9 },
+      { plateText: '30A 12345' },
     ])
   })
 })

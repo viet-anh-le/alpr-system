@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { apiJson } from "../apiClient";
 import TrackBufferModal from "./TrackBufferModal";
 import {
-    ALL_SESSIONS,
+    HISTORY_VEHICLE_FILTER_OPTIONS,
     buildRecordsPath,
     buildSessionsPath,
     displayPlateText,
@@ -25,19 +25,9 @@ import { VEHICLE_LABEL } from "./workbench/constants";
 const SESSION_PAGE_SIZE = 20;
 const RECORD_PAGE_SIZE = 12;
 
-const VEHICLE_FILTER_OPTIONS = [
-    { value: "all", label: "Tất cả phương tiện" },
-    { value: "car", label: "Ô tô" },
-    { value: "motorcycle", label: "Xe máy" },
-    { value: "motorbike_rider", label: "Xe máy + người lái" },
-    { value: "bus", label: "Xe buýt" },
-    { value: "truck", label: "Xe tải" },
-    { value: "vehicle", label: "Phương tiện" },
-];
-
 export default function HistoryModal({ open, onClose }) {
     const [jobs, setJobs] = useState([]);
-    const [selectedJobId, setSelectedJobId] = useState(ALL_SESSIONS);
+    const [selectedJobId, setSelectedJobId] = useState("");
     const [vehicles, setVehicles] = useState([]);
     const [summary, setSummary] = useState(normalizeHistorySummary());
     const [sessionsTotal, setSessionsTotal] = useState(0);
@@ -69,6 +59,13 @@ export default function HistoryModal({ open, onClose }) {
                 const items = data.items || [];
                 setJobs(items);
                 setSessionsTotal(data.total ?? items.length);
+                setSelectedJobId((current) => {
+                    if (!items.length) return "";
+                    const currentStillVisible = items.some(
+                        (job) => job.session_id === current,
+                    );
+                    return currentStillVisible ? current : items[0].session_id;
+                });
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -80,6 +77,12 @@ export default function HistoryModal({ open, onClose }) {
 
     useEffect(() => {
         if (!open) return;
+        if (!selectedJobId) {
+            setVehicles([]);
+            setRecordsTotal(0);
+            setSummary(normalizeHistorySummary());
+            return;
+        }
         async function fetchVehicles() {
             setVehicles([]);
             setLoadingVehicles(true);
@@ -114,10 +117,9 @@ export default function HistoryModal({ open, onClose }) {
     );
     const recordPageInfo = pageInfo(recordsTotal, recordPage, RECORD_PAGE_SIZE);
     const selectedJob = jobs.find((job) => job.session_id === selectedJobId);
-    const selectedScopeLabel =
-        selectedJobId === ALL_SESSIONS
-            ? "Tất cả lịch sử"
-            : selectedJob?.source_filename || `Phiên #${selectedJobId}`;
+    const selectedScopeLabel = selectedJobId
+        ? selectedJob?.source_filename || `Phiên #${selectedJobId}`
+        : "Chọn phiên xử lý";
 
     const applyFilters = (event) => {
         event.preventDefault();
@@ -159,33 +161,17 @@ export default function HistoryModal({ open, onClose }) {
                         </div>
                     </div>
                     <div className="space-y-3 p-3">
-                        <button
-                            type="button"
-                            onClick={() => selectJob(ALL_SESSIONS)}
-                            className={cx(
-                                "w-full rounded-[var(--radius-control)] border p-3 text-left transition-colors duration-200",
-                                selectedJobId === ALL_SESSIONS
-                                    ? "border-cyan-300/45 bg-cyan-300/10"
-                                    : "border-[var(--color-border)] bg-black/10 hover:bg-white/5",
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-semibold">
-                                    Tất cả lịch sử
-                                </p>
-                                <Badge tone="info">{sessionsTotal}</Badge>
-                            </div>
-                            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                                Query trên toàn bộ bản ghi của bạn
-                            </p>
-                        </button>
-
                         <div className="max-h-[42vh] overflow-y-auto lg:max-h-[calc(100vh-17rem)]">
                             {loadingJobs ? (
                                 <div className="space-y-2">
-                                    {Array.from({ length: 5 }).map((_, index) => (
-                                        <Skeleton key={index} className="h-20" />
-                                    ))}
+                                    {Array.from({ length: 5 }).map(
+                                        (_, index) => (
+                                            <Skeleton
+                                                key={index}
+                                                className="h-20"
+                                            />
+                                        ),
+                                    )}
                                 </div>
                             ) : jobs.length === 0 ? (
                                 <EmptyState title="Chưa có phiên">
@@ -222,11 +208,7 @@ export default function HistoryModal({ open, onClose }) {
                     <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
                         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                             <div className="min-w-0">
-                                <p className="section-label">
-                                    {selectedJobId === ALL_SESSIONS
-                                        ? "Toàn bộ lịch sử"
-                                        : "Phiên đang xem"}
-                                </p>
+                                <p className="section-label">Phiên đang xem</p>
                                 <h3
                                     className="mt-1 truncate text-base font-bold text-[var(--color-text)]"
                                     title={selectedScopeLabel}
@@ -252,7 +234,7 @@ export default function HistoryModal({ open, onClose }) {
                                     onChange={(event) =>
                                         setDraftVehicleClass(event.target.value)
                                     }
-                                    options={VEHICLE_FILTER_OPTIONS}
+                                    options={HISTORY_VEHICLE_FILTER_OPTIONS}
                                 />
                                 <Button type="submit" variant="primary">
                                     Tìm
@@ -282,10 +264,6 @@ export default function HistoryModal({ open, onClose }) {
                                 <div>
                                     <p className="section-label">
                                         Bản ghi nhận dạng
-                                    </p>
-                                    <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                                        {recordsTotal} kết quả khớp query hiện
-                                        tại
                                     </p>
                                 </div>
                                 <Pagination
@@ -389,65 +367,6 @@ function HistorySummary({ summary }) {
                     value={summary.vehicleCounts.length}
                     tone="info"
                 />
-            </div>
-
-            <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-                <div>
-                    <p className="section-label">Giá trị biển đã nhận diện</p>
-                    {summary.topPlates.length === 0 ? (
-                        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                            Chưa có biển số phù hợp query.
-                        </p>
-                    ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {summary.topPlates.map((plate) => (
-                                <Badge
-                                    key={plate.plateText}
-                                    tone="neutral"
-                                    title={plate.plateText}
-                                >
-                                    <span className="plate-font max-w-48 truncate">
-                                        {plate.plateText || "—"}
-                                    </span>
-                                    <span className="text-[var(--color-text-subtle)]">
-                                        ×{plate.count}
-                                    </span>
-                                    <span className="data-font text-[var(--color-text-subtle)]">
-                                        {Math.round(
-                                            plate.avgConfidence * 100,
-                                        )}
-                                        %
-                                    </span>
-                                </Badge>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div>
-                    <p className="section-label">Theo loại phương tiện</p>
-                    {summary.vehicleCounts.length === 0 ? (
-                        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                            Chưa có thống kê loại xe.
-                        </p>
-                    ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {summary.vehicleCounts.map((item) => (
-                                <Badge
-                                    key={item.vehicle_class}
-                                    tone="info"
-                                >
-                                    {VEHICLE_LABEL[item.vehicle_class] ||
-                                        item.vehicle_class ||
-                                        "Phương tiện"}
-                                    <span className="text-[var(--color-text-subtle)]">
-                                        ×{item.count}
-                                    </span>
-                                </Badge>
-                            ))}
-                        </div>
-                    )}
-                </div>
             </div>
         </section>
     );
@@ -555,7 +474,9 @@ function HistoryRecord({ vehicle }) {
                     <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => setBufferVehicle(toModalVehicle(vehicle))}
+                        onClick={() =>
+                            setBufferVehicle(toModalVehicle(vehicle))
+                        }
                     >
                         Bộ đệm theo vết
                     </Button>
