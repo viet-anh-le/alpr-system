@@ -14,13 +14,14 @@ import logging
 from collections import Counter
 from dataclasses import replace
 from typing import Callable
+import torch
 
 import numpy as np
 
 from .config import (
     CLUSTER_SIMILARITY_THRESHOLD,
     MAX_CLUSTERS,
-    TOP_K_FRAMES,
+    TOP_K_FRAMES
 )
 from .ocr_ambiguity import correct_ambiguous_chars
 from .ocr_candidates import OcrCandidateResult, build_candidate_crops, rerank_ocr_candidates
@@ -50,7 +51,7 @@ def finalise_track_ocr(
     if buf is None:
         return
 
-    entries = buf.top_k_entries(k=TOP_K_FRAMES)
+    entries = buf.top_k_entries(k=TOP_K_FRAMES)  
     if not entries:
         return
 
@@ -155,6 +156,7 @@ def finalise_track_ocr(
         "ctm_support": primary_result.ctm_support,
         "unresolved_slots": primary_result.unresolved_slots,
         "vote_summary": primary_result.vote_summary,
+        "final": True,
         **route_fields,
     }
 
@@ -175,6 +177,9 @@ def finalise_track_ocr(
             loop,
             user_id,
         )
+
+    # Event emitted + DB snapshot taken → free this track's heavy state.
+    tracker.release_track(tid, recognized=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -310,6 +315,8 @@ def _emit_rejected(
             **_route_event_fields(entries),
         }
     )
+    # Event emitted → free heavy state (no DB save for rejected tracks).
+    tracker.release_track(tid, recognized=False)
 
 
 # ── Deferred OCR (unchanged from original) ────────────────────────────────────

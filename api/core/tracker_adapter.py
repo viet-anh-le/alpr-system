@@ -84,23 +84,50 @@ class VehicleTracker:
     _MATCH_THRESH: float = 0.7
     _PROXIMITY_THRESH: float = 0.5
     _APPEARANCE_THRESH: float = 0.25
+    # ByteTrack (IoU-only) hyperparameters.
+    _BYTETRACK_MIN_CONF: float = 0.1
+    _BYTETRACK_TRACK_THRESH: float = 0.45
+    _BYTETRACK_MATCH_THRESH: float = 0.8
 
     def __init__(
         self,
         reid_weights: Path,
         device: str = "cuda:0",
         half: bool = False,
+        tracker_type: str = "botsort",
     ) -> None:
-        """Initialise BotSort with the given ReID weights.
+        """Initialise the chosen vehicle tracker.
 
         Args:
             reid_weights: Path to the ReID ONNX model (expects (B, 3, 256, 128) input).
+                          Unused when tracker_type == "bytetrack".
             device: Torch device string, e.g. "cuda:0" or "cpu".
             half: Whether to use FP16 inference for the ReID model.
+            tracker_type: "botsort" (BoT-SORT + ReID + CMC) or "bytetrack" (IoU only).
         """
-        self._reid_weights = _ensure_recognised_name(Path(reid_weights))
         self._device = _to_boxmot_device(device)
         self._half = half
+        self._tracker_type = (tracker_type or "botsort").strip().lower()
+
+        # ByteTrack: IoU + Kalman only, no ReID / no CMC → much faster.
+        if self._tracker_type == "bytetrack":
+            from boxmot.trackers.bytetrack.bytetrack import ByteTrack
+
+            self._tracker = ByteTrack(
+                min_conf=self._BYTETRACK_MIN_CONF,
+                track_thresh=self._BYTETRACK_TRACK_THRESH,
+                match_thresh=self._BYTETRACK_MATCH_THRESH,
+                track_buffer=self._TRACK_BUFFER,
+                frame_rate=30,
+            )
+            logger.info(
+                "VehicleTracker initialised with ByteTrack (no ReID/CMC) on device: %s",
+                device,
+            )
+            return
+
+        # BoT-SORT + ReID (default)
+        self._reid_weights = _ensure_recognised_name(Path(reid_weights))
 
         # BotSort expects the backend model (ReID(...).model), not the ReID wrapper
         def _preload_onnxruntime_cuda(device: str) -> None:

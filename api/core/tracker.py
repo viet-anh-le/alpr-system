@@ -39,8 +39,6 @@ logger = logging.getLogger(__name__)
 _VEHICLE_IMG_MAX_W = 320
 
 
-
-
 # ── Track buffer ──────────────────────────────────────────────────────────────
 
 
@@ -124,13 +122,15 @@ class TrackBuffer:
     def top_k(
         self, k: int = TOP_K_FRAMES
     ) -> tuple[list[np.ndarray], list[float], list[list[tuple[str, float]]]]:
-        """Return up to k entries ranked by combined score descending."""
+        """Return up to k entries ranked by combined score descending.
+        k=None (default) uses all buffered entries (bounded by max_size)."""
+        if k is None:
+            k = self.max_size
         if not self.crops:
             return [], [], []
         combined = [self._combined(q, c) for q, c in zip(self.quality_scores, self.ocr_confs)]
         is_prioritized = [
-            1 if res.get("legibility") in ("perfect", "good") else 0
-            for res in self.router_results
+            1 if res.get("legibility") in ("perfect", "good") else 0 for res in self.router_results
         ]
         triples = sorted(
             zip(is_prioritized, combined, self.crops, self.char_prob_lists),
@@ -141,7 +141,10 @@ class TrackBuffer:
         return list(crops), list(scores), list(prob_lists)
 
     def top_k_entries(self, k: int = TOP_K_FRAMES) -> list[TrackBufferEntry]:
-        """Return up to k full entries ranked by combined score descending."""
+        """Return up to k full entries ranked by combined score descending.
+        k=None (default) uses all buffered entries (bounded by max_size)."""
+        if k is None:
+            k = self.max_size
         entries = [
             TrackBufferEntry(
                 crop=crop,
@@ -200,6 +203,12 @@ class WebTrackletManager:
         # Each entry: list of {"plate", "chars", "confidence", "plate_b64", "frame_count"}
         self._cluster_results: dict[int, list[dict]] = {}
 
+        # Lifecycle: tids whose heavy state was released after finalize. Kept as a
+        # lightweight tombstone so should_ocr() stays False and the same tid is
+        # never OCR'd/finalised again.
+        self._released_tids: set[int] = set()
+        self._released_recognized_count: int = 0
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def vehicle_track_id(self, tid: int) -> int:
@@ -209,8 +218,60 @@ class WebTrackletManager:
         return None
 
     def should_ocr(self, tid: int) -> bool:
+        if tid in self._released_tids:
+            return False
         return not self._done.get(tid, False)
 
+    def release_track(self, tid: int, recognized: bool) -> None:
+        """Drop all heavy per-track state after a track has been finalised, its
+        event emitted, and its DB snapshot taken. Leaves only a lightweight
+        tombstone so the same tid is never re-OCR'd/finalised."""
+        if tid in self._released_tids:
+            return
+        for state in (
+            self._done,
+            self._best,
+            self._cls,
+            self._prev_plate,
+            self._ocr_count,
+            self._plate_img,
+            self._plate_img_conf,
+            self._vehicle_img,
+            self._vehicle_img_conf,
+            self._buffers,
+            self._lost_count,
+            self._cluster_results,
+        ):
+            state.pop(tid, None)
+        self._released_tids.add(tid)
+        if recognized:
+            self._released_recognized_count += 1
+
+    def recognized_vehicle_count(self) -> int:
+        """Total vehicles with a valid recognised plate this session — survives
+        release_track() cleanup (does not depend on _best)."""
+        live = sum(1 for tid in self._best if tid not in self._released_tids)
+        return self._released_recognized_count + live
+
+    def update(
+        self,
+        tid: int,
+        char_probs: list[tuple[str, float]],
+        all_confident: bool,
+    ) -> None:
+        if not char_probs:
+            return
+
+        self._ocr_count[tid] = self._ocr_count.get(tid, 0) + 1
+
+        self._best[tid] = (
+            char_probs if tid not in self._best else self._fuse(self._best[tid], char_probs)
+        )
+
+        frames = self._ocr_count[tid]
+        fully_confident = all(p >= CONF_THRESHOLD for _, p in self._best[tid])
+        if (fully_confident or all_confident) and frames >= MIN_FRAME_VOTES:
+            self._done[tid] = True
 
     def update_plate_img(
         self,
@@ -375,4 +436,3 @@ class WebTrackletManager:
                 )
         _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
         return base64.b64encode(buf).decode()
-

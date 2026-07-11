@@ -41,6 +41,7 @@ from .config import (
     SOS_IDX,
     VEHICLE_DETECTOR_BACKEND,
     VEHICLE_MODEL_PATH,
+    VEHICLE_TRACKER_TYPE,
     YOLOV5_CHAR_CKPT_PATH,
     YOLOV5_OBJECT_CKPT_PATH,
     normalize_ocr_backend,
@@ -120,6 +121,7 @@ class ModelBundle:
             reid_weights=self.reid_weights,
             device=self.tracker_device,
             half=self.tracker_half,
+            tracker_type=VEHICLE_TRACKER_TYPE,
         )
 
 

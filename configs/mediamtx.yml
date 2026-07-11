@@ -1,0 +1,14 @@
+api: yes
+apiAddress: :9997
+
+rtspAddress: :8554
+
+webrtc: yes
+webrtcAddress: :8889
+
+paths:
+  alpr_demo:
+    source: publisher
+
+  all_others:
+    source: publisher

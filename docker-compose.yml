@@ -1,53 +1,137 @@
-version: "3.9"
+# ALPR stack — web API (stateless) + GPU worker(s) + Redis (queue/SSE).
+#
+# Production notes (host currently runs a bare-venv uvicorn on :8000 + a manual
+# mediamtx container; this compose replaces both, keeping the same host ports):
+#   * Secrets + prod config come from api/.env via `env_file` (NOT baked — the
+#     image excludes .env). MongoDB is Atlas (from api/.env); no local mongo.
+#   * Model weights are host-mounted read-only (the image excludes weights/ via
+#     .dockerignore), resolved against WORKDIR /app.
+#   * The frontend is hosted on Vercel — there is no `web` service here; do NOT
+#     override WEB_ORIGIN / AUTH_* (cross-site secure cookies) from api/.env.
+#
+# Reliability: heavy inference runs only in `worker`, so the API loop stays
+# responsive; a long video occupies a worker slot while other jobs wait in the
+# Redis queue (never 429'd for busyness); every service auto-restarts + is health
+# checked. Scale throughput with `--scale worker=N` and/or WORKER_CONCURRENCY.
+
+x-model-mounts: &model-mounts
+  - uploads_data:/data
+  - ./weights:/app/weights:ro
+  - ./runs:/app/runs:ro
+  - ./references:/app/references:ro
+  # Bundled yolov5 tries to download Arial.ttf at import; provide the cached font
+  # (via YOLOV5_CONFIG_DIR) so no network fetch happens on startup.
+  - /home/ubuntu/.config/Ultralytics:/opt/ul-cfg:ro
+
+x-gpu: &gpu
+  driver: nvidia
+  count: 1
+  capabilities: [gpu]
 
 services:
   api:
     build:
       context: .
       dockerfile: api/Dockerfile
+    image: alpr-app:latest
     ports:
       - "8000:8000"
+    env_file:
+      - api/.env
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/alpr
-      - WEB_ORIGIN=http://localhost:3000,http://localhost:5173
-      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
-      - AUTH_COOKIE_SECURE=false
-      - AUTH_SESSION_TTL_HOURS=24
-      - MAX_UPLOAD_MB=512
-      - MEDIAMTX_API_URL=http://mediamtx:9997
-      - MEDIAMTX_INTERNAL_RTSP_BASE=rtsp://mediamtx:8554
-      - MEDIAMTX_PUBLIC_WEBRTC_BASE=http://localhost:8889
+      # Only container-networking + new-infra overrides. Everything else
+      # (Atlas Mongo, Supabase, WEB_ORIGIN, AUTH_*, model paths) is from api/.env.
+      REDIS_URL: redis://redis:6379/0
+      ALPR_UPLOAD_DIR: /data
+      ALPR_PREPROCESSED_VIDEO_DIR: /data/preprocessed
+      ALPR_MAX_INFLIGHT_PER_USER: "3"
+      ALPR_API_LOAD_MODELS: "true"          # needed for live-monitor mode
+      YOLOV5_CONFIG_DIR: /opt/ul-cfg
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_INTERNAL_RTSP_BASE: rtsp://mediamtx:8554
+    volumes: *model-mounts
     depends_on:
-      - mongo
-      - mediamtx
+      redis:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          devices:
+            - *gpu
 
-  web:
+  worker:
     build:
-      context: web
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
+      context: .
+      dockerfile: api/Dockerfile
+    image: alpr-app:latest
+    command: ["python", "-m", "api.worker"]
+    env_file:
+      - api/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      ALPR_UPLOAD_DIR: /data
+      ALPR_PREPROCESSED_VIDEO_DIR: /data/preprocessed
+      WORKER_CONCURRENCY: "6"
+      YOLOV5_CONFIG_DIR: /opt/ul-cfg
+    volumes: *model-mounts
     depends_on:
-      - api
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: "10"
+          memory: 40G
+        reservations:
+          devices:
+            - *gpu
 
   mediamtx:
     image: bluenviron/mediamtx:latest
     container_name: alpr-mediamtx
+    # Uses mediamtx's built-in default config (no configs/mediamtx.yml exists;
+    # the previous manual container ran on defaults too). Add a file mount here
+    # only if a custom mediamtx config is introduced.
     ports:
       - "8554:8554"
       - "8889:8889"
       - "8189:8189/udp"
       - "9997:9997"
-    volumes:
-      - ./configs/mediamtx.yml:/mediamtx.yml
     restart: unless-stopped
 
-  mongo:
-    image: mongo:7
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
     volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
-  mongo_data:
+  redis_data:
+  uploads_data:
