@@ -86,6 +86,7 @@ def test_deduplicate_plate_candidates_prefers_smallest_containing_vehicle() -> N
 
     assert len(deduped) == 1
     assert deduped[0]["source_vehicle_id"] == 20
+    assert deduped[0]["id"] == 20
 
 
 @pytest.mark.unit
@@ -96,7 +97,7 @@ def test_cascade_plate_module_does_not_expose_plate_track_manager() -> None:
 
 
 @pytest.mark.unit
-def test_detect_plate_tracks_cascade_sets_plate_id_after_dedup(monkeypatch) -> None:
+def test_detect_plates_cascade_returns_vehicle_keyed_candidates(monkeypatch) -> None:
     import api.core.cascade_plate as cascade_plate
 
     frame = _frame()
@@ -117,16 +118,15 @@ def test_detect_plate_tracks_cascade_sets_plate_id_after_dedup(monkeypatch) -> N
     }
 
     class FakeModel:
-        def predict(self, images, verbose=False, half=False):
+        def predict(self, images, **kwargs):
             assert images == [frame]
-            assert verbose is False
-            assert half is False
+            assert kwargs["verbose"] is False
             return [object()]
 
     def fake_deduplicate(candidates, seen_tracked):
         assert candidates == [raw_candidate]
         assert seen_tracked == tracked
-        return [{**raw_candidate, "source_vehicle_id": 20}]
+        return [{**raw_candidate, "source_vehicle_id": 20, "id": 20}]
 
     monkeypatch.setattr(cascade_plate, "crop_vehicle_regions", lambda *_args, **_kwargs: [crop])
     monkeypatch.setattr(
@@ -136,18 +136,18 @@ def test_detect_plate_tracks_cascade_sets_plate_id_after_dedup(monkeypatch) -> N
     )
     monkeypatch.setattr(cascade_plate, "deduplicate_plate_candidates", fake_deduplicate)
 
-    tracks = cascade_plate.detect_plate_tracks_cascade(
+    detected = cascade_plate.detect_plates_cascade(
         frame,
         tracked,
         FakeModel(),
         use_half=False,
     )
 
-    assert tracks == [{**raw_candidate, "source_vehicle_id": 20, "id": 20}]
+    assert detected == [{**raw_candidate, "source_vehicle_id": 20, "id": 20}]
 
 
 @pytest.mark.unit
-def test_detect_plate_tracks_cascade_drops_candidate_without_deduped_source(monkeypatch) -> None:
+def test_detect_plates_cascade_returns_no_unowned_candidates(monkeypatch) -> None:
     import api.core.cascade_plate as cascade_plate
 
     frame = _frame()
@@ -167,7 +167,7 @@ def test_detect_plate_tracks_cascade_drops_candidate_without_deduped_source(monk
     }
 
     class FakeModel:
-        def predict(self, images, verbose=False, half=False):
+        def predict(self, images, **_kwargs):
             return [object()]
 
     monkeypatch.setattr(cascade_plate, "crop_vehicle_regions", lambda *_args, **_kwargs: [crop])
@@ -179,10 +179,10 @@ def test_detect_plate_tracks_cascade_drops_candidate_without_deduped_source(monk
     monkeypatch.setattr(
         cascade_plate,
         "deduplicate_plate_candidates",
-        lambda _candidates, _tracked: [{**raw_candidate, "source_vehicle_id": None}],
+        lambda _candidates, _tracked: [],
     )
 
-    assert cascade_plate.detect_plate_tracks_cascade(
+    assert cascade_plate.detect_plates_cascade(
         frame,
         tracked,
         FakeModel(),

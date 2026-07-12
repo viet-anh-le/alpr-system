@@ -1,0 +1,7 @@
+path: /home/vietanh/Documents/DATN/data/datasets/lp_detection_obb
+train: images/train
+val: images/val
+
+names:
+  0: BSD
+  1: BSV

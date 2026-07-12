@@ -1,8 +1,7 @@
-"""Vehicle-first cascade plate detection helpers.
+"""Vehicle-first cascade plate detection and ownership helpers.
 
-The pipeline still associates plates to vehicles in global frame space.  This
-module only changes where plate inference runs: on tracked vehicle crops instead
-of the full frame.
+Plate inference runs on tracked vehicle crops. Deduplication resolves overlapping
+candidates to a visible vehicle ID, so no independent plate tracker is required.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from .config import (
     MIN_PLATE_W,
     PLATE_DET_CONF,
 )
-from .gates import is_router_candidate, is_sharp
+from .gates import is_router_candidate
 from .video_processor import warp_plate_crop
 
 
@@ -285,7 +284,7 @@ def detect_plates_cascade(
     start = time.perf_counter()
     with torch.inference_mode():
         # results = plate_model.predict(images, verbose=False, half=use_half)
-        results = plate_model.predict(images, verbose=False, quantize=16)
+        results = plate_model.predict(images, verbose=False, half=use_half)
     if timings is not None:
         timings["plate_cascade"] = timings.get("plate_cascade", 0.0) + time.perf_counter() - start
 

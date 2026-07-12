@@ -15,9 +15,7 @@ Why threading (not multiprocessing)?
   which is both complex and slower.
 
 Drop-in replacement:
-  ``process_frames_async`` has the same signature as ``pipeline_core.process_frames``
-  so callers (run_benchmark.py, pipeline.py, event_analyzer.py) only need to
-  change the import.
+  ``process_frames_async`` is shared by uploaded-video and live-event workflows.
 """
 
 from __future__ import annotations
@@ -71,7 +69,7 @@ def _fps_stride(source_fps: float, target_fps: float) -> int:
     return max(1, int(round(source_fps / target_fps)))
 
 
-# ── Stage-3 helper: identical logic to pipeline_core._finalise_track_ocr ─────
+# ── Stage-3 finalisation helper ───────────────────────────────────────────────
 
 
 def _finalise_track_ocr(
@@ -435,7 +433,6 @@ def process_frames_async(
 ) -> dict:
     """Run the full ALPR pipeline asynchronously using 3 pipeline-parallel threads.
 
-    Drop-in replacement for ``pipeline_core.process_frames``.
     Returns: {total_vehicles, processed_frames}.
     """
     total_start = time.perf_counter()

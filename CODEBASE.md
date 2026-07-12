@@ -13,7 +13,7 @@ FrameSource ──▶ [Stage 1: Reader] ──frame_q(32)──▶ [Stage 2: Veh
                  I/O đọc khung          YOLOv5 detect + BoT-SORT track       cascade OBB → quality router → OCR → CTM
 ```
 
-Trạng thái dùng chung giữa các tầng (mỗi phiên khởi tạo mới): `WebTrackletManager` (bộ đệm/track), `TrajectoryAssociator` (ghép biển↔xe), `vehicle_tracker` (BoT-SORT+ReID). Model (YOLOv5, YOLOv8-OBB, quality router, OCR) nạp **một lần**, dùng chung.
+Trạng thái dùng chung giữa các tầng (mỗi phiên khởi tạo mới): `WebTrackletManager` (bộ đệm theo vehicle track) và `vehicle_tracker` (BoT-SORT+ReID). Model (YOLOv5, YOLOv8-OBB, quality router, OCR) nạp **một lần**, dùng chung.
 
 ---
 
@@ -29,8 +29,7 @@ POST /upload  (hoặc /upload/chunk → /upload/complete cho file lớn)
               ├─ Stage1 _reader_worker  → frame_q
               ├─ Stage2 _vehicle_worker → models.vehicle.predict → vehicle_tracker.track → crop_q
               └─ Stage3 _plate_ocr_worker
-                    ├─ detect_plate_tracks_cascade()      # cascade_plate.py
-                    ├─ associator.process_frame()          # association.py
+                    ├─ detect_plates_cascade()             # cascade_plate.py, gán trực tiếp vehicle ID
                     ├─ prepare_route_ocr_jobs()            # route_ocr.py → quality_router.route()
                     ├─ ocr_batch()                         # models.py
                     ├─ consume_route_ocr_results()         # route_ocr.py → tracker.buffer_crop / update
@@ -62,10 +61,10 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 
 | Tầng     | Hàm                    | Gọi tới                                                                                                                                                                                                                                             |
 | -------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Khởi tạo | `process_frames_async` | `WebTrackletManager`, `TrajectoryAssociator`, `models.create_vehicle_tracker`                                                                                                                                                                       |
+| Khởi tạo | `process_frames_async` | `WebTrackletManager`, `models.create_vehicle_tracker`                                                                                                                                                                                               |
 | 1        | `_reader_worker`       | `source.iter_frames()`                                                                                                                                                                                                                              |
 | 2        | `_vehicle_worker`      | `apply_preprocessing`, `models.vehicle.predict`, `vehicle_tracker.track`, `tracker.reset_lost`                                                                                                                                                      |
-| 3        | `_plate_ocr_worker`    | `detect_plate_tracks_cascade`, `associator.process_frame`, `_crop_vehicle`, `prepare_route_ocr_jobs`, `select_ocr_model`, `preprocess_plate_for_model`, `ocr_batch`, `consume_route_ocr_results`, `make_preview_frame_event`, `_finalise_track_ocr` |
+| 3        | `_plate_ocr_worker`    | `detect_plates_cascade`, `_crop_vehicle`, `prepare_route_ocr_jobs`, `select_ocr_model`, `preprocess_plate_for_model`, `ocr_batch`, `consume_route_ocr_results`, `make_preview_frame_event`, `_finalise_track_ocr`                                  |
 | Kết thúc | (sau join)             | `_finalise_track_ocr` cho track còn lại → emit "vehicle" `final`                                                                                                                                                                                    |
 
 ---
@@ -79,7 +78,7 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 - `process_frames_async(source, emit, models, ...)` — điểm vào công khai; dựng trạng thái + 3 thread, join, finalize.
 - `_reader_worker(source, frame_q, ...)` — Stage 1: đọc khung → `frame_q` (đo `s1_put_stall`).
 - `_vehicle_worker(frame_q, crop_q, ...)` — Stage 2: detect xe (YOLOv5) + track (BoT-SORT) → `crop_q`. **Phải đơn luồng** (BoT-SORT cần thứ tự khung).
-- `_plate_ocr_worker(crop_q, ...)` — Stage 3: cascade OBB → association → quality routing → OCR → cập nhật buffer/emit; finalize track mất dấu.
+- `_plate_ocr_worker(crop_q, ...)` — Stage 3: cascade OBB → gán vehicle ID → quality routing → OCR → cập nhật buffer/emit; finalize track mất dấu.
 - `_finalise_track_ocr(...)` — wrapper gọi [track_ocr.finalise_track_ocr](api/core/track_ocr.py).
 - `_fps_stride`, `_safe_put` — tiện ích.
 
@@ -132,18 +131,14 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 
 **[cascade_plate.py](api/core/cascade_plate.py)** — Cascade: cắt xe rồi tìm biển trong crop.
 
-- `detect_plate_tracks_cascade(frame, tracked, plate_model)` — điểm vào: chạy YOLOv8-OBB trên từng crop xe, trả ứng viên biển gán theo `source_vehicle_id`.
+- `detect_plates_cascade(frame, tracked, plate_model)` — điểm vào: chạy YOLOv8-OBB trên từng crop xe, khử trùng và trả ứng viên mang trực tiếp vehicle ID.
 - `crop_vehicle_regions(frame, tracked)` / `expand_vehicle_box(...)` — cắt vùng xe, **nới biên 8%**.
 - `map_crop_points_to_global(points, offset)` — ánh xạ OBB từ toạ độ crop về khung gốc.
 - `deduplicate_plate_candidates(candidates, tracked)` — khử biển trùng do crop chồng lấp (IoU + ưu tiên chủ sở hữu nhất quán).
 - `_best_containing_vehicle_id(box, tracked)` — chọn xe chứa tâm biển: ưu tiên **không sát mép, rồi diện tích nhỏ nhất** (tiebreak).
 - `_extract_obb_candidates(...)` — lọc OBB theo `PLATE_DET_CONF`, `MIN_PLATE_W/H`; warp lấy crop.
 
-**[association.py](api/core/association.py)** — Ghép biển↔xe theo quỹ đạo có bầu chọn.
-
-- `TrajectoryAssociator.process_frame(plate_tracks, vehicle_tracks)` — điểm vào mỗi khung; trả các cặp `(v_tid, plate)` đã "khoá".
-- `._best_vehicle_for_plate(plate, vehicles)` — ưu tiên `source_vehicle_id`, fallback hộp nhỏ nhất chứa tâm.
-- `._is_locked_match_valid(...)` — tái xác thực khoá mỗi khung; khoá chỉ đặt sau `match_frames=5` khung với đồng thuận `≥0.6`.
+Plate không còn được track độc lập. `deduplicate_plate_candidates` chọn vehicle chứa tâm phù hợp và đặt cả `source_vehicle_id` lẫn `id` bằng vehicle track ID ngay trong khung hiện tại.
 
 **[video_processor.py](api/core/video_processor.py)** — Tiện ích ảnh: `crop_vehicle`, `warp_plate_crop` (nắn phối cảnh 4 điểm OBB).
 
@@ -234,7 +229,7 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 ### 3.8 Backend OCR/pipeline thay thế (tham chiếu/so sánh)
 
 - **[ocr_yolov5.py](api/core/ocr_yolov5.py)** — OCR kiểu **phát hiện ký tự** (YOLOv5 char) — tái hiện hướng Che et al. `find_chars_plate_probs`, `estimate_coef` (hồi quy góc sắp thứ tự).
-- **[pipeline_yolov5_vietnamese.py](api/core/pipeline_yolov5_vietnamese.py)** — pipeline tham chiếu dùng char-detection + xoay khử nghiêng (`rotate_plate_crop`, `update_rotation_alpha`, `get_final_plate_text`). Dùng để đối chứng với hướng segmentation-free.
+- **[pipeline_yolov5_vietnamese.py](api/core/pipeline_yolov5_vietnamese.py)** — pipeline tham chiếu dùng char-detection + xoay khử nghiêng (`rotate_plate_crop`, `update_rotation_alpha`, `get_final_plate_text`). Backend tùy chọn này vẫn dùng ByteTrack riêng cho biển và có `plate_track_id`; việc bỏ plate tracker/association voting chỉ áp dụng pipeline mặc định.
 
 ### 3.9 Hạ tầng Web & tiện ích
 
@@ -242,7 +237,7 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 | ------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | [main.py](api/main.py)                                  | FastAPI app, route, SSE, semaphore GPU  | `/upload`, `/upload/chunk`, `/upload/complete`, `/stream/{job}`, `/stream/{job}/mjpeg`, `/sessions/...`; `MAX_CONCURRENT_JOBS=2` |
 | [routes_monitor.py](api/routes_monitor.py)              | Route giám sát/streaming & mark sự kiện | quản lý phiên monitor, gọi `event_analyzer.run_event`                                                                            |
-| [config.py](api/core/config.py)                         | Toàn bộ hằng số/đường dẫn/siêu tham số  | `FRAME_STRIDE`, `VEHICLE_CLASSES`, `LAP_MAX`, `MIN_PLATE_W/H`, `MIN_FRAMES_FOR_OCR`, `ASSOCIATION_*`, `REID_MODEL_PATH`          |
+| [config.py](api/core/config.py)                         | Toàn bộ hằng số/đường dẫn/siêu tham số  | `FRAME_STRIDE`, `VEHICLE_CLASSES`, `LAP_MAX`, `MIN_PLATE_W/H`, `MIN_FRAMES_FOR_OCR`, `REID_MODEL_PATH`                           |
 | [database.py](api/core/database.py)                     | MongoDB + Supabase                      | `get_supabase`, `upload_image(bucket, path, bytes)`                                                                              |
 | [chunk_upload.py](api/core/chunk_upload.py)             | Upload phân mảnh (vượt giới hạn proxy)  | `ChunkUploadStore.begin_or_get / write_chunk / assemble_into`                                                                    |
 | [progress.py](api/core/progress.py)                     | Sự kiện tiến độ SSE                     | `make_progress_event`                                                                                                            |
@@ -258,7 +253,7 @@ LiveSession._decoder_loop → _enqueue_mjpeg (downscale+JPEG, drop khi consumer 
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Luồng 3 tầng chạy thật       | [pipeline_async.py](api/core/pipeline_async.py)                                                                       |
 | Chốt track + CTM + cluster   | [track_ocr.py](api/core/track_ocr.py) → [ocr_ctm.py](api/core/ocr_ctm.py) + [ocr_cluster.py](api/core/ocr_cluster.py) |
-| Ghép biển↔xe                 | [cascade_plate.py](api/core/cascade_plate.py) + [association.py](api/core/association.py)                             |
+| Gán biển vào vehicle track   | [cascade_plate.py](api/core/cascade_plate.py)                                                                         |
 | Định tuyến chất lượng        | [quality_router.py](api/core/quality_router.py) + [quality_scorer.py](api/core/quality_scorer.py)                     |
 | Xác thực/sửa định dạng biển  | [plate_format.py](api/core/plate_format.py) + [ocr_ambiguity.py](api/core/ocr_ambiguity.py)                           |
 | Nạp model & OCR backend      | [models.py](api/core/models.py)                                                                                       |

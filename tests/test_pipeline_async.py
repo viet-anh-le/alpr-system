@@ -36,6 +36,7 @@ def test_run_job_uses_async_pipeline_by_default(monkeypatch):
             return iter(())
 
     calls: list[dict] = []
+    session_updates: list[tuple[str, dict]] = []
 
     def fake_process_frames_async(source, emit, models, **kwargs):
         calls.append({"source": source, "models": models, "kwargs": kwargs})
@@ -44,24 +45,47 @@ def test_run_job_uses_async_pipeline_by_default(monkeypatch):
     monkeypatch.setattr(frame_source, "FileFrameSource", FakeFileFrameSource)
     monkeypatch.setattr(pipeline_async, "process_frames_async", fake_process_frames_async)
     monkeypatch.setattr(pipeline, "_session_create", lambda *args, **kwargs: None)
-    monkeypatch.setattr(pipeline, "_session_update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pipeline,
+        "_session_update",
+        lambda session_id, patch, _loop: session_updates.append((session_id, patch)),
+    )
     monkeypatch.setattr(pipeline.os, "unlink", lambda path: None)
 
+    queue = asyncio.Queue()
+    jobs = {"job_async": object()}
     loop = asyncio.new_event_loop()
     try:
         pipeline.run_job(
             "input.mp4",
             "job_async",
-            asyncio.Queue(),
+            queue,
             loop,
             MagicMock(),
-            {"job_async": object()},
+            jobs,
         )
+        loop.run_until_complete(asyncio.sleep(0))
     finally:
         loop.close()
 
     assert len(calls) == 1
     assert calls[0]["kwargs"]["session_id"] == "job_async"
+    assert queue.get_nowait() == {
+        "type": "complete",
+        "total_vehicles": 0,
+        "preprocess_mode": "none",
+        "processed_video_url": None,
+    }
+    assert session_updates[-1] == (
+        "job_async",
+        {
+            "status": "completed",
+            "total_records": 0,
+            "processed_frames": 0,
+            "preprocess_mode": "none",
+        },
+    )
+    assert "job_async" not in jobs
 
 
 @pytest.mark.unit
@@ -106,6 +130,13 @@ def test_process_frames_async_final_snapshot_includes_track_buffer(monkeypatch):
         def cluster_results(self, tid: int) -> list[dict]:
             return []
 
+        def release_track(self, tid: int, *, recognized: bool) -> None:
+            assert tid == 7
+            assert recognized is True
+
+        def recognized_vehicle_count(self) -> int:
+            return 1
+
     source = MagicMock()
     source.total_frames = 0
     source.fps = 30.0
@@ -131,13 +162,6 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
     from api.core import pipeline_async
     from api.core.config import MIN_FRAMES_FOR_OCR
     from api.core.quality_router import PlateQualityRouter
-
-    class FakeAssociator:
-        def __init__(self, *args, **kwargs) -> None:
-            self.vehicle_cache = {32: (0, 0, 180, 140)}
-
-        def process_frame(self, plate_tracks, vehicle_tracks):
-            return [(32, plate) for plate in plate_tracks]
 
     frames = [_frame() for _ in range(MIN_FRAMES_FOR_OCR)]
     source = MagicMock()
@@ -168,13 +192,12 @@ def test_process_frames_async_does_not_finalise_active_buffered_track(monkeypatc
         finalise_calls.append(tid)
 
     monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
-    monkeypatch.setattr(pipeline_async, "TrajectoryAssociator", FakeAssociator)
     monkeypatch.setattr(
         pipeline_async,
-        "detect_plate_tracks_cascade",
+        "detect_plates_cascade",
         lambda *args, **kwargs: [
             {
-                "id": 65,
+                "id": 32,
                 "crop": np.full((48, 96, 3), 77, dtype=np.uint8),
                 "box": [10, 10, 70, 30],
             }
@@ -228,7 +251,7 @@ def test_process_frames_async_emits_preview_frame_with_tracked_boxes(monkeypatch
 
     monkeypatch.setattr(pipeline_async, "ALPR_PREVIEW_FPS", 30.0)
     monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
-    monkeypatch.setattr(pipeline_async, "detect_plate_tracks_cascade", lambda *args, **kwargs: [])
+    monkeypatch.setattr(pipeline_async, "detect_plates_cascade", lambda *args, **kwargs: [])
 
     events: list[dict] = []
     pipeline_async.process_frames_async(source, emit=events.append, models=models)
@@ -242,13 +265,6 @@ def test_process_frames_async_emits_preview_frame_with_tracked_boxes(monkeypatch
 @pytest.mark.unit
 def test_process_frames_async_uses_preprocessing_for_vehicle_only(monkeypatch):
     from api.core import pipeline_async
-
-    class FakeAssociator:
-        def __init__(self, *args, **kwargs) -> None:
-            self.vehicle_cache = {32: (0, 0, 80, 60)}
-
-        def process_frame(self, plate_tracks, vehicle_tracks):
-            return [(32, plate) for plate in plate_tracks]
 
     class FakeRecorder:
         def __init__(self) -> None:
@@ -288,7 +304,7 @@ def test_process_frames_async_uses_preprocessing_for_vehicle_only(monkeypatch):
         captured["plate_detect_mean"] = float(frame.mean())
         return [
             {
-                "id": 65,
+                "id": 32,
                 "crop": frame[10:30, 20:70].copy(),
                 "box": [20, 10, 70, 30],
             }
@@ -307,8 +323,7 @@ def test_process_frames_async_uses_preprocessing_for_vehicle_only(monkeypatch):
     recorder = FakeRecorder()
 
     monkeypatch.setattr(pipeline_async, "FRAME_STRIDE", 1)
-    monkeypatch.setattr(pipeline_async, "TrajectoryAssociator", FakeAssociator)
-    monkeypatch.setattr(pipeline_async, "detect_plate_tracks_cascade", fake_detect_plate)
+    monkeypatch.setattr(pipeline_async, "detect_plates_cascade", fake_detect_plate)
     monkeypatch.setattr(pipeline_async, "prepare_route_ocr_jobs", fake_prepare_ocr_jobs)
 
     pipeline_async.process_frames_async(
@@ -326,3 +341,12 @@ def test_process_frames_async_uses_preprocessing_for_vehicle_only(monkeypatch):
     assert captured["plate_detect_mean"] == raw_mean
     assert captured["plate_crop_mean"] == raw_mean
     assert captured["vehicle_crop_mean"] == raw_mean
+
+
+@pytest.mark.unit
+def test_runtime_exposes_no_plate_association_tuning() -> None:
+    from api.core import config, pipeline_async
+
+    assert not hasattr(config, "ASSOCIATION_MATCH_FRAMES")
+    assert not hasattr(config, "ASSOCIATION_AGREEMENT_RATIO")
+    assert not hasattr(pipeline_async, "TrajectoryAssociator")

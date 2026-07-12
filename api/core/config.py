@@ -216,8 +216,6 @@ ALPR_DEBUG_TIMINGS = _env_bool("ALPR_DEBUG_TIMINGS", False)
 PLATE_PAD = 8  # context padding around plate crop (px)
 CASCADE_VEHICLE_PAD_RATIO = 0.08  # context padding around vehicle crops
 CASCADE_VEHICLE_PAD_MIN = 16  # min vehicle crop context padding (px)
-ASSOCIATION_MATCH_FRAMES = _env_int("ASSOCIATION_MATCH_FRAMES", 2)
-ASSOCIATION_AGREEMENT_RATIO = _env_float("ASSOCIATION_AGREEMENT_RATIO", 0.6)
 
 # ── Anti-hallucination — Layer 1 (Pre-OCR quality gates) ─────────────────────
 PLATE_DET_CONF = 0.50  # min YOLO OBB detection confidence

@@ -29,7 +29,7 @@ _LINE_T_STEPS: int = 12
 def ctc_decode_logits(logits: torch.Tensor, chars: List[str]) -> List[str]:
     """Greedy CTC decode for logits shaped (B, T, C)."""
     n_vocab = len(chars)
-    preds = logits.argmax(dim=-1).clamp(0, n_vocab - 1)
+    preds = logits.argmax(dim=-1).clamp(0, n_vocab - 1)  # (B, T)
     results: List[str] = []
     for seq in preds:
         out: List[str] = []
@@ -134,8 +134,8 @@ class SmallLPRLineCTC(nn.Module):
         feat_bdhw = feat.permute(0, 3, 1, 2)
         attn_logits = self.one_line_attention(feat_bdhw)
         attention = torch.softmax(attn_logits, dim=2)
-        line_feat = torch.einsum("bdhw,bqhw->bqwd", feat_bdhw, attention)
-        line_feat = line_feat[:, 0]
+        line_feat = torch.einsum("bdhw,bqhw->bqwd", feat_bdhw, attention)  # BxQxWxD
+        line_feat = line_feat[:, 0]  # BxWxD
         if line_feat.size(1) != _ONE_LINE_T_STEPS:
             line_feat = F.interpolate(
                 line_feat.permute(0, 2, 1),
