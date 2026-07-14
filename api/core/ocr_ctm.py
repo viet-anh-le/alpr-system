@@ -108,7 +108,9 @@ class CTMFusionResult:
 
     @property
     def is_valid(self) -> bool:
-        return not self.unresolved_slots and is_vn_plate_text(self.text, format_mode=self.format_mode)
+        return not self.unresolved_slots and is_vn_plate_text(
+            self.text, format_mode=self.format_mode
+        )
 
 
 def fuse_ocr_outputs_ctm(
@@ -122,7 +124,7 @@ def fuse_ocr_outputs_ctm(
     vote_summary: dict[str, int] = {}
     frame_choices: list[tuple[PlateTemplate, list[tuple[str, float]], float]] = []
 
-    for probs in prob_lists:
+    for probs in prob_lists:  # 30A123 => [[(3, 0.9), (A, 0.8)]]
         text = normalize_plate_text(chars_to_text(probs), format_mode=format_mode)
         if text:
             vote_summary[text] = vote_summary.get(text, 0) + 1
