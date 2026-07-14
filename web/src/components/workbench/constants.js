@@ -18,6 +18,11 @@ export const VEHICLE_LABEL = {
   motorbike: 'Motorbike',
   bus: 'Xe buýt',
   truck: 'Xe tải',
+  van: 'Xe van',
+  'delivery tricycle': 'Xe ba gác',
+  delivery_tricycle: 'Xe ba gác',
+  motorcycle: 'Xe máy',
+  motorbike_rider: 'Xe máy',
 }
 
 export function formatBytes(bytes) {

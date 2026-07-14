@@ -241,7 +241,7 @@ VN_CLASS = {
     "car": "Ô tô",
     "bus": "Xe buýt",
     "truck": "Xe tải",
-    "van": "Xe tải nhỏ",
+    "van": "Xe van",
     "motorcycle": "Xe máy",
     "motorbike_rider": "Xe máy",
     "motorbike": "Xe máy",

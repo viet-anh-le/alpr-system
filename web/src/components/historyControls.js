@@ -4,6 +4,8 @@ export const HISTORY_VEHICLE_FILTER_OPTIONS = [
     { value: "motorbike", label: "Motorbike" },
     { value: "bus", label: "Xe buýt" },
     { value: "truck", label: "Xe tải" },
+    { value: "van", label: "Xe van" },
+    { value: "delivery tricycle", label: "Xe ba gác" },
 ];
 
 export function displayPlateText(text) {

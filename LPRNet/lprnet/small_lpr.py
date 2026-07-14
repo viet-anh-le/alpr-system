@@ -18,7 +18,6 @@ import torch.nn.functional as F
 from .components import MiniLMv2Decoder
 from .csm_lprnet import CBAM, MixConv2d
 
-
 # =============================================================================
 # STN — Spatial Transformer Network, cho input 48×96
 # Luồng kích thước localization network (H×W):
@@ -44,9 +43,7 @@ class _STNet(nn.Module):
             nn.Linear(32, 6),
         )
         self.fc_loc[-1].weight.data.zero_()
-        self.fc_loc[-1].bias.data.copy_(
-            torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
+        self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
 
     def forward(self, x):
         xs = self.localization(x)
@@ -72,6 +69,7 @@ class SmallBasicBlockCBAM(nn.Module):
         mid = ch_out // 4
         self.block = nn.Sequential(
             MixConv2d(ch_in, mid, kernels=[3, 5]),
+            # nn.Conv2d(ch_in, mid, 3, padding=1, bias=False),
             nn.BatchNorm2d(mid),
             nn.Mish(inplace=True),
             nn.Conv2d(mid, mid, (3, 1), padding=(1, 0)),
@@ -84,6 +82,7 @@ class SmallBasicBlockCBAM(nn.Module):
             nn.BatchNorm2d(ch_out),
         )
         self.cbam = CBAM(ch_out)
+        # self.cbam = nn.Identity()
         self.residual = ch_in == ch_out
 
     def forward(self, x):

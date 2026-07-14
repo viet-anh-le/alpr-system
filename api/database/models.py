@@ -182,7 +182,7 @@ class RecognitionRecord(BaseModel):
     track_id: int                        # assigned by SORT-family tracker
     vehicle_track_id: int | None = None  # raw vehicle tracker id for this result
     plate_track_id: int | None = None    # raw plate tracker id, when available
-    vehicle_class: str                   # "car" | "motorcycle" | "bus" | "truck"
+    vehicle_class: str                   # YOLO class name, e.g. "car" or "delivery tricycle"
 
     # ── Key image fields ──────────────────────────────────────────────────────
     # The single clearest plate crop (highest quality_score in the buffer)

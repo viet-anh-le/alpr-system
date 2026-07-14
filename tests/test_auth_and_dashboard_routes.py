@@ -211,3 +211,65 @@ async def test_sessions_and_records_are_filtered_by_user(monkeypatch):
             assert missing.status_code == 404
     finally:
         main.app.dependency_overrides.clear()
+
+
+async def test_records_filter_accepts_delivery_tricycle_class(monkeypatch):
+    from api import main
+    from api.auth import get_current_user
+
+    user = User(
+        id=ObjectId(),
+        email="owner@example.com",
+        name="Owner",
+        password_hash="hash",
+    )
+    owned_record = RecognitionRecord(
+        session_id="job_owned",
+        user_id=str(user.id),
+        track_id=8,
+        vehicle_class="delivery tricycle",
+        best_plate_frame=PlateFrame(frame_index=1, quality_score=0.9, image_url=None),
+        track_buffer=[],
+        plate_text="59P212345",
+        plate_text_confidence=0.95,
+        first_seen_frame=1,
+        last_seen_frame=10,
+    )
+
+    async def current_user_override():
+        return user
+
+    async def list_records_for_user(user_id: str, **filters):
+        assert user_id == str(user.id)
+        assert filters["vehicle_class"] == "delivery tricycle"
+        return [owned_record]
+
+    async def count_records_for_user(user_id: str, **filters):
+        assert user_id == str(user.id)
+        assert filters["vehicle_class"] == "delivery tricycle"
+        return 1
+
+    async def summarize_records_for_user(user_id: str, **filters):
+        assert user_id == str(user.id)
+        assert filters["vehicle_class"] == "delivery tricycle"
+        return {
+            "total_records": 1,
+            "unique_plates": 1,
+            "vehicle_counts": [{"vehicle_class": "delivery tricycle", "count": 1}],
+            "top_plates": [],
+        }
+
+    monkeypatch.setattr("api.database.mongodb.is_db_configured", lambda: True)
+    monkeypatch.setattr("api.database.mongodb.list_records_for_user", list_records_for_user)
+    monkeypatch.setattr("api.database.mongodb.count_records_for_user", count_records_for_user)
+    monkeypatch.setattr("api.database.mongodb.summarize_records_for_user", summarize_records_for_user)
+
+    main.app.dependency_overrides[get_current_user] = current_user_override
+    transport = httpx.ASGITransport(app=main.app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            records = await client.get("/records?vehicle_class=delivery%20tricycle")
+            assert records.status_code == 200
+            assert records.json()["items"][0]["vehicle_class"] == "delivery tricycle"
+    finally:
+        main.app.dependency_overrides.clear()

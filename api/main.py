@@ -487,7 +487,7 @@ async def list_sessions(
 
 
 _HISTORY_FILTER_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
-_VEHICLE_CLASS_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_VEHICLE_CLASS_PATTERN = re.compile(r"^[A-Za-z0-9_ -]{1,40}$")
 
 
 def _validate_history_filter(name: str, value: str | None, pattern: re.Pattern[str]) -> str | None:
