@@ -22,7 +22,7 @@ from .config import (
     MIN_PLATE_W,
     PLATE_DET_CONF,
 )
-from .gates import is_router_candidate, is_sharp
+from .gates import is_router_candidate
 from .video_processor import warp_plate_crop
 
 

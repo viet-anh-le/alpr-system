@@ -24,7 +24,6 @@ from ultralytics import YOLO
 from .quality_router import PlateQualityRouter
 from .tracker_adapter import VehicleTracker
 from .config import (
-    CHARS,
     CONF_THRESHOLD,
     EOS_IDX,
     IMG_H,
